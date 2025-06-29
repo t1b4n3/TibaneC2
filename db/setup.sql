@@ -1,0 +1,29 @@
+CREATE DATABASE IF NOT EXISTS Command_and_Control
+
+USE Command_and_Control
+
+CREATE TABLE IF NOT EXISTS Agents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    agent_id VARCHAR(50) NOT NULL UNIQUE,
+    os VARCHAR(50) NOT NULL,
+    ip VARCHAR(50) NOT NULL,
+    hostname VARCHAR(100),
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    agent_id VARCHAR(50),
+    log_type ENUM('INFO', 'ERROR', 'COMMAND'),
+    message TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS Tasks (
+    task_id int AUTO_INCREMENT PRIMARY KEY,
+    agent_id VARCHAR(50),
+    command TEXT,
+    result TEXT,    
+    FOREIGN KEY (agent_id) REFERENCES Agents(agent_id)
+);
+
