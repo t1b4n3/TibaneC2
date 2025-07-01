@@ -48,7 +48,6 @@ void register_agent(cJSON *json, char *ip, int sock) {
     char agent_id[65];
     get_agent_id(input, agent_id);
 
-    
     // register to datbase (agent_id, os, ip, mac, hostname)
     // check if agent id exists
 
@@ -87,7 +86,6 @@ void beacon(cJSON *json, int sock) {
         cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
         cJSON_AddStringToObject(json_reply, "command", get_task(task_id));
 
-
         char *reply = cJSON_Print(json_reply);
         send(sock, reply, strlen(reply), 0);
         // recv response and log to database
@@ -107,10 +105,7 @@ void beacon(cJSON *json, int sock) {
         }
 
         // store response in database
-
-
-
-
+        
     }
 }
 
