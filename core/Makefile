@@ -6,10 +6,10 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 
 # Required libraries
-LIBS = -lcjson -lssl -lcrypto -lpthread -lmysqlclient
+LIBS = -lcjson -lssl -lcrypto -lpthread -lmysqlclient 
 
 # Source files
-SRC = tcp.c
+SRC = main.c
 
 # Build target
 all: $(TARGET)

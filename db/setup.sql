@@ -31,5 +31,5 @@ CREATE TABLE IF NOT EXISTS Tasks (
 CREATE TABLE IF NOT EXISTS Operators (
     operator_id int AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
-    password VARCHAR(250) NOT NULL,
-)
+    password VARCHAR(250) NOT NULL
+);

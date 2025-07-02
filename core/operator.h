@@ -13,30 +13,12 @@
 #include <netinet/in.h>
 
 #include "db.h"
+ 
 
-#define PORT 8888
+#define OPERATOR_PORT 8888
 
-struct thread_args {
-    int sock;
-    char ip[256];
-};
-
-void info_view(char *table) {
-    
-}
-
-void OPERATE() {
-
-}
-
-
-
-
-
-
-void *authenticate(void *args) {
-    struct thread_args *arg = (struct thread_args*)args;
-    int sock = arg->sock;
+void *operator_handler(void *new_sock) {
+    int sock = *(int*)new_sock;
     
     char auth[1024];
     int bytes_received = recv(sock, auth, sizeof(auth), 0);
@@ -45,31 +27,83 @@ void *authenticate(void *args) {
         return NULL;
     }
     auth[bytes_received] = '\0'; 
-    
-    cJSON *creds cJSON_Parse(auth);
+    cJSON *creds = cJSON_Parse(auth);
     cJSON *username = cJSON_GetObjectItem(creds, "username");
     cJSON *password = cJSON_GetObjectItem(creds, "password");
 
     cJSON *reply = cJSON_CreateObject();
-    if (authenticate_operator(username->valuestring, password->valuestring) == 0) {
-        cJSON_AddStringToObject(reply, "operator", "true");
-        char *reply_ = cJSON_Print(reply);
-        send(sock, reply_, strlen(reply_), 0);
-
-        OPERATE();
-
-    } else {
+    if (reply == NULL) {
+        fprintf(stderr, "Failed to create cJSON object\n");
+        // Handle error or exit
+    }  
+    if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
         cJSON_AddStringToObject(reply, "operator", "false");
         char *reply_ = cJSON_Print(reply);
         send(sock, reply_, strlen(reply_), 0);
+        free(reply_);
+        goto CLEANUP;
     }
+    cJSON_AddStringToObject(reply, "operator", "true");
+    char *reply_ = cJSON_Print(reply);
+    send(sock, reply_, strlen(reply_), 0);
+    free(reply_);
+
+    // operator requesting infomartion or add new tasks
+    while (1) {
+        char buffer[1024];
+        memset(buffer, 0, sizeof(buffer));
+        bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) {
+            perror("recv failed");
+            return NULL;
+        }
+        buffer[bytes_received] = '\0'; 
+        cJSON *requested_info = cJSON_Parse(buffer);
+        cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
+        if (strcmp(about->valuestring, "Agents") == 0){
+            char *agents = info_view("Agents");
+            send(sock, agents, strlen(agents), 0);
+            free(agents);
+        } else if (strcmp(about->valuestring, "Tasks") == 0) {
+            char *tasks = info_view("Tasks");
+            send(sock, tasks, strlen(tasks), 0);
+            free(tasks);
+        } else if (strcmp(about->valuestring, "Logs") == 0) {
+            char *logs = info_view("Logs");
+            send(sock, logs, strlen(logs), 0);
+            free(logs);
+        } else if (strcmp(about->valuestring, "agent_id") == 0) {
+            cJSON *agent_id = cJSON_GetObjectItem(requested_info, "agent_id");
+            char *t = tasks_per_agent(agent_id->valuestring);
+            send(sock, t, strlen(t), 0);
+            free(t);
+        } else if (strcmp(about->valuestring, "new_task") ==0 ) {
+            cJSON *agent_id = cJSON_GetObjectItem(requested_info, "agent_id");
+            cJSON *command = cJSON_GetObjectItem(requested_info, "command");
+            new_tasks(agent_id->valuestring, command->valuestring);
+
+            cJSON *tasks_added = cJSON_CreateObject();
+            cJSON_AddStringToObject(tasks_added, "Tasks", "Added");
+            char *data = cJSON_Print(tasks_added);
+            send(sock, data, strlen(data), 0);
+            free(data);
+            cJSON_Delete(tasks_added);
+
+        }
+        cJSON_Delete(requested_info);
+    }
+
+
+    CLEANUP:
+    cJSON_Delete(creds);
+    
     close(sock);
-    free(args);
+    free(new_sock);
     return NULL;
 }
 
 
-int Operator() {
+void* Operator_conn() {
     struct sockaddr_in clientAddr;
     socklen_t client_len = sizeof(clientAddr);
     int serverSock;
@@ -77,24 +111,24 @@ int Operator() {
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock == -1) {
         perror("Socket creation failed");
-        return -1;
+        return NULL;
     }
 
     struct sockaddr_in serverAddr;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(PORT);
+    serverAddr.sin_port = htons(OPERATOR_PORT);
     serverAddr.sin_family = AF_INET;
 
     if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr))) {
         perror("binding failed");
         close(serverSock);
-        return -1;
+        return NULL;
     }
 
     if (listen(serverSock, SOMAXCONN) == -1) {
         perror("Listen Failed");
         close(serverSock);
-        return -1;
+        return NULL;
     }
     
     while (1) {
@@ -108,13 +142,11 @@ int Operator() {
         // ip = inet_ntoa(client_addr.sin_addr)
 
         pthread_t thread;
-        struct thread_args *args = malloc(sizeof(struct thread_args));
-        args->sock = sock;
-        strcpy(args->ip, inet_ntoa(clientAddr.sin_addr));
-
-        if (pthread_create(&thread, NULL, authenticate, (void*)args) < 0) {
+        int *new_sock = malloc(sizeof(int));
+        *new_sock = sock;
+        if (pthread_create(&thread, NULL, operator_handler, (void*)new_sock) < 0) {
             perror("could not create thread");
-            free(args);
+            free(new_sock);
             continue;
         }
         // Detach thread so resources are automatically freed on exit
@@ -124,7 +156,7 @@ int Operator() {
 
     close(serverSock);
 
-    return 0;
+    return NULL;
 
 }
 
