@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <cjson/cJSON.h>
 
 #define BUFFER_SIZE 4096
 #define MAX_INFO 999999999
@@ -57,7 +58,7 @@ void db_close() {
 
 int check_agent_id(char *agent_id) {
     char query[1024];
-    snprintf(query, 1024, "SELECT * FROM Agents WHERE agent_id = '%s'", agent_id);
+    snprintf(query, sizeof(query), "SELECT * FROM Agents WHERE agent_id = '%s'", agent_id);
     if (mysql_query(con, query)) {
         fprintf(stderr, "%s\n", mysql_error(con));
         mysql_close(con);
@@ -100,17 +101,24 @@ char *get_task(int task_id) {
 }
 
 
-/*
-int store_result(cJSON *response) {
 
+void store_task_response(char *response, int task_id) { 
+    char *query = malloc(sizeof(response) + 1024 );
+    snprintf(query, sizeof(response) + 1024, "UPDATE Tasks SET status = TRUE, response = '%s' WHERE task_id = %d;", response, task_id);
+    if (mysql_query(con, query)) {
+        fprintf(stderr, "MySQL query failed: %s\n", mysql_error(con));
+        return;
+    }
+
+    free(query);
 }
-*/
+
+
 
 
 int check_tasks_queue(char *agent_id) {
     char query[1024];
-    snprintf(query, sizeof(query), 
-             "SELECT task_id, status FROM Tasks WHERE agent_id = '%s'", agent_id);
+    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE agent_id = '%s';", agent_id);
 
     if (mysql_query(con, query)) {
         fprintf(stderr, "Query failed: %s\n", mysql_error(con));
@@ -126,7 +134,7 @@ int check_tasks_queue(char *agent_id) {
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(result))) {
         // row[0] = task_id, row[1] = status
-        if (row[1] != NULL && atoi(row[1]) == 1) {
+        if (row[1] != NULL && atoi(row[1]) == 0) {
             int task_id = atoi(row[0]);
             mysql_free_result(result);
             return task_id;
@@ -258,12 +266,10 @@ int authenticate_operator(char *username, char*password) {
 
 char *tasks_per_agent(char *agent_id) {
     char *query = malloc(1024);
-    snprintf(query, 1024, "SELETCT * FROM Tasks WHERE agent_id = '%s';", agent_id);
+    snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE agent_id = '%s';", agent_id);
     if (mysql_query(con, query)) {
         fprintf(stderr, "%s\n", mysql_error(con));
     }
-
-
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) { 
         fprintf(stderr, "%s\n", mysql_error(con));

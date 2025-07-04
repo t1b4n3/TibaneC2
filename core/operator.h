@@ -5,7 +5,6 @@
 #include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -15,7 +14,7 @@
 #include "db.h"
  
 
-#define OPERATOR_PORT 8888
+#define OPERATOR_PORT 8883
 
 void *operator_handler(void *new_sock) {
     int sock = *(int*)new_sock;
@@ -35,19 +34,29 @@ void *operator_handler(void *new_sock) {
     if (reply == NULL) {
         fprintf(stderr, "Failed to create cJSON object\n");
         // Handle error or exit
+        ///
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
     }  
     if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
         cJSON_AddStringToObject(reply, "operator", "false");
         char *reply_ = cJSON_Print(reply);
         send(sock, reply_, strlen(reply_), 0);
         free(reply_);
+        free(reply);
         goto CLEANUP;
     }
     cJSON_AddStringToObject(reply, "operator", "true");
     char *reply_ = cJSON_Print(reply);
     send(sock, reply_, strlen(reply_), 0);
     free(reply_);
-
+    free(reply);
     // operator requesting infomartion or add new tasks
     while (1) {
         char buffer[1024];
@@ -159,8 +168,4 @@ void* Operator_conn() {
     return NULL;
 
 }
-
-
-
-
 #endif

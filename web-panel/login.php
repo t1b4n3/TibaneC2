@@ -1,10 +1,6 @@
 <?php 
-
-require_once "c2.php";
-
+require "c2_api.php";
 ?>
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,16 +19,16 @@ require_once "c2.php";
   <div class="p-4 shadow rounded bg-white" style="width: 100%; max-width: 400px;">
     <form method="POST">
       <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
-        <input type="text" class="form-control" id="username" name="username" required>
+        <label for="Username" class="form-label">Username</label>
+        <input type="text" class="form-control" id="username" name="Username" required>
       </div>
 
       <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" name="password" required>
+        <label for="Password" class="form-label">Password</label>
+        <input type="password" class="form-control" id="password" name="Password" required>
       </div>
 
-      <button type="submit" class="btn btn-primary w-100">Login</button>
+      <button type="submit" name='log-in' class="btn btn-primary w-100">Login</button>
     </form>
   </div>
 
@@ -40,16 +36,15 @@ require_once "c2.php";
 </html>
 
 <?php
-
-
 function main() {
-  if (isset($_POST['username']) && isset($_POST['password'])) {
-    if (authenticate($_POST['username'], $_POST_['password']) == 0) {
-        $_SESSION['login'] = $_POST['username'];
+  c2_conn();
+  if (isset($_POST['Username']) && isset($_POST['Password'])) {
+    if (authenticate($_POST['Username'], $_POST['Password']) == 0) {
+        $_SESSION['login'] = $_POST['Username'];
         header("Location: ./index.php");
         exit();
     }  else {
-        echo "Invalid Credentials";      
+        echo "\n\n\n Invalid Credentials";      
     }
   }
 }

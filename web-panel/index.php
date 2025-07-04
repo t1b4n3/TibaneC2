@@ -3,6 +3,10 @@ session_start();
 #require "c2.php";
 #require("c2.php");
 
+require "c2_api.php";
+
+c2_conn();
+
 $agent_data = '';
 
 $json = '{
@@ -19,14 +23,15 @@ $data = json_decode($json, true); // Decode as associative array
 
 function main() {
     // check if user is logged in first
-    if (empty($_SESSION['login'])) {
+    #if (empty($_SESSION['login'])) {
+    #if (!isset($_SESSION['login'])) {
         // go to login page
-        header("Location: ./login.php");
-        exit();
-    }   
+        #header("Location: ./login.php");
+        #exit();
+    #}   
 
     //$agent_data = AgentInfo();
-    $agent_data = $data;
+    $agent_data = AgentInfo();
 }
 
 main();
@@ -45,7 +50,7 @@ main();
 
     <h3>Agent Information</h3>
     
-    <?php if (!empty($data['agent_id'])): ?>
+    <?php if (!empty($agent_data['agent_id'])): ?>
     <table class="table">
         <thead lass="thead-dark">
             <tr>
