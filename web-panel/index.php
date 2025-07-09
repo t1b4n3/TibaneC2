@@ -9,18 +9,6 @@ c2_conn();
 
 $agent_data = '';
 
-$json = '{
-    "agent_id": ["A001", "A002"],
-    "os": ["Windows", "Linux"],
-    "ip": ["192.168.1.10", "192.168.1.11"],
-    "mac": ["00:11:22:33:44:55", "66:77:88:99:AA:BB"],
-    "hostname": ["LAPTOP-1", "KALI-BOX"],
-    "last_seen": ["2025-07-01 10:00:00", "2025-07-01 10:10:00"]
-  }';
-  
-$data = json_decode($json, true); // Decode as associative array
-  
-
 function main() {
     // check if user is logged in first
     #if (empty($_SESSION['login'])) {

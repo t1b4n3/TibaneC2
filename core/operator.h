@@ -27,22 +27,33 @@ void *operator_handler(void *new_sock) {
     }
     auth[bytes_received] = '\0'; 
     cJSON *creds = cJSON_Parse(auth);
+
+    if (creds == NULL) {
+        fprintf(stderr, "Failed to parse JSON: %s\n", auth);
+        return NULL;
+    }
+
+
     cJSON *username = cJSON_GetObjectItem(creds, "username");
+    
+
+    if (username == NULL || !cJSON_IsString(username)) {
+        fprintf(stderr, "Missing or invalid 'Username' field in JSON\n");
+        cJSON_Delete(creds);
+        return NULL;
+    }
     cJSON *password = cJSON_GetObjectItem(creds, "password");
+    if (password == NULL || !cJSON_IsString(password)) {
+        fprintf(stderr, "Missing or invalid 'Password' field in JSON\n");
+        cJSON_Delete(creds);
+        return NULL;
+    }
 
     cJSON *reply = cJSON_CreateObject();
     if (reply == NULL) {
         fprintf(stderr, "Failed to create cJSON object\n");
         // Handle error or exit
-        ///
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
+        return NULL;
     }  
     if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
         cJSON_AddStringToObject(reply, "operator", "false");
@@ -68,7 +79,16 @@ void *operator_handler(void *new_sock) {
         }
         buffer[bytes_received] = '\0'; 
         cJSON *requested_info = cJSON_Parse(buffer);
+        if (requested_info == NULL) {
+            fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
+            return NULL;
+        }
         cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
+        if (about == NULL || !cJSON_IsString(about)) {
+            fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
+            cJSON_Delete(requested_info);
+            return NULL;
+        }
         if (strcmp(about->valuestring, "Agents") == 0){
             char *agents = info_view("Agents");
             send(sock, agents, strlen(agents), 0);

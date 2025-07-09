@@ -85,6 +85,7 @@ void beacon(cJSON *json, int sock) {
 
 
     // check if there are tasks queue for agent
+    // change this so that it stores all qeues in a data structure to optimize 
     int task_id = check_tasks_queue(agent_id->valuestring);
     if (task_id == -1) {
         cJSON_AddStringToObject(json_reply, "mode", "none");
