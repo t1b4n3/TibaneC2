@@ -14,7 +14,7 @@
 #include "db.h"
  
 
-#define OPERATOR_PORT 8883
+#define OPERATOR_PORT 8888
 
 void *operator_handler(void *new_sock) {
     int sock = *(int*)new_sock;

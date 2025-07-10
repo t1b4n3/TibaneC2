@@ -14,7 +14,9 @@
 
 #include "db.h"
 
-#define AGENT_PORT 9999
+#define AGENT_PORT 9999 // change so that the port comes from config file
+
+
 #define BUFFER_SIZE 4096
 
 
