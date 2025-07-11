@@ -2,7 +2,9 @@
   "files.associations": {
     "cjson.h": "c",
     "functional": "c",
-    "cstdlib": "cpp"
+    "cstdlib": "cpp",
+    "agent.h": "c",
+    "fcntl.h": "c"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",

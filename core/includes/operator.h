@@ -14,8 +14,6 @@
 #include "db.h"
  
 
-#define OPERATOR_PORT 8888
-
 void *operator_handler(void *new_sock) {
     int sock = *(int*)new_sock;
     
@@ -132,7 +130,8 @@ void *operator_handler(void *new_sock) {
 }
 
 
-void* Operator_conn() {
+void* Operator_conn(void* port) {
+    int OPERATOR_PORT = *(int*)port;
     struct sockaddr_in clientAddr;
     socklen_t client_len = sizeof(clientAddr);
     int serverSock;

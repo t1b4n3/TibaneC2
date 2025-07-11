@@ -13,13 +13,9 @@
 #include <openssl/sha.h>
 
 #include "db.h"
-
-#define AGENT_PORT 9999 // change so that the port comes from config file
-
+#include "agent.h"
 
 #define BUFFER_SIZE 4096
-
-
 
 struct thread_args {
     int sock;
@@ -176,7 +172,8 @@ void *agent_handler(void *args) {
     return NULL;
 }
 
-void* tcp_listener() {
+void *agent_conn(void *port) {
+    int AGENT_PORT = *(int*)port;
     struct sockaddr_in clientAddr;
     socklen_t client_len = sizeof(clientAddr);
     int serverSock;

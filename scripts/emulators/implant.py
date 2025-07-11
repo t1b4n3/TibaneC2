@@ -119,5 +119,5 @@ def session():
 
 
 if __name__ == "__main__":
-    #beacon()
-    register()
+    beacon()
+    #register()

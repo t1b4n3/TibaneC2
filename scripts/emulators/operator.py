@@ -3,7 +3,7 @@ from socket import *
 import json
 
 HOST = "127.0.0.1"
-PORT = 8883
+PORT = 8888
 
 operator = socket(AF_INET, SOCK_STREAM)
 operator.connect((HOST, PORT))
@@ -98,10 +98,10 @@ if __name__ == "__main__":
     login()
     #get_agent_info()
     #add_new_task()
-    #tasks_per_agent()
+    tasks_per_agent()
 
-    about = ["Agents", "Tasks"]
-    for x in about:
-        get_info(x);
+    #about = ["Agents", "Tasks"]
+    #for x in about:
+    #    get_info(x);
 
 

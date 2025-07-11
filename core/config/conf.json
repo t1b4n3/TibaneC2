@@ -1,0 +1,9 @@
+{
+    "database_server":"localhost",
+    "username":"core",
+    "password":"core",
+    "database":"c2_database",
+    "agent_port":9999,
+    "operator_port":8888
+}
+
