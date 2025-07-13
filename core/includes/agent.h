@@ -13,7 +13,7 @@
 #include <openssl/sha.h>
 
 #include "db.h"
-#include "agent.h"
+#include "logs.h"
 
 #define BUFFER_SIZE 4096
 
@@ -45,6 +45,10 @@ void register_agent(cJSON *json, char *ip, int sock) {
     char agent_id[65];
     get_agent_id(input, agent_id);
 
+
+    //log
+    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring);
+
     // register to datbase (agent_id, os, ip, mac, hostname)
     // check if agent id exists
    struct db_agents args;
@@ -75,6 +79,10 @@ void register_agent(cJSON *json, char *ip, int sock) {
 
 void beacon(cJSON *json, int sock) {
     cJSON *agent_id = cJSON_GetObjectItem(json, "agent_id");
+    // log
+    log_beacon(agent_id->valuestring);
+
+
     cJSON *json_reply = cJSON_CreateObject();
     update_last_seen(agent_id->valuestring);
     // validate if agent id exists in the database.

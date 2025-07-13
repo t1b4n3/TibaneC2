@@ -43,6 +43,9 @@ int main() {
 
     close(conf);
 
+    // open logs
+    lopen();
+
     if (db_conn(dbserver->valuestring, username->valuestring, password->valuestring, db->valuestring) == -1) {
         perror("Database Failed to connect");
         exit(1);
@@ -62,7 +65,9 @@ int main() {
     pthread_join(operator_thread, NULL);
     pthread_join(agent_thread, NULL);
 
+
     db_close();
+    lclose();
     return 0;
 }
 
