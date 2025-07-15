@@ -4,7 +4,6 @@
 
 > ⚠️ For educational and authorized testing purposes only.
 
-
 [Already have basic C2 implementation](./BasicC2/README.md) 
 
 ---
@@ -13,10 +12,10 @@
 
 | Component      | Language(s)                     | Description |
 |----------------|----------------------------------|-------------|
-| **Core Server** | C/C++                           | Central server that communicates with implants and operator interfaces |
+| **Core Server** | C                           | Central server that communicates with implants and operator interfaces |
 | **Web Panel**   | PHP                              | Web-based control interface for managing agents and sending tasks |
-| **CLI Console** | C                                | Terminal-based operator tool for environments without a GUI |
-| **Implants**    | C/C++                            | Persistent agents that execute commands and exfiltrate data |
+| **CLI Console** | C++                               | Terminal-based operator tool for environments without a GUI |
+| **Implants**    | C, C++ ,Python, Powershell, Bash                            | Persistent agents that execute commands and exfiltrate data |
 | **Stagers**     | Assembly, C, Python, Bash, PowerShell | Lightweight loaders to deploy implants |
 | **Database**    | MySQL              | Tracks agents, tasks, results, logs |
 | **Automation**  | Python / Bash                    | Tools for payload generation, system health checks, and threat simulation |

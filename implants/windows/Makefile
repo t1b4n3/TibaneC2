@@ -4,7 +4,7 @@ CROSS_PREFIX := $(TARGET_ARCH)-w64-mingw32
 CC := $(CROSS_PREFIX)-g++
 
 # Source file
-SRC := main.cpp # Replace with your actual source file name
+SRC := main.cpp  # Replace with your actual source file name
 
 # Output executable
 OUT := implant.exe
@@ -13,8 +13,7 @@ OUT := implant.exe
 CFLAGS := -Wall -O2 -ffunction-sections -fdata-sections -fmerge-all-constants
 
 # Linker flags -lsecur32 
-LDFLAGS := -lws2_32 -static-libstdc++ -static-libgcc -lcjson
-
+LDFLAGS := -lws2_32 -static-libstdc++ -static-libgcc ./cJSON/cJSON.c
 all: $(OUT)
 
 $(OUT): $(SRC)
