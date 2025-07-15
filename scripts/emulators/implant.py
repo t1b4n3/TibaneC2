@@ -17,9 +17,10 @@ def register():
     {
         "mode": "register",
         "agent_id": null,
-        "hostname": "kali",
+        "hostname": "nkateko",
         "mac": "xx-xx-yyx-xx",
-        "os": "windows"
+        "os": "windows",
+        "arch":"x86"
     }
     """
     try:
@@ -36,7 +37,7 @@ def register():
     #p = json.dumps(response, indent=4)
     data = json.loads(response)
 
-    print("Type:", data["type"])
+    print("Type:", data["mode"])
     print("agent_id:", data["agent_id"])
 
     agent.close()
@@ -46,7 +47,7 @@ def beacon():
     beacon = """
     {
         "mode":"beacon",
-        "agent_id":"a47505de64adaefc253cd1c27751da77587710e876aac229bc8032edbc8d775b"   
+        "agent_id":"dd1048383f5c8b6d02c54d4c77776b198de297ffe98a2aae292ea7d4f9d2147f"   
     }
     """
 
@@ -119,5 +120,5 @@ def session():
 
 
 if __name__ == "__main__":
-    beacon()
-    #register()
+    #beacon()
+    register()

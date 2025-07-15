@@ -188,7 +188,7 @@ class Operator {
     
 
     void display_all_agents(const char* data) {
-        const char* keys[] = {"agent_id", "os", "ip", "mac", "hostname", "last_seen"};
+        const char* keys[] = {"agent_id", "os", "ip", "mac", "arch", "hostname", "last_seen"};
         int num_keys = sizeof(keys)/sizeof(keys[0]);
         
         // parse json data
@@ -226,6 +226,66 @@ class Operator {
                 if (strcmp(keys[j], "AgentID") == 0) {
                     printf("%-80s  ", value); 
                 } else {
+                    printf("%-15s ", value);
+                }
+            }
+            printf("\n");
+            printf("---------------------------------------------------------------------------------------------------------------------\n");
+        }
+        cJSON_Delete(pdata);
+        //free(data);
+    }
+
+    void display_all_tasks(char *data) {
+        const char* keys[] = {"task_id", "agent_id", "command", "response", "status"};
+        int num_keys = sizeof(keys)/sizeof(keys[0]);
+        
+        // parse json data
+        cJSON *pdata = cJSON_Parse(data);
+        if (!pdata) {
+            const char *error_ptr = cJSON_GetErrorPtr();
+            if (error_ptr != NULL) {
+                fprintf(stderr, "Error parsing JSON data before: %s\n", error_ptr);
+            } else {
+                fprintf(stderr, "Error parsing JSON data (unknown error).\n");
+            }
+            return;
+        }
+
+        int length = cJSON_GetArraySize(cJSON_GetObjectItem(pdata, keys[0]));
+        for (int j = 0; j < num_keys; j++) {
+            if (strcmp(keys[j], "AgentID") == 0) {
+                printf("%-65s", keys[j]);  
+            } else if (strcmp(keys[j], "response") == 0)  {
+                printf("%-70s", keys[j]); 
+            }else if (strcmp(keys[j],"status") == 0) {
+                printf("%-6s", keys[j]);
+            } else if (strcmp(keys[j],"task_id") == 0) {
+                printf("%-7s", keys[j]);
+            } else{
+                printf("%-15s ", keys[j]);
+            }
+        }
+        printf("\n");
+        
+        printf("==========================================================================================================================\n");
+        // Rows
+        for (int i = 0; i < length; i++) {
+            for (int j = 0; j < num_keys; j++) {
+                cJSON *array = cJSON_GetObjectItem(pdata, keys[j]);
+                cJSON *item = cJSON_GetArrayItem(array, i);
+                const char *value = (item && item->valuestring) ? item->valuestring : "NULL";
+        
+                if (strcmp(keys[j], "AgentID") == 0) {
+                    printf("%-65s  ", value); 
+                } else if (strcmp(keys[j], "response") == 0)  {
+                    printf("%-70s", value); 
+                } else if (strcmp(keys[j],"status") == 0) {
+                    printf("%-3s", value);
+                }else if (strcmp(keys[j],"task_id") == 0) {
+                    printf("%-2s", value);
+                } 
+                else {
                     printf("%-15s ", value);
                 }
             }
@@ -304,7 +364,7 @@ class Operator {
                 // print all tasks
                 // task_per_agent
                 char* data = com.tasks_per_agent(id);
-                if (*data == NULL) {
+                if (!data) {
                     printf("NO DATA \n");
                     continue;
                 }
@@ -357,7 +417,7 @@ int main() {
 
         if (strncmp(cmd, "list", 4) == 0) {
             char *data = com.get_info("Agents");
-            if (*data == NULL) {
+            if (!data) {
                 printf("NO DATA \n");
                 continue;
             }
@@ -376,8 +436,15 @@ int main() {
             } else {
                 continue;
             }
-        } 
-        else {
+        } else if (strncmp(cmd, "tasks", 5) == 0) {
+            // view all tasks
+            char *data = com.get_info("Tasks");
+            if (!data) {
+                printf("NO DATA \n");
+                continue;
+            }
+            op.display_all_tasks(data);
+        }else {
             printf("%s", usage);
         }
 

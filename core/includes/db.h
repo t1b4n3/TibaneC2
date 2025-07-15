@@ -26,6 +26,7 @@ struct db_agents {
     char ip[50];
     char mac[50];
     char hostname[255];
+    char arch[50];
 };
 
 struct db_tasks {
@@ -154,7 +155,7 @@ int check_tasks_queue(char *agent_id) {
 // agent
 void AgentsTable(struct db_agents args) {
     char *query = malloc(256+sizeof(struct db_agents));
-    snprintf(query,  256 + sizeof(struct db_agents), "INSERT INTO Agents (agent_id, os, ip, mac, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');", args.agent_id, args.os, args.ip , args.mac, args.hostname);
+    snprintf(query,  256 + sizeof(struct db_agents), "INSERT INTO Agents (agent_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');", args.agent_id, args.os, args.ip , args.mac, args.arch, args.hostname);
     if (mysql_query(con, query)) {
         fprintf(stderr, "%s\n", mysql_error(con));
     }

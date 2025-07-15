@@ -4,7 +4,8 @@
     "functional": "c",
     "cstdlib": "cpp",
     "agent.h": "c",
-    "fcntl.h": "c"
+    "fcntl.h": "c",
+    "fstream": "cpp"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",

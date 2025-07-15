@@ -8,11 +8,14 @@
 #include "./includes/agent.h"
 
 int main() {
+    // for log file
+    lopen();
     // get 
     START:
     int conf = open("./config/conf.json", O_RDONLY);
     if (conf == -1) {
         write(1, "Failed to Configuration file\n", 20);
+        // logfile
         sleep(30);
         goto START;
     }
@@ -44,7 +47,7 @@ int main() {
     close(conf);
 
     // open logs
-    lopen();
+    
 
     if (db_conn(dbserver->valuestring, username->valuestring, password->valuestring, db->valuestring) == -1) {
         perror("Database Failed to connect");
@@ -66,6 +69,7 @@ int main() {
     pthread_join(agent_thread, NULL);
 
 
+    cJSON_Delete(config);
     db_close();
     lclose();
     return 0;

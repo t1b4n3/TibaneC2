@@ -42,7 +42,7 @@ void log_beacon(char *agent_id) {
     fprintf(logg, "%s", buffer);
 }
 
-void log_new_agent(char *agent_id, char *os, char *hostname, char *mac) {
+void log_new_agent(char *agent_id, char *os, char *hostname, char *mac, char* arch) {
     char buffer[0x400];
     time_t t;
     time(&t);
@@ -51,7 +51,7 @@ void log_new_agent(char *agent_id, char *os, char *hostname, char *mac) {
     strncpy(ttime, ctime(&t), sizeof(ttime));
     ttime[strcspn(ttime, "\n")] = 0;
 
-    snprintf(buffer, sizeof(buffer), "[%s] - New Agent | Agent id: %s, OS: %s, Hostname: %s, MAC: %s", ttime, agent_id, os, hostname, mac);
+    snprintf(buffer, sizeof(buffer), "[%s] - New Agent | Agent id: %s, OS: %s, Hostname: %s, MAC: %s, Arch: %s", ttime, agent_id, os, hostname, mac, arch);
     fprintf(logg, "%s", buffer);
 }
 
