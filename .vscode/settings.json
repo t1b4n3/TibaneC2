@@ -5,7 +5,9 @@
     "cstdlib": "cpp",
     "agent.h": "c",
     "fcntl.h": "c",
-    "fstream": "cpp"
+    "fstream": "cpp",
+    "cstdio": "cpp",
+    "cstring": "cpp"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",

@@ -11,7 +11,6 @@
 #include <pthread.h>
 #include <cjson/cJSON.h>
 #include <openssl/sha.h>
-
 #include "db.h"
 #include "logs.h"
 
@@ -47,6 +46,9 @@ void register_agent(cJSON *json, char *ip, int sock) {
     char agent_id[65];
     get_agent_id(input, agent_id);
 
+    // check if id already exists in database
+    if (check_agent_id(agent_id) == 1) goto REPLY;
+
     //log
     log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
 
@@ -69,6 +71,7 @@ void register_agent(cJSON *json, char *ip, int sock) {
     AgentsTable(args);
 
     // reply with agent id
+    REPLY:
     cJSON *json_reply = cJSON_CreateObject();
     cJSON_AddStringToObject(json_reply, "mode", "ack");
     cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
@@ -87,12 +90,11 @@ void beacon(cJSON *json, int sock) {
 
 
     cJSON *json_reply = cJSON_CreateObject();
-    update_last_seen(agent_id->valuestring);
-    // validate if agent id exists in the database.
 
     // update last seen
-
-
+    update_last_seen(agent_id->valuestring);
+    // validate if agent id exists in the database.
+    
     // check if there are tasks queue for agent
     // change this so that it stores all qeues in a data structure to optimize 
     int task_id = check_tasks_queue(agent_id->valuestring);

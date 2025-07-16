@@ -1,7 +1,7 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <stdbool.h>
-#include <stdio.h>
+#include <cstdio>
 #include "cJSON/cJSON.h"
 #include <fcntl.h>
 #include <cstdlib>
