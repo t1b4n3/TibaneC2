@@ -37,8 +37,8 @@
 
 TibaneC2/
 ├── core/ # C/C++ Core server logic
-├── panel/ # Web panel (PHP)
-├── cli/ # CLI interface (C)
+├── web-panel/ # Web panel (PHP)
+├── cli-console/ # CLI interface (C)
 ├── implants/ # Cross-platform agents
 ├── stagers/ # Initial access payloads
 ├── db/ # Database setup/scripts
@@ -59,6 +59,14 @@ TibaneC2/
 - Payload obfuscation and delivery automation
 
 
+## Communication Methods
+
+- **Custom TCP communication:** Communicates via custom tcp and sends data via json
+### Planned
+- **Encrypted TCP Communication:** Encrypt communications (ssl/tls)
+- **HTTP/HTTPS:** Web traffic to blend in with normal traffic
+
+
 ## Getting Started
 
 ### 1. Build the Core Server
@@ -70,19 +78,19 @@ make
 
 ### 2. Run the Web Panel
 Host PHP files via Apache/Nginx or PHP’s built-in server:
+On the same machine as the core server
 
 ```bash
-php -S localhost:8080 -t panel/
+php -S localhost:8080 -t web-panel/
 ```
-
 ## OR
 
 ### 2. Run the CLI Console
 
 ```bash
-cd cli
+cd cli-console
 make
-./console
+./cli_console
 ```
 
 ### 3. Deploy an Implant
@@ -90,46 +98,15 @@ Compile or obfuscate from implants/
 
 Use stagers/ to deliver the payload
 
-
-
-## Database Schema (example)
-agents (id, hostname, os, last_seen, ip)
-
-tasks (id, agent_id, command, status, result)
-
-logs (timestamp, type, message)
-
 ## Tooling & Automation
-Script	Description
-payload_generator.py	Generate obfuscated payloads
-health_check.sh	Check server and DB health
-emulator.py	Simulate agent traffic
+|Script |Description |
+|:---|---:|
+|payload_generator.py | Generate obfuscated payloads |
+|health_check.sh | Check server and DB health|
+|emulator.py |Simulate agent traffic |
 
-🧪 Development Roadmap
- Core TCP server
+-- 
 
- Web interface integration
-
- CLI console tool
-
- Implant command execution
-
- File transfer
-
- Encrypted comms (AES/TLS)
-
- HTTP/S-based fallback C2
-
- Anti-analysis and OPSEC evasion
-
- SOCKS proxy tunneling
-
- Plugin-based extension system
-
-⚠️ Legal Notice
-This project is for educational and authorized testing purposes only. Unauthorized use of this tool may violate local, state, or international laws. You are responsible for using this project ethically and legally.
-
-👨‍💻 Author
-Developed by Laporte
-For research, learning, and C2 framework development practice.
+> Legal Notice
+> This project is for educational and authorized testing purposes only. Unauthorized use of this tool may violate local, state, or international laws. You are responsible for using this project ethically and legally.
 
