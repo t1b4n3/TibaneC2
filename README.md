@@ -68,15 +68,18 @@ TibaneC2/
 
 
 ## Getting Started
+### 1 Setup the database
+Run [database setup script](./db/setup.sql) in mysql to setup database and add at least 1 operator manully
 
-### 1. Build the Core Server
+### 2. Build the Core Server
 ```bash
 cd core
 make
 ./c2_server
 ```
 
-### 2. Run the Web Panel
+### 3. Run the Web Panel
+**NOT YET BUILD**  
 Host PHP files via Apache/Nginx or PHP’s built-in server:
 On the same machine as the core server
 
@@ -85,7 +88,7 @@ php -S localhost:8080 -t web-panel/
 ```
 ## OR
 
-### 2. Run the CLI Console
+### 3. Run the CLI Console
 
 ```bash
 cd cli-console
@@ -93,7 +96,7 @@ make
 ./cli_console
 ```
 
-### 3. Deploy an Implant
+### 4. Deploy an Implant
 Compile or obfuscate from implants/
 
 Use stagers/ to deliver the payload
