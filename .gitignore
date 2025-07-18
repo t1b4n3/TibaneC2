@@ -1,3 +1,4 @@
-.log
-
+# Ignore all log files
+*.log
+# Ignore the .vscode folder
 .vscode/

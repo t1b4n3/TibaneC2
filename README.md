@@ -68,7 +68,7 @@ TibaneC2/
 
 
 ## Getting Started
-### 1 Setup the database
+### 1 Configure
 Run [database setup script](./db/setup.sql) in mysql to setup database and add at least 1 operator manully
 
 ### 2. Build the Core Server

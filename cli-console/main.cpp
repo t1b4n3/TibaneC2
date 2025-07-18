@@ -8,11 +8,14 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <fcntl.h>
 
 #define BUFFER_SIZE 0x100
 #define MAX_SIZE 0x20000
-#define PORT 8888 // change so that the port and ip address comes from config file
-#define IP "127.0.0.1"
+
+char *IP;
+int PORT;
+
 
 void banner() {
     printf("\n");
@@ -385,6 +388,42 @@ class Operator {
 
 
 int main() {
+    // configs
+    START:
+    int conf = open("../config/console_conf.json", O_RDONLY);
+    if (conf == -1) {
+        write(1, "Failed to Configuration file\n", 20);
+        // logfile
+        sleep(30);
+        goto START;
+    }
+
+    char buffer[0x200];
+    READ:
+    size_t bytesRead;
+    if ((bytesRead = read(conf, buffer, sizeof(buffer))) <= 0) {
+            perror("Read Error");
+            sleep(30);
+            goto READ;
+    }
+
+    PARSE:
+    cJSON *config = cJSON_Parse(buffer);
+    if (!config) {
+        fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
+        sleep(30);
+        goto PARSE;
+    }
+
+    cJSON *SERVER_ADDR = cJSON_GetObjectItem(config, "SERVER_ADDR");
+    cJSON *SERVER_PORT = cJSON_GetObjectItem(config, "SERVER_PORT");
+
+    IP = SERVER_ADDR->valuestring;
+    PORT = SERVER_PORT->valueint;
+
+
+
+
     char usage[BUFFER_SIZE] = "";
 
     banner();

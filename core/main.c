@@ -12,7 +12,7 @@ int main() {
     lopen();
     // get 
     START:
-    int conf = open("./config/conf.json", O_RDONLY);
+    int conf = open("../config/server_conf.json", O_RDONLY);
     if (conf == -1) {
         write(1, "Failed to Configuration file\n", 20);
         // logfile
