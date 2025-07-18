@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/hacker/REPO/tibaneC2/cli-console",
-      "program": "/home/hacker/REPO/tibaneC2/cli-console/build/Debug/outDebug",
+      "cwd": "/home/hacker/REPO/tibaneC2/implants",
+      "program": "/home/hacker/REPO/tibaneC2/implants/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
