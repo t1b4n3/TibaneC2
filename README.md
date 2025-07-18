@@ -69,8 +69,8 @@ TibaneC2/
 
 ## Getting Started
 ### 1 Configure
-Run [database setup script](./db/setup.sql) in mysql to setup database and add at least 1 operator manully
-
+- Run [database setup script](./db/setup.sql) in mysql to setup database and add at least 1 operator manully.
+- Modify [server](./config/server_conf.json) and [console](./config/console_conf.json) configuration files as needed.
 ### 2. Build the Core Server
 ```bash
 cd core
