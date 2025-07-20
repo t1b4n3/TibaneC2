@@ -90,7 +90,7 @@ void update_last_seen(char *agent_id) {
 }
 
 void TasksTable(struct db_tasks args) {
-    char query[4096];
+    char query[4096 + 4096];
     snprintf(query, sizeof(query), "INSERT INTO Tasks (agent_id, command, response) VALUES ('%s', '%s', '%s');",
              args.agent_id, args.command, args.response);
     mysql_query(con, query);
@@ -101,8 +101,8 @@ void new_tasks(char *agent_id, char *command) {
     char esc_cmd[1024];
     mysql_real_escape_string(con, esc_id, agent_id, strlen(agent_id));
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
-    char *query = malloc(1024);
-    snprintf(query, 1024, "INSERT INTO Tasks (agent_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
+    char *query = malloc(1024 + 130);
+    snprintf(query, 1024 + 256, "INSERT INTO Tasks (agent_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
     mysql_query(con, query);
     free(query);
 }
@@ -180,7 +180,7 @@ char *info_view(char *table) {
 }
 
 void LogsTable(struct db_logs args) {
-    char query[4096];
+    char query[4096+1028];
     snprintf(query, sizeof(query), "INSERT INTO Logs (agent_id, log_type, message) VALUES ('%s', '%s', '%s');",
              args.agent_id, args.log_type, args.message);
     mysql_query(con, query);

@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 
 #include "db.h"
- 
+
 void *operator_handler(void *new_sock);
 
 void *Operator_conn(void* port);
