@@ -9,4 +9,6 @@ operator sends 'session m30' as task
 - m - minutes
 
 when implant gets task
-it sets a 
+it sets 
+
+
