@@ -24,7 +24,6 @@ struct thread_args {
 };
 
 
-
 // prototypes
 void register_agent(cJSON *json, char*ip, int sock);
 void get_agent_id(const char *input, char output[65]);
@@ -142,7 +141,6 @@ void get_agent_id(const char *input, char output[65]) {
     output[64] = 0;
 }
 
-
 void register_agent(cJSON *json, char *ip, int sock) {  
 
     cJSON *mac = cJSON_GetObjectItem(json, "mac");
@@ -250,8 +248,6 @@ void beacon(cJSON *json, int sock) {
                 }
             }
         }
-
-
         free(cmd);
         // recv response and log to database
         // buffer response

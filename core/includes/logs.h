@@ -1,5 +1,5 @@
-#ifndef logs
-#define logs
+#ifndef LOGS_H
+#define LOGS_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,75 +7,25 @@
 #include <string.h>
 #include <math.h>
 
-FILE *logg;
+static FILE *logg;
 
-void lopen() {
-    logg = fopen("main.log", "a");
-}
+void lopen();
 
-
-void llog(char *info) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
-
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime));
-    ttime[strcspn(ttime, "\n")] = 0;
-
-    snprintf(buffer, sizeof(buffer), "[%s] - %s", ttime, info);
-    fprintf(logg, "%s", buffer);
-
-}
+void llog(char *info);
 
 
-void log_beacon(char *agent_id) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
+void log_beacon(char *agent_id);
 
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime));
-    ttime[strcspn(ttime, "\n")] = 0;
 
-    snprintf(buffer, sizeof(buffer), "[%s] - Beacon FROM : %s", ttime, agent_id);
-    fprintf(logg, "%s", buffer);
-}
-
-void log_new_agent(char *agent_id, char *os, char *hostname, char *mac, char* arch) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
-
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime));
-    ttime[strcspn(ttime, "\n")] = 0;
-
-    snprintf(buffer, sizeof(buffer), "[%s] - New Agent | Agent id: %s, OS: %s, Hostname: %s, MAC: %s, Arch: %s", ttime, agent_id, os, hostname, mac, arch);
-    fprintf(logg, "%s", buffer);
-}
-
+void log_new_agent(char *agent_id, char *os, char *hostname, char *mac, char* arch);
 
 /////////////////////
 // operator
+void operator_connections(char *ip);
 
-void operator_connections(char *ip) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
 
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime));
-    ttime[strcspn(ttime, "\n")] = 0;
-
-    snprintf(buffer, sizeof(buffer), "[%s] - CONNECTION FROM: %s", ttime, ip);
-    fprintf(logg, "%s", buffer);
-}
+void lclose();
 
 
 
-
-void lclose() {
-    fclose(logg);
-}
 #endif
