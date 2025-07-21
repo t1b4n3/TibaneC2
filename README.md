@@ -38,9 +38,9 @@ The goal is to keep the C2 framework modular by splitting it into clear componen
  ```yaml
 
 TibaneC2/
-├── core/ # C/C++ Core server logic
+├── core/ # C Core server logic
 ├── web-panel/ # Web panel (PHP)
-├── cli-console/ # CLI interface (C)
+├── cli-console/ # CLI interface (C++)
 ├── implants/ # Cross-platform agents
 ├── stagers/ # Initial access payloads
 ├── db/ # Database setup/scripts
@@ -48,6 +48,24 @@ TibaneC2/
 ├── docs/ # Diagrams and documentation
 └── README.md # Project descriptiion
  ```
+
+## TODO
+### Core server
+- Implement Logging
+- Session mode
+- HTTP/HTTPS Communication methods
+- Encrypted Communication 
+
+### Implants
+- keylogger
+- screenshot capture
+- file upload/download
+- sandbox and vm detection checks
+- kill switch for self-removal
+- persistence mechanisms
+
+### Web-panel 
+ 
 
 ## Features
 
@@ -59,7 +77,6 @@ TibaneC2/
 - Persistent implant options (Windows & Linux)
 - Central logging, audit trail, and command results
 - Payload obfuscation and delivery automation
-
 
 
 ## Communication Methods
@@ -89,7 +106,7 @@ On the same machine as the core server
 ```bash
 php -S localhost:8080 -t web-panel/
 ```
-## OR
+> #### OR
 
 ### 3. Run the CLI Console
 

