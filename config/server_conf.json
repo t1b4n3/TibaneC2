@@ -4,6 +4,8 @@
     "password":"core",
     "database":"c2_database",
     "agent_port":9999,
-    "operator_port":8888
+    "operator_port":8888,
+    "ssl_certification":"./cert/server.pem",
+    "ssl_key":"./cert/key.pem"
 }
 

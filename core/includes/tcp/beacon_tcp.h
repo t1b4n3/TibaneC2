@@ -18,12 +18,12 @@
 #define MAX_RESPONSE 0x20000
 
 
+// prototypes
 struct thread_args {
     int sock;
     char ip[256];
 };
 
-// prototypes
 
 void beacon(cJSON *json, int sock);
 

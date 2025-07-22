@@ -87,7 +87,7 @@ void *shell(void *arg) {
 
     char buffer[buffer_len]; // to send;
     char response[max_response];
-    start:
+    
     while (true) {
         
         memset(buffer, 0, sizeof(buffer));
@@ -106,15 +106,15 @@ void *shell(void *arg) {
         
         if (SSL_write(ssl, buffer, sizeof(buffer)) == 0) {        
             perror("Write Error");
-            goto start;
+            continue;
         }
-        
+
         if((strncmp("q", buffer, 1) == 0) || (strncmp("quit", buffer, 4) == 0) || (strncmp("exit", buffer, 4) == 0)) {
             break;
         } else {
             if (SSL_read(ssl, response, sizeof(response)) <= 0) {
                 perror("recv Error");
-                goto start;
+                continue;
             }
             printf("%s\n", response);
             // log 

@@ -27,7 +27,6 @@ void beacon(cJSON *json, int sock) {
     // log
     log_beacon(agent_id->valuestring);
 
-
     cJSON *json_reply = cJSON_CreateObject();
 
     // update last seen
@@ -40,7 +39,11 @@ void beacon(cJSON *json, int sock) {
     if (task_id == -1) {
         cJSON_AddStringToObject(json_reply, "mode", "none");
         char *reply = cJSON_Print(json_reply);
+        
+        
         send(sock, reply, strlen(reply), 0);
+        
+        
         free(reply);
         cJSON_Delete(json_reply);
         return;
@@ -57,8 +60,6 @@ void beacon(cJSON *json, int sock) {
         cJSON_AddStringToObject(json_reply, "agent_id", agent_id->valuestring);
         
 
-
-        
         char *reply = cJSON_Print(json_reply);
         send(sock, reply, strlen(reply), 0);
 
@@ -104,6 +105,4 @@ void beacon(cJSON *json, int sock) {
         free(reply);
         cJSON_Delete(json_reply);
     }
-
-    
 }
