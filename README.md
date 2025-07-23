@@ -49,24 +49,6 @@ TibaneC2/
 └── README.md # Project descriptiion
  ```
 
-## TODO
-### Core server
-- Implement Logging
-- Session mode
-- HTTP/HTTPS Communication methods
-- Encrypted Communication 
-
-### Implants
-- keylogger
-- screenshot capture
-- file upload/download
-- sandbox and vm detection checks
-- kill switch for self-removal
-- persistence mechanisms
-
-### Web-panel 
- 
-
 ## Features
 
 - Multi-agent support with task queueing
@@ -129,6 +111,25 @@ Use stagers/ to deliver the payload
 |emulator.py |Simulate agent traffic |
 
 -- 
+## TODO
+### Core server
+- Implement Logging
+- Session mode
+- HTTP/HTTPS Communication methods
+- Encrypted Communication 
+
+### Implants
+- keylogger
+- screenshot capture
+- file upload/download
+- sandbox and vm detection checks
+- kill switch for self-removal
+- persistence mechanisms
+
+### Web-panel 
+- Authentication 
+
+--  
 
 > Legal Notice
 > This project is for educational and authorized testing purposes only. Unauthorized use of this tool may violate local, state, or international laws. You are responsible for using this project ethically and legally.

