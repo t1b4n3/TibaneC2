@@ -23,6 +23,8 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
+#include "../agent.h"
+
 #include "db.h"
 #include "logs.h"
 
@@ -30,12 +32,10 @@
 #define MAX_RESPONSE 0x20000
 
 
-void beacon(cJSON *json, int sock);
+void ssl_beacon(cJSON *json, SSL *ssl);
 
 void upload(char *file);
 
 void download(char *file);
-
-
 
 #endif

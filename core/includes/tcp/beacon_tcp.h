@@ -13,6 +13,7 @@
 #include <openssl/sha.h>
 #include "db.h"
 #include "logs.h"
+#include "agent.h"
 
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
@@ -25,7 +26,7 @@ struct thread_args {
 };
 
 
-void beacon(cJSON *json, int sock);
+void tcp_beacon(cJSON *json, int sock);
 
 void upload(char *file);
 

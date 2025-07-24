@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <cjson/cJSON.h>
 
+MYSQL *con = NULL;
+
 int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
     con = mysql_init(NULL);
     if (con == NULL) return -1;

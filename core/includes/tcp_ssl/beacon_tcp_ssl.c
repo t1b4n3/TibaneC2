@@ -20,11 +20,12 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
+#include "agent.h"
 #include "db.h"
 #include "logs.h"
 
 
-void ssl_beacon(cJSON *json, int ssl) {
+void ssl_beacon(cJSON *json, SSL *ssl) {
     cJSON *agent_id = cJSON_GetObjectItem(json, "agent_id");
     // log
     log_beacon(agent_id->valuestring);

@@ -134,3 +134,6 @@ Use stagers/ to deliver the payload
 > Legal Notice
 > This project is for educational and authorized testing purposes only. Unauthorized use of this tool may violate local, state, or international laws. You are responsible for using this project ethically and legally.
 
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

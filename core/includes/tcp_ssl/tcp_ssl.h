@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <cjson/cJSON.h>
 #include <stdbool.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -22,6 +23,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <time.h>
+#include "agent.h"
 
 void init();
 
@@ -29,5 +31,6 @@ void* tcp_ssl_listener(void *port);
 
 void generate_key_and_cert();
 
+void ssl_register_agent(cJSON *json, char* ip, SSL *ssl);
 
 #endif

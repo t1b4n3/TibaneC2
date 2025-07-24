@@ -32,7 +32,7 @@ struct db_logs {
     char message[BUFFER_SIZE];
 };
 
-static MYSQL *con;
+extern MYSQL *con;
 
 // open connection to database
 int db_conn(const char *dbserver, const char *user, const char *pass, const char *db);

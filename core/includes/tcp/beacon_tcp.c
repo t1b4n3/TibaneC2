@@ -22,7 +22,7 @@ void upload(char *file) {
     printf("hello\n");
 }
 
-void beacon(cJSON *json, int sock) {
+void tcp_beacon(cJSON *json, int sock) {
     cJSON *agent_id = cJSON_GetObjectItem(json, "agent_id");
     // log
     log_beacon(agent_id->valuestring);

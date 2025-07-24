@@ -17,10 +17,12 @@
         "tcp":true,
         "tcp_ssl":false,
         "https":false,
-        "ssl_certification":"./cert/agent_server.pem",
-        "ssl_key":"./cert/agent_key.pem",
+
         "tcp_port":9999,
         "tcp_ssl_port":50505,
-        "https_port":8080
+        "https_port":8080,
+
+        "ssl_cert":"./cert/agent_server.pem",
+        "ssl_key":"./cert/agent_key.pem"
     }]
 }

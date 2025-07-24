@@ -7,7 +7,7 @@
 #include <string.h>
 #include <math.h>
 
-static FILE *logg;
+extern FILE *logg;
 
 void lopen();
 
