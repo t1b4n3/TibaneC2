@@ -17,4 +17,7 @@ void *operator_handler(void *new_sock);
 
 void *Operator_conn(void* port);
 
+
+int autheticate(int sock);
+
 #endif

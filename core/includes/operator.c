@@ -12,24 +12,21 @@
 
 #include "db.h"
 
-
-void *operator_handler(void *new_sock) {
-    int sock = *(int*)new_sock;
-    
+int autheticate(int sock) {
     char auth[1024];
     int bytes_received = recv(sock, auth, sizeof(auth), 0);
     if (bytes_received <= 0) {
         perror("recv failed");
-        return NULL;
+        return -1;
     }
     auth[bytes_received] = '\0'; 
     cJSON *creds = cJSON_Parse(auth);
 
     if (creds == NULL) {
         fprintf(stderr, "Failed to parse JSON: %s\n", auth);
-        return NULL;
+        cJSON_Delete(creds);
+        return -1;
     }
-
 
     cJSON *username = cJSON_GetObjectItem(creds, "username");
     
@@ -37,20 +34,21 @@ void *operator_handler(void *new_sock) {
     if (username == NULL || !cJSON_IsString(username)) {
         fprintf(stderr, "Missing or invalid 'Username' field in JSON\n");
         cJSON_Delete(creds);
-        return NULL;
+        return -1;
     }
     cJSON *password = cJSON_GetObjectItem(creds, "password");
     if (password == NULL || !cJSON_IsString(password)) {
         fprintf(stderr, "Missing or invalid 'Password' field in JSON\n");
         cJSON_Delete(creds);
-        return NULL;
+        return -1;
     }
 
     cJSON *reply = cJSON_CreateObject();
     if (reply == NULL) {
         fprintf(stderr, "Failed to create cJSON object\n");
+        cJSON_Delete(creds);
         // Handle error or exit
-        return NULL;
+        return -1;
     }  
     if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
         cJSON_AddStringToObject(reply, "operator", "false");
@@ -58,18 +56,37 @@ void *operator_handler(void *new_sock) {
         send(sock, reply_, strlen(reply_), 0);
         free(reply_);
         free(reply);
-        goto CLEANUP;
+        cJSON_Delete(creds);
+        return -1;
+        
     }
     cJSON_AddStringToObject(reply, "operator", "true");
     char *reply_ = cJSON_Print(reply);
     send(sock, reply_, strlen(reply_), 0);
     free(reply_);
     free(reply);
+
+    cJSON_Delete(creds);
+    return 0;
+}
+
+
+void *operator_handler(void *new_sock) {
+    int sock = *(int*)new_sock;
+    
+    // 3 tries
+    int try = 1;
+    do {
+        if (autheticate(sock) == 0) {
+            goto START;
+        }
+    } while (try <= 3);
     // operator requesting infomartion or add new tasks
+    START:
     while (1) {
         char buffer[1024];
         memset(buffer, 0, sizeof(buffer));
-        bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+        int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
         if (bytes_received <= 0) {
             perror("recv failed");
             return NULL;
@@ -118,10 +135,6 @@ void *operator_handler(void *new_sock) {
         }
         cJSON_Delete(requested_info);
     }
-
-
-    CLEANUP:
-    cJSON_Delete(creds);
     
     close(sock);
     free(new_sock);
