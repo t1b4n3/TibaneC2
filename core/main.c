@@ -95,7 +95,7 @@ int main() {
     do {
         
         pthread_t operator_thread, tcp_thread, tcp_ssl_thread;;
-        if (operator->tcp_port != *(int*)NULL) {
+        if (operator->tcp_port != NULL) {
             if (pthread_create(&operator_thread, NULL, Operator_conn, (void*)&operator->tcp_port) != 0) {
                 perror("Failed to start Operator thread");
                 sleep(30);

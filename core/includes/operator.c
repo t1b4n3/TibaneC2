@@ -138,6 +138,7 @@ void *Operator_conn(void* port) {
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock == -1) {
         perror("Socket creation failed");
+        sleep(60);
         return NULL;
     }
 
@@ -149,12 +150,14 @@ void *Operator_conn(void* port) {
     if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr))) {
         perror("binding failed");
         close(serverSock);
+        sleep(60);
         return NULL;
     }
 
     if (listen(serverSock, SOMAXCONN) == -1) {
         perror("Listen Failed");
         close(serverSock);
+        sleep(60);
         return NULL;
     }
     

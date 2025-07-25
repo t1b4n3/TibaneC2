@@ -1,4 +1,5 @@
-{
+{   
+    "_comment": "This file is used for configuring the server",
     "Database": [
       {
         "database_server": "localhost",
@@ -19,7 +20,7 @@
         "tcp_ssl": true,
         "https": false,
         "tcp_port": 9999,
-        "tcp_ssl_port": 50505,
+        "tcp_ssl_port": 7777,
         "https_port": 8080,
         "ssl_cert": "./cert/agent_cert.pem",
         "ssl_key": "./cert/agent_key.pem"

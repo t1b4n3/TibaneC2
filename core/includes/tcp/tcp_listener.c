@@ -23,6 +23,7 @@ void* tcp_agent_conn(void *port) {
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock == -1) {
         perror("Socket creation failed");
+        sleep(60);
         return NULL;
     }
 
@@ -43,6 +44,7 @@ void* tcp_agent_conn(void *port) {
     if (listen(serverSock, SOMAXCONN) == -1) {
         perror("Listen Failed");
         close(serverSock);
+        sleep(60);
         return NULL;
     }
 
@@ -50,6 +52,7 @@ void* tcp_agent_conn(void *port) {
         int sock;
         if ((sock = accept(serverSock, (struct sockaddr*)&clientAddr, (socklen_t*)&client_len)) < 0) {
             perror("Accept failed");
+            sleep(10);
             continue;
         }
 

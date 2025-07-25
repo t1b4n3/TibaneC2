@@ -11,6 +11,8 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <cjson/cJSON.h>
 #include <stdlib.h>
@@ -152,13 +154,11 @@ void* tcp_ssl_listener(void *args) {
     strncpy(cert, Args->cert, BUFFER_SIZE);
     strncpy(key, Args->key, BUFFER_SIZE);
 
-    free(args);
-    // certs paths
-
         // generate certificates if they dont exesits
-    if (access(cert, F_OK) != 0 && access(key, F_OK) != 0) {
+    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
         generate_key_and_cert(cert, key);
     }
+    free(args);
     
 
     int serverSock, agentSock;
@@ -175,6 +175,7 @@ void* tcp_ssl_listener(void *args) {
     if ((serverSock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("Socket creation failed");
         // log
+        sleep(60);
         return NULL;
     }
 
@@ -187,6 +188,7 @@ void* tcp_ssl_listener(void *args) {
     if (listen(serverSock, 20) == -1) {
         perror("Listen Failed");
         close(serverSock);
+        sleep(60);
         return NULL;
     }
 
@@ -195,6 +197,7 @@ void* tcp_ssl_listener(void *args) {
 	SSL_CTX *ctx = SSL_CTX_new(method);
     if (!ctx) {
         perror("Unable to create SSL context");
+        sleep(60);
         return NULL;
     }
     SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0");  // Allows all ciphers for debugging
@@ -248,6 +251,7 @@ void* tcp_ssl_listener(void *args) {
 
 
 
+/*
 
 
 void generate_key_and_cert(char *cert, char *key) {
@@ -315,3 +319,75 @@ cleanup:
 }
 
 
+*/
+
+void generate_key_and_cert(char *cert, char *key) {
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    X509 *x509 = NULL;
+    FILE *key_file = NULL, *cert_file = NULL;
+
+    // Optional: Create directory if needed
+    mkdir("certs", 0700);
+
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+    if (!ctx || EVP_PKEY_keygen_init(ctx) <= 0 ||
+        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0 ||
+        EVP_PKEY_keygen(ctx, &pkey) <= 0) {
+        fprintf(stderr, "Failed to generate RSA key\n");
+        goto cleanup;
+    }
+
+    x509 = X509_new();
+    if (!x509) {
+        fprintf(stderr, "Failed to create X509 structure\n");
+        goto cleanup;
+    }
+
+    X509_set_version(x509, 2);
+    ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
+    X509_gmtime_adj(X509_get_notBefore(x509), 0);
+    X509_gmtime_adj(X509_get_notAfter(x509), 365 * 24 * 60 * 60);
+
+    X509_set_pubkey(x509, pkey);
+
+    X509_NAME *name = X509_get_subject_name(x509);
+    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)"SA", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char *)"MyOrg", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"localhost", -1, -1, 0);
+    X509_set_issuer_name(x509, name);
+
+    if (!X509_sign(x509, pkey, EVP_sha256())) {
+        fprintf(stderr, "Failed to sign certificate\n");
+        goto cleanup;
+    }
+
+    printf("Saving key to: %s\n", key);
+    key_file = fopen(key, "wb");
+    if (!key_file) {
+        perror("Failed to open key file");
+        goto cleanup;
+    }
+    if (!PEM_write_PrivateKey(key_file, pkey, NULL, NULL, 0, NULL, NULL)) {
+        fprintf(stderr, "Failed to write private key\n");
+    }
+    fclose(key_file);
+
+    printf("Saving cert to: %s\n", cert);
+    cert_file = fopen(cert, "wb");
+    if (!cert_file) {
+        perror("Failed to open cert file");
+        goto cleanup;
+    }
+    if (!PEM_write_X509(cert_file, x509)) {
+        fprintf(stderr, "Failed to write certificate\n");
+    }
+    fclose(cert_file);
+
+    printf("Key and certificate successfully generated (OpenSSL 3.0+ compliant)\n");
+
+cleanup:
+    if (ctx) EVP_PKEY_CTX_free(ctx);
+    if (pkey) EVP_PKEY_free(pkey);
+    if (x509) X509_free(x509);
+}
