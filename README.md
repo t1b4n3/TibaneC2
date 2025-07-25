@@ -116,7 +116,8 @@ Use stagers/ to deliver the payload
 - Implement Logging
 - Session mode
 - HTTP/HTTPS Communication methods
-- Encrypted Communication 
+- Encrypted Communication
+- Thread saftey for all threads
 
 ### Implants
 - keylogger

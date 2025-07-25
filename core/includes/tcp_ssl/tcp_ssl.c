@@ -134,9 +134,32 @@ void *tcp_ssl_agent_handler(void *args) {
 
 
 
-void* tcp_ssl_listener(void *port) {
+void* tcp_ssl_listener(void *args) {
     init();
-    int PORT = *(int*)port;
+
+    struct Args_t {
+        char cert[BUFFER_SIZE];
+        char key[BUFFER_SIZE];
+        int port;
+    };
+
+    struct Args_t *Args = (struct Args_t*)args;
+
+    char cert[BUFFER_SIZE];
+    char key[BUFFER_SIZE];
+    int PORT = Args->port;
+
+    strncpy(cert, Args->cert, BUFFER_SIZE);
+    strncpy(key, Args->key, BUFFER_SIZE);
+
+    free(args);
+    // certs paths
+
+        // generate certificates if they dont exesits
+    if (access(cert, F_OK) != 0 && access(key, F_OK) != 0) {
+        generate_key_and_cert(cert, key);
+    }
+    
 
     int serverSock, agentSock;
 
@@ -152,19 +175,19 @@ void* tcp_ssl_listener(void *port) {
     if ((serverSock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("Socket creation failed");
         // log
-        return -1;
+        return NULL;
     }
 
     if (bind(serverSock, (struct sockaddr*)&addr, sizeof(addr))) {
         perror("binding failed");
         close(serverSock);
-        return -1;
+        return NULL;
     }
 
     if (listen(serverSock, 20) == -1) {
         perror("Listen Failed");
         close(serverSock);
-        return -1;
+        return NULL;
     }
 
     // openssl to socket
@@ -172,18 +195,14 @@ void* tcp_ssl_listener(void *port) {
 	SSL_CTX *ctx = SSL_CTX_new(method);
     if (!ctx) {
         perror("Unable to create SSL context");
-        return -1;
+        return NULL;
     }
     SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0");  // Allows all ciphers for debugging
-
-    // generate certificates if they dont exesits
-    if (access("certs/cert.pem", F_OK) != 0 && access("certs/key.pem", F_OK) != 0) {
-        generate_key_and_cert();
-    }
-
-    // load certificates and key
-    SSL_CTX_use_certificate_file(ctx, "certs/cert.pem", SSL_FILETYPE_PEM);
-    SSL_CTX_use_PrivateKey_file(ctx, "certs/key.pem", SSL_FILETYPE_PEM);
+       // load certificates and key
+       SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
+       SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
+   
+   
 
 
     while (1) {
@@ -223,7 +242,6 @@ void* tcp_ssl_listener(void *port) {
         SSL_free(ssl);
         close(agentSock);
     }
-    CLEANUP:
     close(serverSock);
 }
 
@@ -232,7 +250,7 @@ void* tcp_ssl_listener(void *port) {
 
 
 
-void generate_key_and_cert() {
+void generate_key_and_cert(char *cert, char *key) {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     X509 *x509 = NULL;
@@ -274,15 +292,15 @@ void generate_key_and_cert() {
         goto cleanup;
     }
 
-    key_file = fopen("./certs/key.pem", "wb");
+    key_file = fopen(key, "wb");
     if (!key_file || !PEM_write_PrivateKey(key_file, pkey, NULL, NULL, 0, NULL, NULL)) {
-        fprintf(stderr, "Failed to write private key to key.pem\n");
+        fprintf(stderr, "Failed to write private key \n");
     }
     if (key_file) fclose(key_file);
 
-    cert_file = fopen("certs/cert.pem", "wb");
+    cert_file = fopen(cert, "wb");
     if (!cert_file || !PEM_write_X509(cert_file, x509)) {
-        fprintf(stderr, "Failed to write certificate to cert.pem\n");
+        fprintf(stderr, "Failed to write certificate \n");
     }
     if (cert_file) fclose(cert_file);
 

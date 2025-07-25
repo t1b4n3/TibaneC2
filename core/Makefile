@@ -17,7 +17,7 @@ SRC = main.c ./includes/db.c ./includes/tcp/beacon_tcp.c ./includes/tcp/tcp_list
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(LIBS) -g
 
 # Clean target
 clean:
