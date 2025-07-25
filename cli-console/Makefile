@@ -1,11 +1,11 @@
 SRC = main.cpp
-TARGET = cli
+TARGET = tibane-console
 CC = g++
 LIBS = -lcjson
 
 all: $(TARGET)
 $(TARGET): $(SRC)
-	$(CC) $(SRC) $(LIBS) -o $(TARGET) 
+	$(CC) $(SRC) $(LIBS) -o $(TARGET)
 
 clean:
 	rm $(TARGET)

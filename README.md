@@ -28,10 +28,15 @@ The goal is to keep the C2 framework modular by splitting it into clear componen
 
 ```yaml
 [ Web Panel (PHP) ] ┐
-                     ├──> [ Core Server (C++) ] <──> [ Implant (C++) ]
-[ CLI Console (C) ] ┘                           ▲
-                                                │
-                                                [ Stagers (ASM/C/PS/Py/Bash) ]
+                    |
+                    | (https)              
+                    |                  
+                    |--------├──> [ Tibane C2 Core Server (C++) ] <──> [ Implant (C++) ]
+                    |
+                    | (mTLS)
+[ CLI Console (C) ] ┘                                                   ▲
+                                                                        │
+                                                                        [ Stagers (ASM/C/PS/Py/Bash) ]
 ```
 
 ## Directory Structure
@@ -40,7 +45,7 @@ The goal is to keep the C2 framework modular by splitting it into clear componen
 TibaneC2/
 ├── core/ # C Core server logic
 ├── web-panel/ # Web panel (PHP)
-├── cli-console/ # CLI interface (C++)
+├── console/ # CLI console (C++)
 ├── implants/ # Cross-platform agents
 ├── stagers/ # Initial access payloads
 ├── db/ # Database setup/scripts
@@ -71,8 +76,9 @@ TibaneC2/
 
 ## Getting Started
 ### 1 Configure
-- Run [database setup script](./db/setup.sql) in mysql to setup database and add at least 1 operator manully.
+- Run [database setup script](./db/setup.sql) in mysql to setup database and add at least 1 operator credentials manaully.
 - Modify [server](./config/server_conf.json) and [console](./config/console_conf.json) configuration files as needed.
+
 ### 2. Build the Core Server
 ```bash
 cd core
@@ -130,7 +136,7 @@ Use stagers/ to deliver the payload
 ### Web-panel 
 - Authentication 
 
---  
+---
 
 > Legal Notice
 > This project is for educational and authorized testing purposes only. Unauthorized use of this tool may violate local, state, or international laws. You are responsible for using this project ethically and legally.
