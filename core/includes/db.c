@@ -24,7 +24,7 @@ int check_agent_id(char *agent_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char query[1024];
-    snprintf(query, sizeof(query), "SELECT * FROM Agents WHERE agent_id = '%s'", esc);
+    snprintf(query, sizeof(query), "SELECT * FROM Implants WHERE implant_id = '%s'", esc);
     if (mysql_query(con, query)) return 0;
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) return 0;
@@ -59,7 +59,7 @@ int check_tasks_queue(char *agent_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char query[1024];
-    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE agent_id = '%s';", esc);
+    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE implant_id = '%s';", esc);
     if (mysql_query(con, query)) return -1;
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) return -1;
@@ -77,7 +77,7 @@ int check_tasks_queue(char *agent_id) {
 
 void new_agent(struct db_agents args) {
     char query[2048];
-    snprintf(query, sizeof(query), "INSERT INTO Agents (agent_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');",
+    snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');",
              args.agent_id, args.os, args.ip, args.mac, args.arch, args.hostname);
     mysql_query(con, query);
 }
@@ -86,14 +86,14 @@ void update_last_seen(char *agent_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char query[1024];
-    snprintf(query, sizeof(query), "UPDATE Agents SET last_seen = CURRENT_TIMESTAMP() WHERE agent_id = '%s';", esc);
+    snprintf(query, sizeof(query), "UPDATE Implants SET last_seen = CURRENT_TIMESTAMP() WHERE implant_id = '%s';", esc);
     mysql_query(con, query);
 
 }
 
 void TasksTable(struct db_tasks args) {
     char query[4096 + 4096];
-    snprintf(query, sizeof(query), "INSERT INTO Tasks (agent_id, command, response) VALUES ('%s', '%s', '%s');",
+    snprintf(query, sizeof(query), "INSERT INTO Tasks (implant_id, command, response) VALUES ('%s', '%s', '%s');",
              args.agent_id, args.command, args.response);
     mysql_query(con, query);
 }
@@ -104,7 +104,7 @@ void new_tasks(char *agent_id, char *command) {
     mysql_real_escape_string(con, esc_id, agent_id, strlen(agent_id));
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
     char *query = malloc(1024 + 130);
-    snprintf(query, 1024 + 256, "INSERT INTO Tasks (agent_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
+    snprintf(query, 1024 + 256, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
     mysql_query(con, query);
     free(query);
 }
@@ -113,7 +113,7 @@ char *tasks_per_agent(char *agent_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
     char *query = malloc(1024);
-    snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE agent_id = '%s';", esc);
+    snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE implant_id = '%s';", esc);
     if (mysql_query(con, query)) return NULL;
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) return NULL;
@@ -183,7 +183,7 @@ char *info_view(char *table) {
 
 void LogsTable(struct db_logs args) {
     char query[4096+1028];
-    snprintf(query, sizeof(query), "INSERT INTO Logs (agent_id, log_type, message) VALUES ('%s', '%s', '%s');",
+    snprintf(query, sizeof(query), "INSERT INTO Logs (implant_id, log_type, message) VALUES ('%s', '%s', '%s');",
              args.agent_id, args.log_type, args.message);
     mysql_query(con, query);
 }

@@ -7,6 +7,6 @@
 #include <string.h>             
 #include <openssl/sha.h>        
 
-void get_agent_id(const char *input, char output[65]);
+void get_agent_id(const char *input, char output[9]);
 
 #endif

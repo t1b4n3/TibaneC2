@@ -10,6 +10,8 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <cjson/cJSON.h>
+
+#include "../agent.h"
 #include "beacon_tcp.h"
 
 #define BUFFER_SIZE 4096
@@ -27,7 +29,5 @@ void tcp_register_agent(cJSON *json, char *ip, int sock);
 void* tcp_agent_conn(void* port);
 
 void* tcp_agent_handler(void *args);
-
-void get_agent_id(const char *input, char output[65]);
 
 #endif

