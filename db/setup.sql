@@ -2,8 +2,8 @@ CREATE DATABASE IF NOT EXISTS Command_and_Control
 
 USE Command_and_Control
 
-CREATE TABLE IF NOT EXISTS Agents (
-    agent_id VARCHAR(65) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS Implants (
+    implant_id VARCHAR(8) PRIMARY KEY,
     os VARCHAR(50),
     ip VARCHAR(50),
     mac VARCHAR(50),
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS logs (
 
 CREATE TABLE IF NOT EXISTS Tasks (
     task_id int AUTO_INCREMENT PRIMARY KEY,
-    agent_id VARCHAR(65),
+    implant_id VARCHAR(8),
     command TEXT,
     response TEXT DEFAULT NULL,
     status BOOLEAN DEFAULT FALSE,    
-    FOREIGN KEY (agent_id) REFERENCES Agents(agent_id)
+    FOREIGN KEY (implant_id) REFERENCES Implants(implant_id)
 );
 
 CREATE TABLE IF NOT EXISTS Operators (
