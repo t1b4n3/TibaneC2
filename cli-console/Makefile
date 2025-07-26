@@ -1,11 +1,26 @@
 SRC = main.cpp
 TARGET = tibane-console
 CC = g++
-LIBS = -lcjson
+CFLAGS = -O2 -s
+LDFLAGS = -L./libs -Wl,--whole-archive -ldisplay -Wl,--no-whole-archive \
+          -l:libreadline.a -l:libtinfo.a -l:libcjson.a \
+          -static -lstdc++ -lm -lc -lgcc
 
-all: $(TARGET)
-$(TARGET): $(SRC)
-	$(CC) $(SRC) $(LIBS) -o $(TARGET)
+GO_SRC = display.go
+GO_LIB = libs/libdisplay.a
+GO_HEADER = libs/libdisplay.h
+
+all: libdir $(GO_LIB) $(TARGET)
+
+libdir:
+	@mkdir -p libs
+
+$(GO_LIB): $(GO_SRC) | libdir
+	go build -buildmode=c-archive -o $(GO_LIB) $(GO_SRC)
+
+$(TARGET): $(SRC) $(GO_LIB)
+	$(CC) $(CFLAGS) $(SRC) $(LDFLAGS) -o $(TARGET)
 
 clean:
-	rm $(TARGET)
+	rm -f $(TARGET) $(GO_LIB) $(GO_HEADER)
+	rmdir libs 2>/dev/null || true

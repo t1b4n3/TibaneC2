@@ -9,22 +9,65 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <fcntl.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 //#include "includes/session.h"
 //#include "includes/agent.h"
+
+
+extern "C" {
+    #include "./libs/libdisplay.h"
+}
 
 #define BUFFER_SIZE 0x100
 #define MAX_SIZE 0x20000
 #define HELP_SIZE 0x400
 
-char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage\n"
-                                    "   implants : show all active implants\n "
-                                    "   beacons : show all active beacons\n"
-                                    "   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant "
-                                    "   list-tasks : shows all tasks for all implants"    
-                                    "   beacon [id] : interactive shell for selected beacon"
-                                    "   quit, q, exit : exit the program\n\n";
-char beacon_shell_help[HELP_SIZE];
+#define TASK_ID_COL_WIDTH 15
+#define COMMAND_COL_WIDTH 15
+#define STATUS_COL_WIDTH 10
+#define RESPONSE_WRAP_WIDTH 60 // Example WRAP_WIDTH, adjust as needed
+#define HEADER_LINE_LENGTH (TASK_ID_COL_WIDTH + 1 + \
+    COMMAND_COL_WIDTH + 1 + \
+    RESPONSE_WRAP_WIDTH + 1 + \
+    STATUS_COL_WIDTH + 1)
+
+// Total width for data rows (2 spaces after response data):
+// TASK_ID_COL_WIDTH + 1 + COMMAND_COL_WIDTH + 1 + RESPONSE_WRAP_WIDTH + 2 + STATUS_COL_WIDTH + 1
+#define DATA_LINE_LENGTH (TASK_ID_COL_WIDTH + 1 + \
+  COMMAND_COL_WIDTH + 1 + \
+  RESPONSE_WRAP_WIDTH + 2 + \
+  STATUS_COL_WIDTH + 1)
+
+
+
+// Calculate total display width for the separator lines, assuming 1 space between most, 2 after response data
+// For header: (TASK_ID_COL_WIDTH + 1) + (COMMAND_COL_WIDTH + 1) + (RESPONSE_WRAP_WIDTH + 1) + (STATUS_COL_WIDTH + 1)
+#define HEADER_SEPARATOR_LENGTH (TASK_ID_COL_WIDTH + 1 + COMMAND_COL_WIDTH + 1 + RESPONSE_WRAP_WIDTH + 1 + STATUS_COL_WIDTH + 1)
+
+// For data row: (TASK_ID_COL_WIDTH + 1) + (COMMAND_COL_WIDTH + 1) + (RESPONSE_WRAP_WIDTH + 2) + (STATUS_COL_WIDTH + 1)
+#define DATA_SEPARATOR_LENGTH (TASK_ID_COL_WIDTH + 1 + COMMAND_COL_WIDTH + 1 + RESPONSE_WRAP_WIDTH + 2 + STATUS_COL_WIDTH + 1)
+
+
+const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage\n"
+                                        "   implants : show all active implants\n "
+                                        "   beacons : show all active beacons\n"
+                                        "   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant\n"
+                                        "   list-tasks : shows all tasks for all implants\n"    
+                                        "   beacon [id] : interactive shell for selected beacon\n"
+                                        "   quit, q, exit : exit the program\n\n";
+
+
+const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage\n"
+                                    "   TASKS\n"                                    
+                                    "   new-task [task] : Issue new task for the beacon\n"
+                                    "   list-tasks : Show all information abouts tasks for beacon\n"
+                                    "   reponse-task [task id] : show response for specific task"
+                                    ""
+                                    "\n\n";
+
+
 
 
 
@@ -121,170 +164,6 @@ class Communicate_ {
 };
 
 
-class DisplayInfo {
-    public:
-    void display_all_tasks(char *data) {
-        const char* keys[] = {"task_id", "agent_id", "command", "response", "status"};
-        int num_keys = sizeof(keys)/sizeof(keys[0]);
-        
-        // parse json data
-        cJSON *pdata = cJSON_Parse(data);
-        if (!pdata) {
-            const char *error_ptr = cJSON_GetErrorPtr();
-            if (error_ptr != NULL) {
-                fprintf(stderr, "Error parsing JSON data before: %s\n", error_ptr);
-            } else {
-                fprintf(stderr, "Error parsing JSON data (unknown error).\n");
-            }
-            return;
-        }
-
-        int length = cJSON_GetArraySize(cJSON_GetObjectItem(pdata, keys[0]));
-        for (int j = 0; j < num_keys; j++) {
-            if (strcmp(keys[j], "AgentID") == 0) {
-                printf("%-65s", keys[j]);  
-            } else if (strcmp(keys[j], "response") == 0)  {
-                printf("%-70s", keys[j]); 
-            }else if (strcmp(keys[j],"status") == 0) {
-                printf("%-6s", keys[j]);
-            } else if (strcmp(keys[j],"task_id") == 0) {
-                printf("%-7s", keys[j]);
-            } else{
-                printf("%-15s ", keys[j]);
-            }
-        }
-        printf("\n");
-        
-        printf("==========================================================================================================================\n");
-        // Rows
-        for (int i = 0; i < length; i++) {
-            for (int j = 0; j < num_keys; j++) {
-                cJSON *array = cJSON_GetObjectItem(pdata, keys[j]);
-                cJSON *item = cJSON_GetArrayItem(array, i);
-                const char *value = (item && item->valuestring) ? item->valuestring : "NULL";
-        
-                if (strcmp(keys[j], "AgentID") == 0) {
-                    printf("%-65s  ", value); 
-                } else if (strcmp(keys[j], "response") == 0)  {
-                    printf("%-70s", value); 
-                } else if (strcmp(keys[j],"status") == 0) {
-                    printf("%-3s", value);
-                }else if (strcmp(keys[j],"task_id") == 0) {
-                    printf("%-2s", value);
-                } 
-                else {
-                    printf("%-15s ", value);
-                }
-            }
-            printf("\n");
-            printf("---------------------------------------------------------------------------------------------------------------------\n");
-        }
-        cJSON_Delete(pdata);
-        //free(data);
-    }
-
-
-    void display_all_agents(const char* data) {
-        printf("\n[+] Displayiing All Implants\n\n");
-
-        const char* keys[] = {"agent_id", "Operatin System", "Remote Address", "mac", "arch", "Hostname", "last_seen"};
-        int num_keys = sizeof(keys)/sizeof(keys[0]);
-        
-        // parse json data
-        cJSON *pdata = cJSON_Parse(data);
-        if (!pdata) {
-            const char *error_ptr = cJSON_GetErrorPtr();
-            if (error_ptr != NULL) {
-                fprintf(stderr, "Error parsing JSON data before: %s\n", error_ptr);
-            } else {
-                fprintf(stderr, "Error parsing JSON data (unknown error).\n");
-            }
-            return;
-        }
-
-        int length = cJSON_GetArraySize(cJSON_GetObjectItem(pdata, keys[0]));
-        for (int j = 0; j < num_keys; j++) {
-            if (strcmp(keys[j], "AgentID") == 0) {
-                printf("%-80s", keys[j]);  
-            } else {
-                printf("%-15s ", keys[j]);
-            }
-        }
-        printf("\n");
-        
-        printf("==========================================================================================================================\n");
-        // Rows
-        for (int i = 0; i < length; i++) {
-            for (int j = 0; j < num_keys; j++) {
-                cJSON *array = cJSON_GetObjectItem(pdata, keys[j]);
-                cJSON *item = cJSON_GetArrayItem(array, i);
-                const char *value = (item && item->valuestring) ? item->valuestring : "NULL";
-        
-                if (strcmp(keys[j], "AgentID") == 0) {
-                    printf("%-80s  ", value); 
-                } else {
-                    printf("%-15s ", value);
-                }
-            }
-            printf("\n");
-            printf("---------------------------------------------------------------------------------------------------------------------\n");
-        }
-        cJSON_Delete(pdata);
-        //free(data);
-    }
-
-    void display_tasks_per_agent(char *data) {
-        const char* keys[] = {"task_id", "command", "response", "status"};
-        int num_keys = sizeof(keys)/sizeof(keys[0]);
-        
-        // parse json data
-        cJSON *pdata = cJSON_Parse(data);
-        if (!pdata) {
-            const char *error_ptr = cJSON_GetErrorPtr();
-            if (error_ptr != NULL) {
-                fprintf(stderr, "Error parsing JSON data before: %s\n", error_ptr);
-            } else {
-                fprintf(stderr, "Error parsing JSON data (unknown error).\n");
-            }
-            return;
-        }
-
-        int length = cJSON_GetArraySize(cJSON_GetObjectItem(pdata, keys[0]));
-
-        printf("%-5s", "Idx");
-        for (int j = 0; j < num_keys; j++) {
-            if (strcmp(keys[j], "response") == 0) {
-                printf("%-80s ", keys[j]);  
-            } else {
-                printf("%-15s ", keys[j]);
-            }
-        }
-        printf("\n");
-        printf("==========================================================================================================================\n");
-        for (int i = 0; i < length; i++) {
-            printf("%-5d", i);
-            for (int j = 0; j < num_keys; j++) {
-                cJSON *array = cJSON_GetObjectItem(pdata, keys[j]);
-                cJSON *item = cJSON_GetArrayItem(array, i);
-                const char *value = (item && item->valuestring) ? item->valuestring : "NULL";
-        
-                if (strcmp(keys[j], "response") == 0) {
-                    printf("%-80s  ", value); 
-                } else {
-                    printf("%-15s ", value);
-                }
-            }
-            printf("\n");
-            printf("---------------------------------------------------------------------------------------------------------------------\n");
-        }
-        cJSON_Delete(pdata);
-
-    }
-};
-
-
-
-
 class SendInfo : public Communicate_ {
     public:
     void new_task(const char *id, const char* command) {
@@ -358,18 +237,68 @@ class RetriveInfo : public Communicate_ {
 };
 
 
+
+
+char* beacon_command_generator(const char* text, int state) {
+    static const char* commands[] = {
+        "info", "list-tasks", "new-task", "exit", "quit", "q", NULL
+    };
+    
+    static int list_index, len;
+    const char* name;
+
+    if (!state) {
+        list_index = 0;
+        len = strlen(text);
+    }
+
+    while ((name = commands[list_index++])) {
+        if (strncmp(name, text, len) == 0) {
+            return strdup(name);
+        }
+    }
+
+    return NULL;
+}
+
+char** beacon_shell_completion(const char* text, int start, int end) {
+    rl_attempted_completion_over = 1;
+    return rl_completion_matches(text, beacon_command_generator);
+}
+
+
+
 class Operator {
     private:
 
     public:
-    void AgentShell(const char* id, RetriveInfo recvinfo, SendInfo sendinfo, DisplayInfo displayinfo) {
-        printf("\n[+] Using Agent ID : %s \n\n", id);
-        char cmd[BUFFER_SIZE];
+    void AgentShell(const char* id, RetriveInfo recvinfo, SendInfo sendinfo) {
+        printf("\n[+] Using Agent ID : %s \n", id);
+        // Set up readline for this shell
+        rl_attempted_completion_function = beacon_shell_completion;
+        
+        // Save current history and start fresh for this session
+        HIST_ENTRY** orig_history = history_list();
+        clear_history();
         while (1) {
-            memset(cmd, 0, sizeof(cmd));
-            printf("\n[ tibane-shell ] (%s)$ ", id);
-            fgets(cmd, sizeof(cmd) -1, stdin);
-            cmd[strcspn(cmd, "\n")] = 0;
+            
+            char prompt[BUFFER_SIZE];
+            snprintf(prompt, sizeof(prompt), "\n[ tibane-shell ] (%s) $ ", id);
+            char *cmd = readline(prompt);
+
+            if (!cmd) {
+                printf("\n[-] Back to Home Shell \n\n");
+                break;
+            }
+
+            if (strlen(cmd) == 0) {
+                free(cmd);
+                continue;  
+            }
+
+            add_history(cmd);
+
+
 
             if  (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4)==0 || strncmp(cmd, "q", 1)==0) {
                 printf("\n[-] Back to Home Shell \n\n");
@@ -383,22 +312,34 @@ class Operator {
                 char* data = recvinfo.tasks_per_agent(id);
                 if (!data) {
                     printf("\n [-] NO DATA RELATED TO TASKS FOR %s \n\n", id);
+                    free(data);
                     continue;
                 }
-                displayinfo.display_tasks_per_agent(data);
+                //displayinfo.display_tasks_per_agent(data);
+                DisplayTasksPerAgent(data);
+                free(data);
             } else if (strncmp(cmd, "new-task", 8) == 0) {
                 char task[BUFFER_SIZE];
                 if (sscanf(cmd, "new-task %s", task) != 1) {
-                    printf("\nFailed to add task\n\n'n");
+                    printf("\nFailed to add task\n'n");
                     continue;
                 }
                 sendinfo.new_task(id, task);
-                printf("\n[+] Added Task \n\n");
+                printf("\n[+] Added Task \n");
             }
+            else {
+                printf("%s", beacon_shell_help);
+            }
+
+            free(cmd);
         }
     }
 };
 
+
+char* command_generator(const char* text, int state);
+char** shell_completion(const char* text, int start, int end);
+void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendinfo, Operator op);
 
 
 int main() {
@@ -443,14 +384,13 @@ int main() {
     Operator op;
     RetriveInfo recvinfo;
     SendInfo sendinfo;
-    DisplayInfo displayinfo;
 
     while (1) {
         if (com.conn() == 0) {
             break;
         };
         printf("Failed to connect to server: \n");
-        sleep(10);
+        sleep(3);
     }
     recvinfo.sock = com.sock;
     sendinfo.sock = com.sock;
@@ -461,49 +401,107 @@ int main() {
             break;
         }
         printf("Failed to authenticate: \nTry Again\n\n");
-        sleep(5); // 
+        sleep(3); // 
+        tries++;
     } while (tries < 3);
 
 
     
 
     // shell
-    char cmd[BUFFER_SIZE];
+    // Initialize readline
+    rl_attempted_completion_function = shell_completion;
+    using_history();
     while (true) {
-        memset(cmd, 0, sizeof(cmd));
-        printf("[ tibane-shell ] $ ");
-        fgets(cmd, sizeof(cmd) -1, stdin);
-        cmd[strcspn(cmd, "\n")] = 0;
-
-        if (strncmp(cmd, "implants", 4) == 0) {
-            char *data = recvinfo.get_info("Agents");
-            if (!data) {
-                printf("\n[-] NO DATA \n\n");
-                continue;
-            }
-            displayinfo.display_all_agents(data);
-        } else if (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4)==0 || strncmp(cmd, "q", 1)==0) {
-            printf("\n[-] Exiting \n\n");
-            sleep(1);
-            exit(0);
-        } else if (strncmp(cmd, "beacon", 3) ==0) {
-            char id[66];
-            if (sscanf(cmd, "beacon %s", id) == 1) {
-                // confirm if id exists
-                op.AgentShell(id, recvinfo, sendinfo, displayinfo);
-            } else {
-                continue;
-            }
-        } else if (strncmp(cmd, "tasks", 5) == 0) {
-            // view all tasks
-            char *data = recvinfo.get_info("Tasks");
-            if (!data) {
-                printf("\n[-] NO DATA \n \n");
-                continue;
-            }
-            displayinfo.display_all_tasks(data);
-        }else {
-            printf("%s", tibane_shell_help);
+        char *cmd = readline("[ tibane-shell ] $ ");
+        
+        if (!cmd) {  // Handle Ctrl+D
+            printf("Ctrl + D \n");
+            break;
         }
+
+        // Skip empty commands
+        if (strlen(cmd) == 0) {
+            free(cmd);
+            continue;
+        }
+
+        // Add to history and process
+        add_history(cmd);
+        process_shell_command(cmd, recvinfo, sendinfo, op);
+        free(cmd);
     }
 }
+
+
+//////////////////////////////////////////////
+// shell
+
+void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendinfo, Operator op) {
+    if (strncmp(cmd, "implants", 4) == 0) {
+        char* data = recvinfo.get_info("Implants");
+        if (!data) {
+            printf("\n[-] NO DATA ABOUT IMPLANTS \n\n");
+            return;
+        }
+        //displayinfo.display_all_agents(data);
+        DisplayAllAgents(data);
+        free(data);
+    } 
+    else if (strncmp(cmd, "exit", 4) == 0 || strncmp(cmd, "quit", 4) == 0 || strncmp(cmd, "q", 1) == 0) {
+        printf("\n[-] Exiting \n\n");
+        sleep(1);
+        exit(0);
+    } 
+    else if (strncmp(cmd, "beacon", 6) == 0) {
+        char id[66];
+        if (sscanf(cmd, "beacon %65s", id) == 1) {
+            // confirm if id exists
+            op.AgentShell(id, recvinfo, sendinfo);
+        }
+    } 
+    else if (strncmp(cmd, "list-tasks", 10) == 0) {
+        char* data = recvinfo.get_info("Tasks");
+        if (!data) {
+            printf("\n[-] NO DATA About Tasks\n \n");
+            return;
+        }
+        //displayinfo.display_all_tasks(data);
+        DisplayAllTasks(data);
+        free(data);
+    }
+    else {
+        printf("%s", tibane_shell_help);
+    }
+}
+
+char** shell_completion(const char* text, int start, int end) {
+    rl_attempted_completion_over = 1;
+    return rl_completion_matches(text, command_generator);
+}
+
+
+
+char* command_generator(const char* text, int state) {
+    static const char* commands[] = {
+        "implants", "beacon", "list-tasks", "exit", "quit", "q", NULL
+    };
+    
+    static int list_index, len;
+    const char* name;
+
+    if (!state) {
+        list_index = 0;
+        len = strlen(text);
+    }
+
+    while ((name = commands[list_index++])) {
+        if (strncmp(name, text, len) == 0) {
+            return strdup(name);
+        }
+    }
+
+    return NULL;
+}
+
+
