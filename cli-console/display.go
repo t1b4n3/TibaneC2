@@ -54,7 +54,7 @@ func DisplayTasksPerAgent(data *C.char) {
 	var parsed map[string][]string
 	err := json.Unmarshal([]byte(jsonStr), &parsed)
 	if err != nil {
-		fmt.Println("Invalid JSON input")
+		fmt.Println("\n[-] Invalid JSON input")
 		return
 	}
 
@@ -122,7 +122,7 @@ func DisplayAllTasks(data *C.char) {
 	var parsed map[string][]string
 	err := json.Unmarshal([]byte(jsonStr), &parsed)
 	if err != nil {
-		fmt.Println("Invalid JSON input")
+		fmt.Println("\n[-] Invalid JSON input")
 		return
 	}
 
@@ -237,6 +237,76 @@ func DisplayAllAgents(data *C.char) {
 		)
 		fmt.Println(strings.Repeat("-", len(header)))
 	}
+}
+
+
+// display 
+//export DisplayCommandResponse
+func DisplayCommandResponse(data *C.char) {
+    jsonStr := C.GoString(data)
+
+    var parsed map[string][]string
+    err := json.Unmarshal([]byte(jsonStr), &parsed)
+    if err != nil {
+        fmt.Println("\n[-] Invalid JSON input")
+        return
+    }
+
+    const (
+        widthCommand = 40
+        widthResp    = 80
+    )
+
+    // Header
+    header := fmt.Sprintf("%-*s  %-*s", widthCommand, "Command", widthResp, "Response")
+    separator := strings.Repeat("=", len(header))
+    fmt.Println(header)
+    fmt.Println(separator)
+
+    // Check if we have the expected fields
+    if parsed["command"] == nil || parsed["response"] == nil {
+        fmt.Println("JSON missing required fields (command and/or response)")
+        return
+    }
+
+    // Find the maximum length of either array
+    maxTasks := len(parsed["command"])
+    if len(parsed["response"]) > maxTasks {
+        maxTasks = len(parsed["response"])
+    }
+
+    // Display each command/response pair
+    for i := 0; i < maxTasks; i++ {
+        cmd := ""
+        if i < len(parsed["command"]) {
+            cmd = parsed["command"][i]
+        }
+
+        resp := ""
+        if i < len(parsed["response"]) {
+            resp = parsed["response"][i]
+        }
+
+        cmdLines := wrap(cmd, widthCommand)
+        respLines := wrap(resp, widthResp)
+
+        maxLines := len(cmdLines)
+        if len(respLines) > maxLines {
+            maxLines = len(respLines)
+        }
+
+        for j := 0; j < maxLines; j++ {
+            var cmdField, respField string
+            if j < len(cmdLines) {
+                cmdField = cmdLines[j]
+            }
+            if j < len(respLines) {
+                respField = respLines[j]
+            }
+            fmt.Printf("%-*s  %-*s\n", widthCommand, cmdField, widthResp, respField)
+        }
+        fmt.Println(strings.Repeat("-", len(header)))
+    }
 }
 
 func main() {}

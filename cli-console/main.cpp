@@ -24,31 +24,8 @@ extern "C" {
 #define MAX_SIZE 0x20000
 #define HELP_SIZE 0x400
 
-#define TASK_ID_COL_WIDTH 15
-#define COMMAND_COL_WIDTH 15
-#define STATUS_COL_WIDTH 10
-#define RESPONSE_WRAP_WIDTH 60 // Example WRAP_WIDTH, adjust as needed
-#define HEADER_LINE_LENGTH (TASK_ID_COL_WIDTH + 1 + \
-    COMMAND_COL_WIDTH + 1 + \
-    RESPONSE_WRAP_WIDTH + 1 + \
-    STATUS_COL_WIDTH + 1)
-
-// Total width for data rows (2 spaces after response data):
-// TASK_ID_COL_WIDTH + 1 + COMMAND_COL_WIDTH + 1 + RESPONSE_WRAP_WIDTH + 2 + STATUS_COL_WIDTH + 1
-#define DATA_LINE_LENGTH (TASK_ID_COL_WIDTH + 1 + \
-  COMMAND_COL_WIDTH + 1 + \
-  RESPONSE_WRAP_WIDTH + 2 + \
-  STATUS_COL_WIDTH + 1)
-
-
-
-// Calculate total display width for the separator lines, assuming 1 space between most, 2 after response data
-// For header: (TASK_ID_COL_WIDTH + 1) + (COMMAND_COL_WIDTH + 1) + (RESPONSE_WRAP_WIDTH + 1) + (STATUS_COL_WIDTH + 1)
-#define HEADER_SEPARATOR_LENGTH (TASK_ID_COL_WIDTH + 1 + COMMAND_COL_WIDTH + 1 + RESPONSE_WRAP_WIDTH + 1 + STATUS_COL_WIDTH + 1)
-
-// For data row: (TASK_ID_COL_WIDTH + 1) + (COMMAND_COL_WIDTH + 1) + (RESPONSE_WRAP_WIDTH + 2) + (STATUS_COL_WIDTH + 1)
-#define DATA_SEPARATOR_LENGTH (TASK_ID_COL_WIDTH + 1 + COMMAND_COL_WIDTH + 1 + RESPONSE_WRAP_WIDTH + 2 + STATUS_COL_WIDTH + 1)
-
+char *IP;
+int PORT;
 
 const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage\n"
                                         "   implants : show all active implants\n "
@@ -66,14 +43,6 @@ const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage\n"
                                     "   reponse-task [task id] : show response for specific task"
                                     ""
                                     "\n\n";
-
-
-
-
-
-char *IP;
-int PORT;
-//int sock;
 
 
 void banner() {
@@ -135,6 +104,9 @@ class Communicate_ {
         cJSON_AddStringToObject(credentials, "username", user);
         cJSON_AddStringToObject(credentials, "password", pass);
         char *creds = cJSON_Print(credentials);
+        if (!creds) {
+            return false;
+        }
         cJSON_Delete(credentials);
     
         send(sock, creds, strlen(creds), 0);
@@ -153,7 +125,9 @@ class Communicate_ {
             printf("Error parsing JSON!\n");
             return false;
         }
-        cJSON *sign_in = cJSON_GetObjectItem(response, "operator");
+        cJSON *sign_in = cJSON_GetObjectItem(response, "authenticated");
+        // handle 
+        
         if (strcmp(sign_in->valuestring, "true") == 0) {
             cJSON_Delete(response);
             return true;    
@@ -171,14 +145,20 @@ class SendInfo : public Communicate_ {
         if (!info) {
             return;
         }
-        cJSON_AddStringToObject(info, "Info", "new_task");
-        cJSON_AddStringToObject(info, "agent_id", id);
+        cJSON_AddStringToObject(info, "Info", "implant_id");
+        cJSON_AddStringToObject(info, "implant_id", id);
+        cJSON_AddStringToObject(info, "action", "new-task");
         cJSON_AddStringToObject(info, "command", command);
         char *info_ = cJSON_Print(info);
         send(sock, info_, strlen(info_), 0);
         cJSON_Delete(info);
         free(info_);
+
+        char reply[BUFFER_SIZE];
+        
+        recv(sock, reply, sizeof(reply), 0);
     }
+
 
 };
 
@@ -211,16 +191,66 @@ class RetriveInfo : public Communicate_ {
     }
 
 
-    char* tasks_per_agent(const char* id) {
+    char* list_tasks(const char *id) {
+        char *info_container = (char*)malloc(MAX_SIZE + 1);
+        if (!info_container) return NULL;
+    
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            free(info_container);
+            return NULL;
+        }
+    
+        // Correct JSON structure (matches server expectations)
+
+        cJSON_AddStringToObject(info, "Info", "implant_id");
+        cJSON_AddStringToObject(info, "implant_id", id);
+        cJSON_AddStringToObject(info, "action", "list-tasks");
+    
+        char *info_json = cJSON_PrintUnformatted(info); // Smaller payload
+        if (!info_json) {
+            cJSON_Delete(info);
+            free(info_container);
+            return NULL;
+        }
+    
+        // Send request
+        if (send(sock, info_json, strlen(info_json), 0) <= 0) {
+            perror("send failed");
+            free(info_json);
+            cJSON_Delete(info);
+            free(info_container);
+            return NULL;
+        }
+    
+        free(info_json);
+        cJSON_Delete(info);
+    
+        // Receive response
+        int bytes_received = recv(sock, info_container, MAX_SIZE, 0);
+        if (bytes_received <= 0) {
+            perror("recv failed");
+            free(info_container);
+            return NULL;
+        }
+        info_container[bytes_received] = '\0';
+    
+        return info_container;
+    }
+
+
+    char *response_task(const char *id, int task_id) {
         char *info_container = (char*)malloc(MAX_SIZE);
         cJSON *info = cJSON_CreateObject();
         if (!info) {
             return NULL;
         }
-        cJSON_AddStringToObject(info, "Info", "agent_id");
-        cJSON_AddStringToObject(info, "agent_id", id);
-        char *info_ = cJSON_Print(info);
+        cJSON_AddStringToObject(info, "Info", "implant_id");
+        cJSON_AddStringToObject(info, "implant_id", id);
+        cJSON_AddStringToObject(info, "action", "response-task");
+        cJSON_AddNumberToObject(info, "task_id", task_id);
 
+        char *info_ = cJSON_Print(info);
         send(sock, info_, strlen(info_), 0);
 
         cJSON_Delete(info);
@@ -235,9 +265,6 @@ class RetriveInfo : public Communicate_ {
         return info_container;
     }
 };
-
-
-
 
 char* beacon_command_generator(const char* text, int state) {
     static const char* commands[] = {
@@ -309,7 +336,7 @@ class Operator {
             } else if (strncmp(cmd, "list-tasks", 10) == 0) {
                 // print all tasks
                 // task_per_agent
-                char* data = recvinfo.tasks_per_agent(id);
+                char* data = recvinfo.list_tasks(id);
                 if (!data) {
                     printf("\n [-] NO DATA RELATED TO TASKS FOR %s \n\n", id);
                     free(data);
@@ -321,11 +348,21 @@ class Operator {
             } else if (strncmp(cmd, "new-task", 8) == 0) {
                 char task[BUFFER_SIZE];
                 if (sscanf(cmd, "new-task %s", task) != 1) {
-                    printf("\nFailed to add task\n'n");
+                    printf("\n[-] Failed to add task\n'n");
                     continue;
                 }
                 sendinfo.new_task(id, task);
                 printf("\n[+] Added Task \n");
+            } else if (strncmp(cmd, "response-task", 14) == 0) {
+                int task_id;
+                if (sscanf(cmd, "response-task %d", task_id) != 1) {
+                    printf("\n[-] MUST HAVE TASK ID\n");
+                    continue;
+                }
+                char *data = recvinfo.response_task(id, task_id);
+                // print this data
+                DisplayCommandResponse(data);
+                free(data);
             }
             else {
                 printf("%s", beacon_shell_help);

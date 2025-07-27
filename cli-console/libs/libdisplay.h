@@ -83,6 +83,9 @@ extern void DisplayTasksPerAgent(char* data);
 extern void DisplayAllTasks(char* data);
 extern void DisplayAllAgents(char* data);
 
+// display 
+extern void DisplayCommandResponse(char* data);
+
 #ifdef __cplusplus
 }
 #endif
