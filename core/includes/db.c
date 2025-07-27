@@ -153,7 +153,7 @@ int authenticate_operator(char *username, char *password) {
     return (num_rows > 0) ? 0 : -1;
 }
 
-char *info_view(char *table) {
+char *GetData(char *table) {
     char esc[256];
     mysql_real_escape_string(con, esc, table, strlen(table));
     char *query = malloc(1024);
@@ -186,4 +186,18 @@ void LogsTable(struct db_logs args) {
     snprintf(query, sizeof(query), "INSERT INTO Logs (implant_id, log_type, message) VALUES ('%s', '%s', '%s');",
              args.agent_id, args.log_type, args.message);
     mysql_query(con, query);
+}
+
+
+char *cmd_and_response(int task_id) {
+    char query[1024];
+    snprintf(query, sizeof(query), "SELECT command, response FROM Tasks WHERE task_id = %d;", task_id);
+    if (mysql_query(con, query)) return NULL;
+    MYSQL_RES *result = mysql_store_result(con);
+    if (result == NULL) return NULL;
+    MYSQL_ROW row = mysql_fetch_row(result);
+    char *cmd = NULL;
+    if (row && row[0]) cmd = strdup(row[0]);
+    mysql_free_result(result);
+    return cmd;
 }

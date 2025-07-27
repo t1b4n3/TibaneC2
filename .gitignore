@@ -24,7 +24,53 @@
 ### Vscode ###
 # Visual Studio Code editor settings and workspace files
 
-# Visual Studio Code
-.vscode/*
-.vscode/
+# Visual Studio Code - all instances in all folders
+**/.vscode/*
+**/.vscode/
+
+# Obsidian files - all instances in all folders
+**/.obsidian/*
+**/.obsidian/
+
+# Core certificates
+/core/cert*
+
+### Binary Files ###
+# Executables and compiled files
+*.exe
+*.dll
+*.so
+*.dylib
+*.class
+*.o
+*.a
+*.lib
+*.out
+*.app
+*.bin
+*.dat
+*.pyc
+*.pyd
+*.dll
+*.obj
+*.suo
+*.pdb
+*.idb
+*.ilk
+*.msi
+*.msm
+*.msp
+*.sdf
+*.ipch
+*.ncb
+*.dmp
+*.wasm
+*.mo
+*.pot
+*.elf 
+
+
+
+# Other IDE history
 .history/
+

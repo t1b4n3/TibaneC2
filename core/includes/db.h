@@ -59,24 +59,32 @@ void new_agent(struct db_agents args);
 
 void update_last_seen(char *agent_id);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// OPERATOR CONSOLE
+
+// insert task
 void TasksTable(struct db_tasks args);
 
-
+// 
 void LogsTable(struct db_logs args);
 
+// get all data from a table
+// used to view all implants, all tasks, all logs
+char *GetData(char *table);
 
-char *info_view(char *table);
-
-
+// authenticated operator
 int authenticate_operator(char *username, char *password);
-
-
 
 // get all tasks per agent
 char *tasks_per_agent(char *agent_id);
 
+// get command and response for specific task
+char *cmd_and_response(int task_id);
 
+
+// insert new tasks
 void new_tasks(char *agent_id, char *command);
+
 
 
 #endif
