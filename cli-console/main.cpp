@@ -12,6 +12,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+
 //#include "includes/session.h"
 //#include "includes/agent.h"
 
@@ -95,6 +96,7 @@ class Communicate_ {
         printf("[+] Enter Password: ");
         fgets(pass, sizeof(pass) -1, stdin);
         pass[strcspn(pass, "\n")] = 0;
+        
         
         cJSON *credentials = cJSON_CreateObject();
         if (!credentials) {

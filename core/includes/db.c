@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <cjson/cJSON.h>
 
+#include "bcrypt/bcrypt.h"
+
 MYSQL *con = NULL;
 
 int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
@@ -136,6 +138,57 @@ char *tasks_per_agent(char *agent_id) {
     free(query);
     return json_output;
 }
+
+/*
+int authenticate_operator(char *username, char *password) {
+    // Input validation
+    if (!username || !password) return -1;
+    if (strlen(username) > 100 || strlen(password) > 100) return -1;
+
+    // Escape username (prevent SQL injection)
+    char esc_user[128];
+    if (strlen(username) * 2 + 1 > sizeof(esc_user)) return -1;
+    mysql_real_escape_string(con, esc_user, username, strlen(username));
+
+    // Build query (check for truncation)
+    char query[256];
+    if (snprintf(query, sizeof(query),
+                "SELECT password FROM Operators WHERE username='%s'", 
+                esc_user) >= sizeof(query)) {
+        return -1;
+    }
+
+    // Execute query
+    if (mysql_query(con, query)) {
+        fprintf(stderr, "[-] Query failed: %s\n", mysql_error(con));
+        return -1;
+    }
+
+    // Store result
+    MYSQL_RES *res = mysql_store_result(con);
+    if (!res) {
+        fprintf(stderr, "[-] Failed to store result: %s\n", mysql_error(con));
+        return -1;
+    }
+    // Fetch row
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (!row || !row[0]) {
+        mysql_free_result(res);
+        return -1;  // User not found
+    }
+
+    // Verify bcrypt hash
+    const char *stored_hash = row[0];
+    if (strlen(stored_hash) < 60 || stored_hash[0] != '$') {
+        mysql_free_result(res);
+        return -1;  // Invalid hash format
+    }
+
+    int auth_result = (bcrypt_checkpw(password, stored_hash) == 0) ? 0 : -1;
+    mysql_free_result(res);
+    return auth_result;
+}
+*/
 
 int authenticate_operator(char *username, char *password) {
     char esc_user[128];
