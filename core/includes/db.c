@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <cjson/cJSON.h>
 
-#include "bcrypt/bcrypt.h"
+#include <crypt.h>
 
 MYSQL *con = NULL;
 
@@ -139,7 +139,7 @@ char *tasks_per_agent(char *agent_id) {
     return json_output;
 }
 
-/*
+
 int authenticate_operator(char *username, char *password) {
     // Input validation
     if (!username || !password) return -1;
@@ -184,12 +184,25 @@ int authenticate_operator(char *username, char *password) {
         return -1;  // Invalid hash format
     }
 
-    int auth_result = (bcrypt_checkpw(password, stored_hash) == 0) ? 0 : -1;
+    // Verify using crypt()
+    char *result = crypt(password, stored_hash);
+    
+    if (result == NULL) {
+        perror("crypt() failed");
+        return 1;
+    }
+
+    int auth_result;
+    if (strcmp(result, stored_hash) == 0) { 
+        auth_result = 0;
+    } else {
+        auth_result = -1;
+    }
     mysql_free_result(res);
     return auth_result;
 }
-*/
 
+/*
 int authenticate_operator(char *username, char *password) {
     char esc_user[128];
     char esc_pass[128];
@@ -205,6 +218,7 @@ int authenticate_operator(char *username, char *password) {
     free(query);
     return (num_rows > 0) ? 0 : -1;
 }
+*/
 
 char *GetData(char *table) {
     char esc[256];

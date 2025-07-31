@@ -15,16 +15,19 @@ def AddUsers(username, password):
                                 database=DATABASE)
     cur = connection.cursor()
 
-
-    hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+    salt = bcrypt.gensalt(12)
+    hashed_pw = bcrypt.hashpw(password.encode(), salt=salt)
+    
 
     cur.execute("INSERT INTO Operators (username, password) VALUES (%s, %s)", 
                 (username, hashed_pw))
-    
+
     connection.commit()
 
     cur.close()
     connection.close()
+
+
 
 
 AddUsers("dev", "dev")

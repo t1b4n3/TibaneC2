@@ -25,7 +25,6 @@ void get_agent_id(const char *input, char output[9]) {
     for (int i = 0; i < 6; i++) {
         val = (val << 8) | hash[i];
     }
-
     // Convert to base62 (8 characters)
     for (int i = 7; i >= 0; i--) {
         output[i] = base62[val % 62];

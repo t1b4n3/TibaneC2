@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <crypt.h>
 
 
 //#include "includes/session.h"
@@ -97,6 +98,8 @@ class Communicate_ {
         fgets(pass, sizeof(pass) -1, stdin);
         pass[strcspn(pass, "\n")] = 0;
         
+
+        // hash password
         
         cJSON *credentials = cJSON_CreateObject();
         if (!credentials) {
