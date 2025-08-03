@@ -56,13 +56,13 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
     char input[255];
     snprintf(input, sizeof(input), "%s-%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring, arch->valuestring);
     char agent_id[65];
-    get_agent_id(input, agent_id);
+    GenerateID(input, agent_id);
 
     // check if id already exists in database
-    if (check_agent_id(agent_id) == 1) goto REPLY;
+    if (check_implant_id(agent_id) == 1) goto REPLY;
 
-    //log
-    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
+
+    log_message(LOG_INFO, "New Implant Registration (TCP SSL): agent_id = %s, hostname = %s, os = %s, arch = %s", agent_id,  hostname->valuestring, os->valuestring, arch->valuestring);
 
     // register to datbase (agent_id, os, ip, mac, hostname)
     // check if agent id exists
@@ -80,7 +80,7 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
 
     strncpy(args.arch, arch->valuestring, sizeof(args.arch) - 1);
     args.arch[sizeof(args.arch) - 1] = '\0';
-    new_agent(args);
+    new_implant(args);
 
     // reply with agent id
     REPLY:
@@ -250,76 +250,6 @@ void* tcp_ssl_listener(void *args) {
 
 
 
-
-/*
-
-
-void generate_key_and_cert(char *cert, char *key) {
-    EVP_PKEY *pkey = NULL;
-    EVP_PKEY_CTX *ctx = NULL;
-    X509 *x509 = NULL;
-    FILE *key_file = NULL, *cert_file = NULL;
-
-    // create directory for certs
-    
-  
-    ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
-    if (!ctx || EVP_PKEY_keygen_init(ctx) <= 0 ||
-        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0 ||
-        EVP_PKEY_keygen(ctx, &pkey) <= 0) {
-        fprintf(stderr, "Failed to generate RSA key\n");
-        goto cleanup;
-    }
-
-    x509 = X509_new();
-    if (!x509) {
-        fprintf(stderr, "Failed to create X509 structure\n");
-        goto cleanup;
-    }
-
-    X509_set_version(x509, 2);  // v3
-    ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
-    X509_gmtime_adj(X509_get_notBefore(x509), 0);
-    X509_gmtime_adj(X509_get_notAfter(x509), 365 * 24 * 60 * 60);  // 1 year
-
-    X509_set_pubkey(x509, pkey);
-
-   
-    X509_NAME *name = X509_get_subject_name(x509);
-    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)"SA", -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char *)"MyOrg", -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"localhost", -1, -1, 0);
-    X509_set_issuer_name(x509, name);
-
-    if (!X509_sign(x509, pkey, EVP_sha256())) {
-        fprintf(stderr, "Failed to sign certificate\n");
-        goto cleanup;
-    }
-
-    key_file = fopen(key, "wb");
-    if (!key_file || !PEM_write_PrivateKey(key_file, pkey, NULL, NULL, 0, NULL, NULL)) {
-        fprintf(stderr, "Failed to write private key \n");
-    }
-    if (key_file) fclose(key_file);
-
-    cert_file = fopen(cert, "wb");
-    if (!cert_file || !PEM_write_X509(cert_file, x509)) {
-        fprintf(stderr, "Failed to write certificate \n");
-    }
-    if (cert_file) fclose(cert_file);
-
-    printf("Key and certificate successfully generated (OpenSSL 3.0+ compliant)\n");
-
-cleanup:
-    if (ctx) EVP_PKEY_CTX_free(ctx);
-    if (pkey) EVP_PKEY_free(pkey);
-    if (x509) X509_free(x509);
-    EVP_cleanup();
-    ERR_free_strings();
-}
-
-
-*/
 
 void generate_key_and_cert(char *cert, char *key) {
     EVP_PKEY *pkey = NULL;

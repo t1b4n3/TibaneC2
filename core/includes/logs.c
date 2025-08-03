@@ -1,71 +1,29 @@
 #include "logs.h"
 
-
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdarg.h>
 #include <time.h>
-#include <string.h>
-#include <math.h>
 
-FILE *logg = NULL; 
+static const char* level_strings[] = {
+    "DEBUG", "INFO", "WARN", "ERROR"
+};
 
-void lopen() {
-    logg = fopen("main.log", "a");
-}
+void log_message(LogLevel level, const char *format, ...) {
+    FILE *log_file = fopen("c2_server.log", "a");
+    if (!log_file) return;
 
-void llog(char *info) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
 
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime) - 1);
-    ttime[strcspn(ttime, "\n")] = 0;
+    fprintf(log_file, "[%02d-%02d-%04d %02d:%02d:%02d] [%s] ",
+        t->tm_mday, t->tm_mon+1, t->tm_year+1900,
+        t->tm_hour, t->tm_min, t->tm_sec,
+        level_strings[level]);
 
-    snprintf(buffer, sizeof(buffer), "[%s] - %s", ttime, info);
-    fprintf(logg, "%s", buffer);
+    va_list args;
+    va_start(args, format);
+    vfprintf(log_file, format, args);
+    va_end(args);
 
-}
-
-void log_beacon(char *agent_id) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
-
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime) - 1);
-    ttime[strcspn(ttime, "\n")] = 0;
-
-    snprintf(buffer, sizeof(buffer), "[%s] - Beacon FROM : %s", ttime, agent_id);
-    fprintf(logg, "%s", buffer);
-}
-
-void log_new_agent(char *agent_id, char *os, char *hostname, char *mac, char* arch) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
-
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime) - 1);
-    ttime[strcspn(ttime, "\n")] = 0;
-
-    snprintf(buffer, sizeof(buffer), "[%s] - New Agent | Agent id: %s, OS: %s, Hostname: %s, MAC: %s, Arch: %s", ttime, agent_id, os, hostname, mac, arch);
-    fprintf(logg, "%s", buffer);
-}
-
-void lclose() {
-    fclose(logg);
-}
-
-void operator_connections(char *ip) {
-    char buffer[0x400];
-    time_t t;
-    time(&t);
-
-    char ttime[0x20];
-    strncpy(ttime, ctime(&t), sizeof(ttime) -1);
-    ttime[strcspn(ttime, "\n")] = 0;
-
-    snprintf(buffer, sizeof(buffer), "[%s] - CONNECTION FROM: %s", ttime, ip);
-    fprintf(logg, "%s", buffer);
+    fprintf(log_file, "\n");
+    fclose(log_file);
 }

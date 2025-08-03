@@ -126,13 +126,14 @@ void tcp_register_agent(cJSON *json, char *ip, int sock) {
     char input[255];
     snprintf(input, sizeof(input), "%s-%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring, arch->valuestring);
     char agent_id[65];
-    get_agent_id(input, agent_id);
+   GenerateID(input, agent_id);
 
     // check if id already exists in database
-    if (check_agent_id(agent_id) == 1) goto REPLY;
+    if (check_implant_id(agent_id) == 1) goto REPLY;
 
     //log
-    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
+    //log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
+    log_message(LOG_INFO, "New Implant Registration (TCP): agent_id = %s, hostname = %s, os = %s, arch = %s", agent_id,  hostname->valuestring, os->valuestring, arch->valuestring);
 
     // register to datbase (agent_id, os, ip, mac, hostname)
     // check if agent id exists
@@ -150,7 +151,7 @@ void tcp_register_agent(cJSON *json, char *ip, int sock) {
 
     strncpy(args.arch, arch->valuestring, sizeof(args.arch) - 1);
     args.arch[sizeof(args.arch) - 1] = '\0';
-    new_agent(args);
+    new_implant(args);
 
     // reply with agent id
     REPLY:

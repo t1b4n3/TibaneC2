@@ -7,7 +7,7 @@
 const char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 
-void get_agent_id(const char *input, char output[9]) {
+void GenerateID(const char *input, char output[9]) {
     unsigned char hash1[SHA256_DIGEST_LENGTH];
     char sha256_string[65];
     SHA256((unsigned char *)input, strlen(input), hash1);

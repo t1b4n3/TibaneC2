@@ -28,8 +28,7 @@
 void ssl_beacon(cJSON *json, SSL *ssl) {
     cJSON *agent_id = cJSON_GetObjectItem(json, "agent_id");
     // log
-    log_beacon(agent_id->valuestring);
-
+    log_message(LOG_INFO, "Beacon from %s", agent_id->valuestring);
     cJSON *json_reply = cJSON_CreateObject();
 
     // update last seen

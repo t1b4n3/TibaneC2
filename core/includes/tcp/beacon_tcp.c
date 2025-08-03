@@ -25,7 +25,7 @@ void upload(char *file) {
 void tcp_beacon(cJSON *json, int sock) {
     cJSON *agent_id = cJSON_GetObjectItem(json, "agent_id");
     // log
-    log_beacon(agent_id->valuestring);
+    log_message(LOG_INFO, "Beacon from %s", agent_id->valuestring);
 
     cJSON *json_reply = cJSON_CreateObject();
 
@@ -94,13 +94,9 @@ void tcp_beacon(cJSON *json, int sock) {
             printf("Error parsing JSON!\n");
             return;
         }
-
-
         cJSON *command_response = cJSON_GetObjectItem(response, "response");
         store_task_response(command_response->valuestring, task_id);
         cJSON_Delete(response);
-
-        // store response in database
         
         free(reply);
         cJSON_Delete(json_reply);

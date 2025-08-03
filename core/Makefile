@@ -11,7 +11,7 @@ LIBS = -lcjson -lssl -lcrypto -lpthread -lmysqlclient -lcrypt
 # Source files (including those in ./includes/)
 SRC = main.c ./includes/db.c ./includes/tcp/beacon_tcp.c ./includes/tcp/tcp_listener.c ./includes/logs.c \
 	./includes/operator.c ./includes/agent.c ./includes/tcp_ssl/tcp_ssl.c \
-	./includes/tcp_ssl/beacon_tcp_ssl.c ./includes/bcrypt/bcrypt.c
+	./includes/tcp_ssl/beacon_tcp_ssl.c 
 
 # Build target
 all: $(TARGET)

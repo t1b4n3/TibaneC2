@@ -42,7 +42,7 @@ void db_close();
 
 
 // check if agent id exits in database
-int check_agent_id(char *agent_id);
+int check_implant_id(char *agent_id);
 
 
 // get tasks
@@ -55,7 +55,7 @@ void store_task_response(char *response, int task_id);
 int check_tasks_queue(char *agent_id);
 
 // insert New Agent
-void new_agent(struct db_agents args);
+void new_implant(struct db_agents args);
 
 void update_last_seen(char *agent_id);
 
@@ -76,7 +76,7 @@ char *GetData(char *table);
 int authenticate_operator(char *username, char *password);
 
 // get all tasks per agent
-char *tasks_per_agent(char *agent_id);
+char *tasks_per_implant(char *implant_id);
 
 // get command and response for specific task
 char *cmd_and_response(int task_id);
