@@ -47,17 +47,17 @@ const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]
 
 
 void banner() {
-    printf("\n");
-    printf("░▒▓████████▓▒░▒▓█▓▒░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓██████▓▒░░▒▓███████▓▒░  \n");
-    printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░ \n");
-    printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░             ░▒▓█▓▒░ \n");
-    printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓██████▓▒░░▒▓█▓▒░       ░▒▓██████▓▒░  \n");
-    printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░      ░▒▓█▓▒░        \n");
-    printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        \n");
-    printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓████████▓▒░▒▓██████▓▒░░▒▓████████▓▒░ \n");
-    printf("                        https://github.com/tibane0/TibaneC2\n");
-    printf("======================================================================================\n");                                                                                                                 
-    printf("[+] Welcome to tibane shell | type 'help' for options \n\n");
+printf("\n");    
+printf("░▒▓████████▓▒░▒▓█▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓██████▓▒░░▒▓███████▓▒░  \n");
+printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░ \n");
+printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░             ░▒▓█▓▒░ \n");
+printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓██████▓▒░░▒▓█▓▒░       ░▒▓██████▓▒░  \n");
+printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░      ░▒▓█▓▒░        \n");
+printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        \n");
+printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓████████▓▒░▒▓██████▓▒░░▒▓████████▓▒░ \n");
+printf("                        https://github.com/tibane0/TibaneC2\n");
+printf("======================================================================================\n");                                                                                                                 
+printf("[+] Welcome to tibane shell | type 'help' for options \n\n");
 }
 
 
@@ -163,6 +163,17 @@ class SendInfo : public Communicate_ {
         recv(sock, reply, sizeof(reply), 0);
     }
 
+    void Quit() {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            return;
+        }
+        cJSON_AddStringToObject(info, "Info", "exit");
+        char *info_ = cJSON_Print(info);
+        send(sock, info_, strlen(info_), 0);
+        cJSON_Delete(info);
+        free(info_);
+    }
 
 };
 
@@ -309,7 +320,7 @@ class Operator {
         
         // Save current history and start fresh for this session
         HIST_ENTRY** orig_history = history_list();
-        clear_history();
+        //clear_history();
         while (1) {
             
             char prompt[BUFFER_SIZE];
@@ -428,7 +439,7 @@ int main() {
         if (com.conn() == 0) {
             break;
         };
-        printf("Failed to connect to server: \n");
+        printf("[-] Failed to connect to server: \n");
         sleep(3);
     }
     recvinfo.sock = com.sock;
@@ -439,7 +450,7 @@ int main() {
         if (com.authenticate() == true) {
             break;
         }
-        printf("Failed to authenticate: \nTry Again\n\n");
+        printf("[-] Failed to authenticate: \n[-] Try Again\n\n");
         sleep(3); // 
         tries++;
     } while (tries < 3);
@@ -489,6 +500,7 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
     } 
     else if (strncmp(cmd, "exit", 4) == 0 || strncmp(cmd, "quit", 4) == 0 || strncmp(cmd, "q", 1) == 0) {
         printf("\n[-] Exiting \n\n");
+        sendinfo.Quit();
         sleep(1);
         exit(0);
     }
@@ -502,15 +514,24 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
         }
     } 
     else if (strncmp(cmd, "list-tasks", 10) == 0) {
-        char* data = recvinfo.get_info("Tasks");
-        if (!data) {
-            printf("\n[-] NO DATA About Tasks\n \n");
-            return;
+        char *id;
+        if (sscanf(cmd, "list-tasks %s", id) != 1) {
+            char* data = recvinfo.get_info("Tasks");
+            if (!data) {
+                printf("\n[-] NO DATA About Tasks\n \n");
+            }
+            DisplayAllTasks(data);
+            free(data);
+        } else {
+            char* data = recvinfo.list_tasks(id);
+            if (!data) {
+                printf("\n [-] NO DATA RELATED TO TASKS FOR %s \n\n", id);
+                free(data);
+            }
+            DisplayTasksPerAgent(data);
+            free(data);
         }
-        //displayinfo.display_all_tasks(data);
-        DisplayAllTasks(data);
-        free(data);
-    }
+    } 
     else {
         printf("%s", tibane_shell_help);
     }
