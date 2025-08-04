@@ -146,20 +146,23 @@ void *operator_handler(void *new_sock) {
         memset(buffer, 0, sizeof(buffer));
         int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
         if (bytes_received <= 0) {
-            perror("recv failed");
+            //perror("recv failed");
+            log_message(LOG_ERROR, "Failed to receive data from operator");
             return NULL;
         }
 
         buffer[bytes_received] = '\0'; 
         cJSON *requested_info = cJSON_Parse(buffer);
         if (requested_info == NULL) {
-            fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
+            //fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
+            log_message(LOG_ERROR, "Failed to parse JSON: %s", buffer);
             return NULL;
         }
 
         cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
         if (about == NULL || !cJSON_IsString(about)) {
-            fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
+            //fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
+            log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON");
             cJSON_Delete(requested_info);
             return NULL;
         }
@@ -184,6 +187,8 @@ void *operator_handler(void *new_sock) {
             }
             send(sock, data, strlen(data), 0);
             free(data);
+        } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
+            return NULL;
         }
         cJSON_Delete(requested_info);
     }
