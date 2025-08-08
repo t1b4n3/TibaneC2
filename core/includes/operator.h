@@ -11,13 +11,28 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
+
+#include <openssl/evp.h>
+#include <openssl/x509v3.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/param_build.h>
+#include <openssl/core_names.h> 
+#include <openssl/sslerr.h>
+
+
+
 #include "db.h"
 
-void *operator_handler(void *new_sock);
+void *operator_handler(void *Args);
 
-void *Operator_conn(void* port);
+void *Operator_conn(void *args);
 
+char *interact_with_implant(cJSON *rinfo);
 
-int autheticate(int sock);
+int autheticate(SSL *ssl);
 
 #endif

