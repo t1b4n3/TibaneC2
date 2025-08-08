@@ -201,11 +201,10 @@ func DisplayAllAgents(data *C.char) {
 	fmt.Println("\n[+] Displaying All Implants\n")
 
 	header := fmt.Sprintf(
-		"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s  %-*s",
+		"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s ",
 		widthImplant, "implant_id",
 		widthOS, "os",
 		widthIP, "ip",
-		widthMAC, "mac",
 		widthArch, "arch",
 		widthHostname, "hostname",
 		widthLastSeen, "last_seen",
@@ -220,17 +219,15 @@ func DisplayAllAgents(data *C.char) {
 		id := parsed["implant_id"][i]
 		os := parsed["os"][i]
 		ip := parsed["ip"][i]
-		mac := parsed["mac"][i]
 		arch := parsed["arch"][i]
 		hostname := parsed["hostname"][i]
 		lastSeen := parsed["last_seen"][i]
 
 		fmt.Printf(
-			"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s  %-*s\n",
+			"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s\n",
 			widthImplant, id,
 			widthOS, os,
 			widthIP, ip,
-			widthMAC, mac,
 			widthArch, arch,
 			widthHostname, hostname,
 			widthLastSeen, lastSeen,

