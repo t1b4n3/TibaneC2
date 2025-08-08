@@ -22,6 +22,16 @@
             }
           },
           {
+            "id": "cf636cbcd7f647be",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "New tab"
+            }
+          },
+          {
             "id": "79c6f378cca216e3",
             "type": "leaf",
             "state": {
@@ -186,14 +196,14 @@
   },
   "active": "a1bba09d03121b30",
   "lastOpenFiles": [
-    "Operator Console.md",
-    "Communication Channels.md",
-    "Getting Started.md",
-    "Features.md",
     "Compiling_from_source.md",
+    "Communication Channels.md",
+    "Features.md",
+    "Getting Started.md",
+    "Operator Console.md",
+    "Multi-Operator.md",
     "Implants.md",
     "Untitled",
-    "Multi-Operator.md",
     "session.md"
   ]
 }
