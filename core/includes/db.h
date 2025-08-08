@@ -15,7 +15,6 @@ struct db_agents {
     char agent_id[65];
     char os[50];
     char ip[50];
-    char mac[50];
     char hostname[255];
     char arch[50];
 };

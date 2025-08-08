@@ -79,8 +79,8 @@ int check_tasks_queue(char *implant_id) {
 
 void new_implant(struct db_agents args) {
     char query[2048];
-    snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, mac, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');",
-             args.agent_id, args.os, args.ip, args.mac, args.arch, args.hostname);
+    snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');",
+             args.agent_id, args.os, args.ip, args.arch, args.hostname);
     mysql_query(con, query);
 }
 
