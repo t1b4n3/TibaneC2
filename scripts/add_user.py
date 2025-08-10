@@ -18,7 +18,7 @@ def AddUsers(username, password):
     salt = bcrypt.gensalt(12)
     hashed_pw = bcrypt.hashpw(password.encode(), salt=salt)
     
-
+    
     cur.execute("INSERT INTO Operators (username, password) VALUES (%s, %s)", 
                 (username, hashed_pw))
 
@@ -29,7 +29,15 @@ def AddUsers(username, password):
 
 
 
+users = {
+    "usernames":[],
+    "passwords":[]
+}
 
-AddUsers("dev", "dev")
+for username, password in zip(users["usernames"], users["passwords"]):
+    AddUsers(username, password)
+
+
+
 
 
