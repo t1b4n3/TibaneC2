@@ -33,7 +33,7 @@
 **/.obsidian/
 
 # Core certificates
-/core/cert*
+/core/cert/*
 
 ### Binary Files ###
 # Executables and compiled files
