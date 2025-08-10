@@ -10,18 +10,17 @@
     ],
     "OperatorConsole": [
       {
-        "tcp_port": 8888,
-        "tcp_ssl_port": 8899
+        "port": 8888
       }
     ],
     "CommunicationChannels": [
       {
         "tcp": true,
-        "tcp_ssl": true,
-        "https": false,
         "tcp_port": 9999,
+        "tcp_ssl": false,
         "tcp_ssl_port": 7777,
-        "https_port": 8080,
+        "https": false,
+        "https_port": 443,
         "ssl_cert": "./cert/agent_cert.pem",
         "ssl_key": "./cert/agent_key.pem"
       }
