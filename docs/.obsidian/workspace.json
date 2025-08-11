@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Communication Channels.md",
+                "file": "Getting Started.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Communication Channels"
+              "title": "Getting Started"
             }
           },
           {
@@ -196,8 +196,8 @@
   },
   "active": "a1bba09d03121b30",
   "lastOpenFiles": [
-    "Compiling_from_source.md",
     "Communication Channels.md",
+    "Compiling_from_source.md",
     "Features.md",
     "Getting Started.md",
     "Operator Console.md",
