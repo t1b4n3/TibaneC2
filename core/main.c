@@ -226,7 +226,7 @@ char *server_config() {
     char *buffer = (char*)malloc(0x400);
     size_t bytesRead;
     START:
-    int conf = open("../config/server_conf.json", O_RDONLY);
+    int conf = open("tibane_server_conf.json", O_RDONLY);
     if (conf == -1) {
         //write(1, "Failed to Configuration file\n", 20);
         //perror( "Failed to Configuration file\n");
