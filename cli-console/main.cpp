@@ -435,33 +435,27 @@ char* command_generator(const char* text, int state);
 char** shell_completion(const char* text, int start, int end);
 void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendinfo, Operator op);
 
-
-int main() {
-    // configs
-    START:
-    int conf = open("../config/console_conf.json", O_RDONLY);
+int configuration() {
+    int conf = open("tibane_console_conf.json", O_RDONLY);
     if (conf == -1) {
         write(1, "Failed to Configuration file\n", 20);
-        // logfile
-        sleep(30);
-        goto START;
+
+        return -1;
     }
 
     char buffer[0x200];
     READ:
     size_t bytesRead;
     if ((bytesRead = read(conf, buffer, sizeof(buffer))) <= 0) {
-            perror("Read Error");
-            sleep(30);
-            goto READ;
+        perror("Read Error");
+        return -1;
     }
 
     PARSE:
     cJSON *config = cJSON_Parse(buffer);
     if (!config) {
         fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
-        sleep(30);
-        goto PARSE;
+        return -1;
     }
 
     cJSON *SERVER_ADDR = cJSON_GetObjectItem(config, "SERVER_ADDR");
@@ -469,7 +463,22 @@ int main() {
 
     IP = SERVER_ADDR->valuestring;
     PORT = SERVER_PORT->valueint;
+    return 0;
+}
 
+
+int main(int argc, char** argv) {
+    // configs
+    if (argc != 3) { 
+        if (configuration() == -1) {
+            printf("\nUSAGE %s [IP] [PORT]\n\nOR\n\nInclude the tibane_console_conf.json file in same directory\n\n", argv[0]);
+            return EXIT_FAILURE;
+        }
+    } else {
+        strncpy(IP, argv[1], sizeof(IP));
+        PORT = atoi(argv[2]);
+    }
+    
     char usage[BUFFER_SIZE] = "";
 
     // start 
