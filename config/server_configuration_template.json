@@ -3,9 +3,9 @@
     "Database": [
       {
         "database_server": "localhost",
-        "username": "core",
-        "password": "core",
-        "database": "c2_database"
+        "username": "root",
+        "password": "",
+        "database": ""
       }
     ],
     "OperatorConsole": [
