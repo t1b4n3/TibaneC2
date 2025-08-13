@@ -436,7 +436,12 @@ char** shell_completion(const char* text, int start, int end);
 void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendinfo, Operator op);
 
 int configuration() {
-    int conf = open("tibane_console_conf.json", O_RDONLY);
+    char filename[BUFFER_SIZE] = "tibane_console_conf.json";
+    if (access(filename, F_OK) != 0) {
+        return -1;
+    }
+
+    int conf = open(filename, O_RDONLY);
     if (conf == -1) {
         write(1, "Failed to Configuration file\n", 20);
 
@@ -444,14 +449,13 @@ int configuration() {
     }
 
     char buffer[0x200];
-    READ:
+
     size_t bytesRead;
     if ((bytesRead = read(conf, buffer, sizeof(buffer))) <= 0) {
         perror("Read Error");
         return -1;
     }
 
-    PARSE:
     cJSON *config = cJSON_Parse(buffer);
     if (!config) {
         fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
