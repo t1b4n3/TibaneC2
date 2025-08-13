@@ -18,7 +18,7 @@
 
 
 // generate agent id (sha 256)
-void get_agent_id(const char *input, char output[65]);
+void get_implant_id(const char *input, char output[65]);
 
 // register agent to database
 void register_agent(cJSON *json, char *ip, int sock);

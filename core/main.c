@@ -57,6 +57,7 @@ struct communication_channels_t *channels_config(cJSON *configs);
 struct operator_console_t *operator_console(cJSON *configs);
 
 int main() {
+    log_message(LOG_INFO, "Server started");
     char *buffer = server_config();
     PARSE:
     cJSON *config = cJSON_Parse(buffer);
@@ -104,52 +105,6 @@ int main() {
         int port;
     };
 
-    /*
-    do {
-        pthread_t operator_thread, tcp_thread, tcp_ssl_thread;
-        if (operator->port <= 0) {
-
-            struct Args_t *args = malloc(sizeof(*args));;
-            strncpy(args->cert, channels->ssl_cert, BUFFER_SIZE);
-            strncpy(args->key, channels->ssl_key, BUFFER_SIZE);
-            args->port =operator->port;
-            
-            if (pthread_create(&operator_thread, NULL, Operator_conn, (void*)args) != 0) {
-                log_message(LOG_WARN, "Failed to start listener for operator thread");
-                sleep(30);
-            }
-            log_message(LOG_INFO, "Operator Console listener started successfully");
-        } else {
-            log_message(LOG_ERROR, "Listener Port for operator console is invalid");
-        }
-
-        if (channels->tcp == true) {
-            
-            if (pthread_create(&tcp_thread, NULL, tcp_agent_conn, (void*)&channels->tcp_port) != 0) {
-                log_message(LOG_ERROR, "Failed to start tcp listener thread");
-                sleep(30);
-            }
-        }
-        
-        if (channels->tcp_ssl == true) {
-
-            struct Args_t *args = malloc(sizeof(*args));;
-            strncpy(args->cert, channels->ssl_cert, BUFFER_SIZE);
-            strncpy(args->key, channels->ssl_key, BUFFER_SIZE);
-            args->port = channels->tcp_ssl_port;
-
-            if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)args) != 0) {
-                log_message(LOG_ERROR, "Failed to start encrypted tcp listener thread");
-                sleep(30);
-            }
-        }
-
-        // Wait for threads to finish (if they ever do)
-        pthread_join(operator_thread, NULL);
-        pthread_join(tcp_thread, NULL);
-        pthread_join(tcp_ssl_thread, NULL);
-    } while (1);
-     */
     do {
         pthread_t operator_thread = 0, tcp_thread = 0, tcp_ssl_thread = 0; // Initialize to 0
         int operator_thread_created = 0, tcp_thread_created = 0, tcp_ssl_thread_created = 0;
@@ -178,6 +133,7 @@ int main() {
         }
     
         if (channels->tcp) {
+            log_message(LOG_INFO, "TCP Listener Thread Starting : %d", channels->tcp_port);
             if (pthread_create(&tcp_thread, NULL, tcp_agent_conn, (void*)&channels->tcp_port) == 0) {
                 tcp_thread_created = 1;
             } else {
@@ -187,6 +143,7 @@ int main() {
         }
     
         if (channels->tcp_ssl) {
+            log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_ssl_port);
             struct Args_t *args = malloc(sizeof(*args));
             if (!args) {
                 log_message(LOG_ERROR, "Failed to allocate args for SSL thread");
@@ -222,29 +179,32 @@ int main() {
     return 0;
 }
 
+
 char *server_config() {
     char *buffer = (char*)malloc(0x400);
     size_t bytesRead;
     START:
-    int conf = open("tibane_server_conf.json", O_RDONLY);
+
+    char filename[BUFFER_SIZE] = "tibane_server_conf.json";
+    if (access(filename, F_OK) != 0) {
+        log_message(LOG_ERROR, "Create configuration file and name is tibane_server_conf.json");
+        exit(EXIT_FAILURE);
+    }
+    int conf = open(filename, O_RDONLY);
     if (conf == -1) {
         //write(1, "Failed to Configuration file\n", 20);
         //perror( "Failed to Configuration file\n");
         log_message(LOG_ERROR, "Failed to open configuration file");
         // logfile
-        sleep(30);
-        goto START;
+        exit(EXIT_FAILURE);
     }
     if ((bytesRead = read(conf, buffer, 0x400 - 1)) <= 0) {
         log_message(LOG_ERROR, "Failed to read data from configuration file");
-        sleep(30);
-        goto START;
+        exit(EXIT_FAILURE);
     }
     close(conf);
     return buffer;
 }
-
-
 
 struct database_configs_t *database_config(cJSON *configs) {
     struct database_configs_t *database = malloc(sizeof(*database));

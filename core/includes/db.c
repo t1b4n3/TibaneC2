@@ -80,7 +80,7 @@ int check_tasks_queue(char *implant_id) {
 void new_implant(struct db_agents args) {
     char query[2048];
     snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');",
-             args.agent_id, args.os, args.ip, args.arch, args.hostname);
+             args.implant_id, args.os, args.ip, args.arch, args.hostname);
     mysql_query(con, query);
 }
 
@@ -96,7 +96,7 @@ void update_last_seen(char *implant_id) {
 void TasksTable(struct db_tasks args) {
     char query[4096 + 4096];
     snprintf(query, sizeof(query), "INSERT INTO Tasks (implant_id, command, response) VALUES ('%s', '%s', '%s');",
-             args.agent_id, args.command, args.response);
+             args.implant_id, args.command, args.response);
     mysql_query(con, query);
 }
 
@@ -251,7 +251,7 @@ char *GetData(char *table) {
 void LogsTable(struct db_logs args) {
     char query[4096+1028];
     snprintf(query, sizeof(query), "INSERT INTO Logs (implant_id, log_type, message) VALUES ('%s', '%s', '%s');",
-             args.agent_id, args.log_type, args.message);
+             args.implant_id, args.log_type, args.message);
     mysql_query(con, query);
 }
 

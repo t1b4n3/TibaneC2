@@ -26,18 +26,18 @@
 
 
 void ssl_beacon(cJSON *json, SSL *ssl) {
-    cJSON *agent_id = cJSON_GetObjectItem(json, "agent_id");
+    cJSON *implant_id = cJSON_GetObjectItem(json, "implant_id");
     // log
-    log_message(LOG_INFO, "Beacon from %s", agent_id->valuestring);
+    log_message(LOG_INFO, "Beacon from %s", implant_id->valuestring);
     cJSON *json_reply = cJSON_CreateObject();
 
     // update last seen
-    update_last_seen(agent_id->valuestring);
+    update_last_seen(implant_id->valuestring);
     // validate if agent id exists in the database.
     
     // check if there are tasks queue for agent
     // change this so that it stores all qeues in a data structure to optimize 
-    int task_id = check_tasks_queue(agent_id->valuestring);
+    int task_id = check_tasks_queue(implant_id->valuestring);
     if (task_id == -1) {
         cJSON_AddStringToObject(json_reply, "mode", "none");
         char *reply = cJSON_Print(json_reply);
@@ -60,7 +60,7 @@ void ssl_beacon(cJSON *json, SSL *ssl) {
         cJSON_AddStringToObject(json_reply, "mode", "task");
         //cJSON_AddStringToObject(json_reply, "task_id", task_id);
         cJSON_AddNumberToObject(json_reply, "task_id", task_id);
-        cJSON_AddStringToObject(json_reply, "agent_id", agent_id->valuestring);
+        cJSON_AddStringToObject(json_reply, "implant_id", implant_id->valuestring);
         
 
         char *reply = cJSON_Print(json_reply);

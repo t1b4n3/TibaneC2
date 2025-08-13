@@ -17,7 +17,7 @@
       {
         "tcp": true,
         "tcp_port": 9999,
-        "tcp_ssl": false,
+        "tcp_ssl": true,
         "tcp_ssl_port": 7777,
         "https": false,
         "https_port": 443,

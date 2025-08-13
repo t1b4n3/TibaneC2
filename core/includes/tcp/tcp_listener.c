@@ -14,6 +14,7 @@
 #include "db.h"
 #include "../agent.h"
 
+
 void* tcp_agent_conn(void *port) {
     int AGENT_PORT = *(int*)port;
     struct sockaddr_in clientAddr;
@@ -123,21 +124,21 @@ void tcp_register_agent(cJSON *json, char *ip, int sock) {
 
     char input[255];
     snprintf(input, sizeof(input), "%s-%s-%s", hostname->valuestring, os->valuestring, arch->valuestring);
-    char agent_id[65];
-   GenerateID(input, agent_id);
+    char implant_id[65];
+   GenerateID(input, implant_id);
 
     // check if id already exists in database
-    if (check_implant_id(agent_id) == 1) goto REPLY;
+    if (check_implant_id(implant_id) == 1) goto REPLY;
 
     //log
-    //log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
-    log_message(LOG_INFO, "New Implant Registration (TCP): agent_id = %s, hostname = %s, os = %s, arch = %s", agent_id,  hostname->valuestring, os->valuestring, arch->valuestring);
+    //log_new_agent(implant_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
+    log_message(LOG_INFO, "New Implant Registration (TCP): implant_id = %s, hostname = %s, os = %s, arch = %s", implant_id,  hostname->valuestring, os->valuestring, arch->valuestring);
 
-    // register to datbase (agent_id, os, ip, mac, hostname)
+    // register to datbase (implant_id, os, ip, mac, hostname)
     // check if agent id exists
     struct db_agents args;
-    strncpy(args.agent_id, agent_id, sizeof(args.agent_id) - 1);
-    args.agent_id[sizeof(args.agent_id) - 1] = '\0';
+    strncpy(args.implant_id, implant_id, sizeof(args.implant_id) - 1);
+    args.implant_id[sizeof(args.implant_id) - 1] = '\0';
     strncpy(args.os, os->valuestring, sizeof(args.os) - 1);
     args.os[sizeof(args.os) - 1] = '\0';
     strncpy(args.ip, ip, sizeof(args.ip) - 1);
@@ -153,7 +154,7 @@ void tcp_register_agent(cJSON *json, char *ip, int sock) {
     REPLY:
     cJSON *json_reply = cJSON_CreateObject();
     cJSON_AddStringToObject(json_reply, "mode", "ack");
-    cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
+    cJSON_AddStringToObject(json_reply, "implant_id", implant_id);
 
     char *reply = cJSON_Print(json_reply);
     send(sock, reply, strlen(reply), 0);

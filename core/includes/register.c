@@ -22,20 +22,20 @@ void register_agent(cJSON *json, char *ip, int sock) {
 
     char input[255];
     snprintf(input, sizeof(input), "%s-%s-%s-%s", mac->valuestring, hostname->valuestring, os->valuestring, arch->valuestring);
-    char agent_id[65];
-    get_agent_id(input, agent_id);
+    char implant_id[65];
+    get_implant_id(input, implant_id);
 
     // check if id already exists in database
-    if (check_agent_id(agent_id) == 1) goto REPLY;
+    if (check_implant_id(implant_id) == 1) goto REPLY;
 
     //log
-    log_new_agent(agent_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
+    log_new_agent(implant_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
 
-    // register to datbase (agent_id, os, ip, mac, hostname)
+    // register to datbase (implant_id, os, ip, mac, hostname)
     // check if agent id exists
     struct db_agents args;
-    strncpy(args.agent_id, agent_id, sizeof(args.agent_id) - 1);
-    args.agent_id[sizeof(args.agent_id) - 1] = '\0';
+    strncpy(args.implant_id, implant_id, sizeof(args.implant_id) - 1);
+    args.implant_id[sizeof(args.implant_id) - 1] = '\0';
     strncpy(args.os, os->valuestring, sizeof(args.os) - 1);
     args.os[sizeof(args.os) - 1] = '\0';
     strncpy(args.ip, ip, sizeof(args.ip) - 1);
@@ -53,7 +53,7 @@ void register_agent(cJSON *json, char *ip, int sock) {
     REPLY:
     cJSON *json_reply = cJSON_CreateObject();
     cJSON_AddStringToObject(json_reply, "mode", "ack");
-    cJSON_AddStringToObject(json_reply, "agent_id", agent_id);
+    cJSON_AddStringToObject(json_reply, "implant_id", implant_id);
 
     char *reply = cJSON_Print(json_reply);
     send(sock, reply, strlen(reply), 0);
@@ -63,7 +63,7 @@ void register_agent(cJSON *json, char *ip, int sock) {
 }
 
 
-void get_agent_id(const char *input, char output[65]) {
+void get_implant_id(const char *input, char output[65]) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256((unsigned char *)input, strlen(input), hash);
 

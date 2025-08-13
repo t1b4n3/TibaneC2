@@ -12,7 +12,7 @@
 #define MAX_INFO 999999999
 
 struct db_agents {
-    char agent_id[65];
+    char implant_id[65];
     char os[50];
     char ip[50];
     char hostname[255];
@@ -20,13 +20,13 @@ struct db_agents {
 };
 
 struct db_tasks {
-    char agent_id[65];
+    char implant_id[65];
     char command[1024];
     char response[BUFFER_SIZE];
 };
 
 struct db_logs {
-    char agent_id[65];
+    char implant_id[65];
     char log_type[16];
     char message[BUFFER_SIZE];
 };
@@ -41,7 +41,7 @@ void db_close();
 
 
 // check if agent id exits in database
-int check_implant_id(char *agent_id);
+int check_implant_id(char *implant_id);
 
 
 // get tasks
@@ -51,12 +51,12 @@ char *get_task(int task_id);
 void store_task_response(char *response, int task_id);
 
 // check for available tasks 
-int check_tasks_queue(char *agent_id);
+int check_tasks_queue(char *implant_id);
 
 // insert New Agent
 void new_implant(struct db_agents args);
 
-void update_last_seen(char *agent_id);
+void update_last_seen(char *implant_id);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OPERATOR CONSOLE
@@ -82,7 +82,7 @@ char *cmd_and_response(int task_id);
 
 
 // insert new tasks
-void new_tasks(char *agent_id, char *command);
+void new_tasks(char *implant_id, char *command);
 
 
 
