@@ -84,4 +84,4 @@ class PersistenceClass {
         }
         return false;
     }
-}
+};

