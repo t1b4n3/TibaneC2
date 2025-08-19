@@ -37,7 +37,7 @@ extern "C" {
 #define MAX_SIZE 0x20000
 #define HELP_SIZE 0x400
 
-char *IP;
+char IP[BUFFER_SIZE];
 int PORT;
 char current_operator[BUFFER_SIZE];
 
@@ -102,12 +102,13 @@ class Communicate_ {
         sock = socket(AF_INET, SOCK_STREAM, 0);
 
         if (inet_pton(AF_INET, IP, &serv_addr.sin_addr) <= 0) {
-            perror("Invalid Address");
+            //perror("Invalid Address");
+            printf("\n[-] Invalid IP Address\n");
             return -1;
         }
 
         if ((status = connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0) {
-           printf("\nConnection Failed \n");
+           printf("\n[-] Connection Failed \n");
            return -1;
         }
 
@@ -465,7 +466,8 @@ int configuration() {
     cJSON *SERVER_ADDR = cJSON_GetObjectItem(config, "SERVER_ADDR");
     cJSON *SERVER_PORT = cJSON_GetObjectItem(config, "SERVER_PORT");
 
-    IP = SERVER_ADDR->valuestring;
+    //IP = SERVER_ADDR->valuestring;
+    strncpy(IP, SERVER_ADDR->valuestring, sizeof(IP));
     PORT = SERVER_PORT->valueint;
     return 0;
 }
@@ -493,10 +495,11 @@ int main(int argc, char** argv) {
     SendInfo sendinfo;
 
     while (1) {
+        printf("\n[*] Connecting to %s : %d \n", IP, PORT);
         if (com.conn() == 0) {
             break;
         };
-        printf("[-] Failed to connect to server: \n");
+        printf("\n[-] Failed to connect to server: \n");
         sleep(3);
     }
     recvinfo.sock = com.sock;
