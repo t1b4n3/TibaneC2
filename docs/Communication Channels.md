@@ -68,7 +68,7 @@ it then executes the command and sends back response
 {
 	"mode":"result",
 	"task_id":"123",
-	"agent_id":"xxx",
+	"implant_id":"xxx",
 	"response":"developer",
 }
 ```
