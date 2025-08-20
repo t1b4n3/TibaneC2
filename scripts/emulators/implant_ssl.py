@@ -1,69 +1,71 @@
 #!/bin/python3
 """
-This script is used to emulate fake implants.
-Used to send fake traffic to server to make sure it works as intended
+This script emulates fake implants.
+Used to send fake traffic to server (now using TCP over SSL/TLS).
 """
-from socket import *
+import socket
+import ssl
 import json
 
 HOST = "127.0.0.1"
-PORT = 9999
+PORT = 7777
 
-agent = socket(AF_INET, SOCK_STREAM)
+# --- SSL Context Setup ---
+context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+
+# If you don’t want cert verification (for testing only):
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+
+# Create TCP socket and wrap it with SSL
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+agent = context.wrap_socket(sock, server_hostname=HOST)
 agent.connect((HOST, PORT))
-# tcp traffic w/o ssl/tls
+
+
 def register():
-    register = """
+    register_msg = """
     {
         "mode": "register",
-        "implant_id": null,
         "hostname": "nkateko",
-        "mac": "xx-xx-yyx-xx",
         "os": "windows",
-        "arch":"x86"
+        "arch":"x86",
+        "mac":"dsfda"
     }
     """
     try:
-        data = json.loads(register)
+        data = json.loads(register_msg)
         print("Valid JSON ✅")
     except json.JSONDecodeError as e:
         print("Invalid JSON ❌:", e)
 
-    #register
-    agent.sendall(register.encode())    
+    # Send register
+    agent.sendall(register_msg.encode())    
     response = agent.recv(2048)
     print(f"[<] Server responded: {response.decode()}")
 
-    #p = json.dumps(response, indent=4)
     data = json.loads(response)
-
     print("Type:", data["mode"])
     print("implant_id:", data["implant_id"])
 
-    agent.close()
-    
 
 def beacon():
-    beacon = """
+    beacon_msg = """
     {
         "mode":"beacon",
-        "implant_id":"dd1048383f5c8b6d02c54d4c77776b198de297ffe98a2aae292ea7d4f9d2147f"   
+        "implant_id":"f6Cd9nn"  
     }
     """
 
     try:
-        data = json.loads(beacon)
+        data = json.loads(beacon_msg)
         print("Valid JSON ✅")
     except json.JSONDecodeError as e:
         print("Invalid JSON ❌:", e)
 
-
-
-    #register
-    agent.sendall(beacon.encode())    
+    agent.sendall(beacon_msg.encode())    
     response = agent.recv(4048)
     print(f"[<] Server responded: {response.decode()}")
-    #p = json.dumps(response, indent=4)
     data = json.loads(response)
 
     if data["mode"] == "none":
@@ -75,14 +77,12 @@ def beacon():
         {{
             "type":"task",
             "task_id":"{task_id}",
-            "implant_id":"a245fd660245555d46a77cb58bf1b373174c63661e42ce196b9cb09a7b425482",
+            "implant_id":"f6CIds",
             "response":"nkateko"
         }}
         """
         print("task id: ", task_id)
         print(data.get('command', '[no command]'))
-
-        
 
         try:
             data = json.loads(task)
@@ -96,29 +96,26 @@ def beacon():
 
 
 def session():
-    # rev shell
-    mode = """
+    # rev shell session request
+    mode_msg = """
     {
         "mode":"session"
     }
     """
-
     try:
-        data = json.loads(mode)
+        data = json.loads(mode_msg)
         print("Valid JSON ✅")
     except json.JSONDecodeError as e:
         print("Invalid JSON ❌:", e)
 
-
-
-    #register
-    agent.sendall(mode.encode())    
+    agent.sendall(mode_msg.encode())    
     response = agent.recv(4048)
     print(f"[<] Server responded: {response.decode()}")
-    #p = json.dumps(response, indent=4)
     data = json.loads(response)    
 
 
 if __name__ == "__main__":
     #beacon()
-    register()
+    #register()
+    beacon()
+    agent.close()

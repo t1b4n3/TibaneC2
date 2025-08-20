@@ -62,8 +62,8 @@ def get_info(about):
 def tasks_per_agent():
     a = """
     {
-        "Info":"agent_id",
-        "agent_id":"a245fd660245555d46a77cb58bf1b373174c63661e42ce196b9cb09a7b425482"
+        "Info":"implant_id",
+        "implant_id":"a245fd660245555d46a77cb58bf1b373174c63661e42ce196b9cb09a7b425482"
     }
     """
     try:
@@ -80,7 +80,7 @@ def add_new_task():
     a = """
     {
         "Info":"new_task",
-        "agent_id":"a47505de64adaefc253cd1c27751da77587710e876aac229bc8032edbc8d775b",
+        "implant_id":"a47505de64adaefc253cd1c27751da77587710e876aac229bc8032edbc8d775b",
         "command":"ls -lha"
     }   
     """
