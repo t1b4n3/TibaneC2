@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS Implants (
 );
 
 CREATE TABLE IF NOT EXISTS logs (
-    agent_id VARCHAR(66) PRIMARY KEY,
+    implant_id VARCHAR(66) PRIMARY KEY,
     log_type ENUM('INFO', 'ERROR', 'COMMAND'),
     message TEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
