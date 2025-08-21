@@ -26,7 +26,7 @@
 #include "db.h"
 #include "logs.h"
 
-char USERNAME[0x50];
+char USERNAME[0x100];
 
 int autheticate(SSL *ssl) {
     char auth[1024];
@@ -82,7 +82,7 @@ int autheticate(SSL *ssl) {
     char *reply_ = cJSON_Print(reply);
     //send(sock, reply_, strlen(reply_), 0);
     SSL_write(ssl, reply_, strlen(reply_));
-    strncpy(USERNAME, username->valuestring, 0x50);
+    strncpy(USERNAME, username->valuestring, sizeof(USERNAME));
     log_message(LOG_INFO, "Operator [%s] authenticated successfully",USERNAME);
     free(reply_);
     free(reply);

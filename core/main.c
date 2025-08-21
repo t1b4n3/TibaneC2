@@ -183,7 +183,7 @@ int main() {
 char *server_config() {
     char *buffer = (char*)malloc(0x400);
     size_t bytesRead;
-    START:
+
 
     char filename[BUFFER_SIZE] = "tibane_server_conf.json";
     if (access(filename, F_OK) != 0) {

