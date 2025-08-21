@@ -19,11 +19,6 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 /* Start of preamble from import "C" comments.  */
 
 
-#line 3 "display.go"
-
-#include <stdlib.h>
-
-#line 1 "cgo-generated-wrapper"
 
 
 /* End of preamble from import "C" comments.  */
@@ -82,8 +77,6 @@ extern "C" {
 extern void DisplayTasksPerAgent(char* data);
 extern void DisplayAllTasks(char* data);
 extern void DisplayAllAgents(char* data);
-
-// display 
 extern void DisplayCommandResponse(char* data);
 
 #ifdef __cplusplus
