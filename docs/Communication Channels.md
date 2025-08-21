@@ -7,15 +7,13 @@ Server communicates with both implants and operator console by sending json over
 ### Beacon Implants
 On first connection beacons register to the C2 server. The implant sends some data about the system and then it receives a agent id to store on disk 
 #### Register
-##### Beacon Sends
+##### Implant Sends
 ```json
 {
 	"mode":"register",
 	"hostname":"",
 	"os":"",
-	"arch":"",
-	"mac":"",
-	"ip":""
+	"arch":""
 }
 ```
 
