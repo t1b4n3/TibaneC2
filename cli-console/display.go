@@ -11,17 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-// ANSI color codes
-const (
-	ColorReset   = "\x1b[0m"
-	ColorRed     = "\x1b[31m"
-	ColorGreen   = "\x1b[32m"
-	ColorYellow  = "\x1b[33m"
-	ColorBlue    = "\x1b[34m"
-	ColorCyan    = "\x1b[36m"
-	ColorWhite   = "\x1b[37m"
-)
-
 const (
 	widthID       = 8
 	widthCommand  = 20
@@ -30,13 +19,13 @@ const (
 	widthImplant  = 11
 	widthOS       = 15
 	widthIP       = 15
+	widthMAC      = 15
 	widthArch     = 15
 	widthHostname = 30
 	widthLastSeen = 15
 )
 
-// ---------------- Helper functions ----------------
-
+// Word-wrap a string to fit within width
 func wrap(text string, width int) []string {
 	words := strings.Fields(text)
 	var lines []string
@@ -58,191 +47,263 @@ func wrap(text string, width int) []string {
 	return lines
 }
 
-func colorStatus(status string) string {
-	if status == "0" {
-		return ColorYellow + "Pending" + ColorReset
-	}
-	return ColorGreen + "Completed" + ColorReset
-}
-
-func colorCommand(cmd string) string {
-	return ColorCyan + cmd + ColorReset
-}
-
-func colorResponse(resp string) string {
-	return ColorWhite + resp + ColorReset
-}
-
-// Print a table row with optional word wrap
-func printRow(fields []string, widths []int, wraps []bool) {
-	maxLines := 1
-	lines := make([][]string, len(fields))
-	for i, f := range fields {
-		if wraps[i] {
-			lines[i] = wrap(f, widths[i])
-		} else {
-			lines[i] = []string{f}
-		}
-		if len(lines[i]) > maxLines {
-			maxLines = len(lines[i])
-		}
-	}
-
-	for j := 0; j < maxLines; j++ {
-		for i := range fields {
-			cell := ""
-			if j < len(lines[i]) {
-				cell = lines[i][j]
-			}
-			fmt.Printf("%-*s  ", widths[i], cell)
-		}
-		fmt.Println()
-	}
-}
-
-
-// Print table header with blue color
-func printHeader(headers []string, widths []int) {
-	var sb strings.Builder
-	for i, h := range headers {
-		sb.WriteString(fmt.Sprintf("%-*s  ", widths[i], h))
-	}
-	headerStr := sb.String()
-	fmt.Println(ColorBlue + headerStr + ColorReset)
-	fmt.Println(strings.Repeat("=", len(headerStr)))
-}
-
-// ---------------- Exported Functions ----------------
-
 //export DisplayTasksPerAgent
 func DisplayTasksPerAgent(data *C.char) {
 	jsonStr := C.GoString(data)
+
 	var parsed map[string][]string
-	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+	err := json.Unmarshal([]byte(jsonStr), &parsed)
+	if err != nil {
 		fmt.Println("\n[-] Invalid JSON input")
 		return
 	}
 
-	headers := []string{"task_id", "command", "response", "status"}
-	widths := []int{widthID, widthCommand, widthResp, widthStatus}
-	printHeader(headers, widths)
+	header := fmt.Sprintf(
+		"%-*s  %-*s  %-*s  %-*s",
+		widthID, "task_id",
+		widthCommand, "command",
+		widthResp, "response",
+		widthStatus, "status",
+	)
+
+	separator := strings.Repeat("=", len(header))
+	fmt.Println(header)
+	fmt.Println(separator)
 
 	tasks := len(parsed["task_id"])
 	for i := 0; i < tasks; i++ {
-		status := colorStatus(parsed["status"][i])
-		cmd := colorCommand(parsed["command"][i])
-		resp := colorResponse(parsed["response"][i])
-		printRow(
-			[]string{parsed["task_id"][i], cmd, resp, status},
-			widths,
-			[]bool{false, true, true, false},
-		)
-		fmt.Println(strings.Repeat("-", sum(widths)+len(widths)*2))
+		id := parsed["task_id"][i]
+		cmd := parsed["command"][i]
+		resp := parsed["response"][i]
+		status := parsed["status"][i]
+
+		// Convert status to readable form
+		statusText := "Pending"
+		if status != "0" {
+			statusText = "Completed"
+		}
+
+		respLines := wrap(resp, widthResp)
+		cmdLines := wrap(cmd, widthCommand)
+
+		maxLines := len(respLines)
+		if len(cmdLines) > maxLines {
+			maxLines = len(cmdLines)
+		}
+
+		for j := 0; j < maxLines; j++ {
+			var idField, cmdField, respField, statusField string
+			if j == 0 {
+				idField = id
+				statusField = statusText
+			}
+			if j < len(cmdLines) {
+				cmdField = cmdLines[j]
+			}
+			if j < len(respLines) {
+				respField = respLines[j]
+			}
+			fmt.Printf(
+				"%-*s  %-*s  %-*s  %-*s\n",
+				widthID, idField,
+				widthCommand, cmdField,
+				widthResp, respField,
+				widthStatus, statusField,
+			)
+		}
+		fmt.Println(strings.Repeat("-", len(header)))
 	}
 }
 
 //export DisplayAllTasks
 func DisplayAllTasks(data *C.char) {
 	jsonStr := C.GoString(data)
+
 	var parsed map[string][]string
-	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+	err := json.Unmarshal([]byte(jsonStr), &parsed)
+	if err != nil {
 		fmt.Println("\n[-] Invalid JSON input")
 		return
 	}
 
-	headers := []string{"task_id", "implant_id", "command", "response", "status"}
-	widths := []int{7, widthImplant, 15, widthResp, 10}
-	printHeader(headers, widths)
+	header := fmt.Sprintf(
+		"%-*s  %-*s  %-*s  %-*s  %-*s",
+		7, "task_id",
+		widthImplant, "implant_id",
+		15, "command",
+		widthResp, "response",
+		10, "status",
+	)
+
+	separator := strings.Repeat("=", len(header))
+	fmt.Println(header)
+	fmt.Println(separator)
 
 	tasks := len(parsed["task_id"])
 	for i := 0; i < tasks; i++ {
-		status := colorStatus(parsed["status"][i])
-		cmd := colorCommand(parsed["command"][i])
-		resp := colorResponse(parsed["response"][i])
-		printRow(
-			[]string{parsed["task_id"][i], parsed["implant_id"][i], cmd, resp, status},
-			widths,
-			[]bool{false, false, true, true, false},
-		)
-		fmt.Println(strings.Repeat("-", sum(widths)+len(widths)*2))
+		id := parsed["task_id"][i]
+		implant := parsed["implant_id"][i]
+		cmd := parsed["command"][i]
+		resp := parsed["response"][i]
+		status := parsed["status"][i]
+
+		// Convert status to readable form
+		statusText := "Pending"
+		if status != "0" {
+			statusText = "Completed"
+		}
+
+		respLines := wrap(resp, widthResp)
+		cmdLines := wrap(cmd, 15)
+
+		maxLines := len(respLines)
+		if len(cmdLines) > maxLines {
+			maxLines = len(cmdLines)
+		}
+
+		for j := 0; j < maxLines; j++ {
+			var idField, implantField, cmdField, respField, statusField string
+			if j == 0 {
+				idField = id
+				implantField = implant
+				statusField = statusText
+			}
+			if j < len(cmdLines) {
+				cmdField = cmdLines[j]
+			}
+			if j < len(respLines) {
+				respField = respLines[j]
+			}
+			fmt.Printf(
+				"%-*s  %-*s  %-*s  %-*s  %-*s\n",
+				7, idField,
+				widthImplant, implantField,
+				15, cmdField,
+				widthResp, respField,
+				10, statusField,
+			)
+		}
+		fmt.Println(strings.Repeat("-", len(header)))
 	}
 }
 
 //export DisplayAllAgents
 func DisplayAllAgents(data *C.char) {
 	jsonStr := C.GoString(data)
+
 	var parsed map[string][]string
-	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+	err := json.Unmarshal([]byte(jsonStr), &parsed)
+	if err != nil {
 		fmt.Println("Invalid JSON input")
 		return
 	}
 
 	fmt.Println("\n[+] Displaying All Implants\n")
-	headers := []string{"implant_id", "os", "ip", "arch", "hostname", "last_seen"}
-	widths := []int{widthImplant, widthOS, widthIP, widthArch, widthHostname, widthLastSeen}
-	printHeader(headers, widths)
+
+	header := fmt.Sprintf(
+		"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s ",
+		widthImplant, "implant_id",
+		widthOS, "os",
+		widthIP, "ip",
+		widthArch, "arch",
+		widthHostname, "hostname",
+		widthLastSeen, "last_seen",
+	)
+
+	separator := strings.Repeat("=", len(header))
+	fmt.Println(header)
+	fmt.Println(separator)
 
 	agents := len(parsed["implant_id"])
 	for i := 0; i < agents; i++ {
-		printRow(
-			[]string{
-				parsed["implant_id"][i],
-				parsed["os"][i],
-				parsed["ip"][i],
-				parsed["arch"][i],
-				parsed["hostname"][i],
-				parsed["last_seen"][i],
-			},
-			widths,
-			[]bool{false, false, false, false, false, false},
+		id := parsed["implant_id"][i]
+		os := parsed["os"][i]
+		ip := parsed["ip"][i]
+		arch := parsed["arch"][i]
+		hostname := parsed["hostname"][i]
+		lastSeen := parsed["last_seen"][i]
+
+		fmt.Printf(
+			"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s\n",
+			widthImplant, id,
+			widthOS, os,
+			widthIP, ip,
+			widthArch, arch,
+			widthHostname, hostname,
+			widthLastSeen, lastSeen,
 		)
-		fmt.Println(strings.Repeat("-", sum(widths)+len(widths)*2))
+		fmt.Println(strings.Repeat("-", len(header)))
 	}
 }
 
+
+// display 
 //export DisplayCommandResponse
 func DisplayCommandResponse(data *C.char) {
-	jsonStr := C.GoString(data)
-	var parsed map[string][]string
-	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
-		fmt.Println("\n[-] Invalid JSON input")
-		return
-	}
+    jsonStr := C.GoString(data)
 
-	headers := []string{"Command", "Response"}
-	widths := []int{40, 80}
-	printHeader(headers, widths)
+    var parsed map[string][]string
+    err := json.Unmarshal([]byte(jsonStr), &parsed)
+    if err != nil {
+        fmt.Println("\n[-] Invalid JSON input")
+        return
+    }
 
-	maxTasks := len(parsed["command"])
-	if len(parsed["response"]) > maxTasks {
-		maxTasks = len(parsed["response"])
-	}
+    const (
+        widthCommand = 40
+        widthResp    = 80
+    )
 
-	for i := 0; i < maxTasks; i++ {
-		cmd := ""
-		if i < len(parsed["command"]) {
-			cmd = colorCommand(parsed["command"][i])
-		}
-		resp := ""
-		if i < len(parsed["response"]) {
-			resp = colorResponse(parsed["response"][i])
-		}
-		printRow(
-			[]string{cmd, resp},
-			widths,
-			[]bool{true, true},
-		)
-		fmt.Println(strings.Repeat("-", sum(widths)+len(widths)*2))
-	}
-}
+    // Header
+    header := fmt.Sprintf("%-*s  %-*s", widthCommand, "Command", widthResp, "Response")
+    separator := strings.Repeat("=", len(header))
+    fmt.Println(header)
+    fmt.Println(separator)
 
-// helper to sum ints
-func sum(nums []int) int {
-	total := 0
-	for _, n := range nums {
-		total += n
-	}
-	return total
+    // Check if we have the expected fields
+    if parsed["command"] == nil || parsed["response"] == nil {
+        fmt.Println("JSON missing required fields (command and/or response)")
+        return
+    }
+
+    // Find the maximum length of either array
+    maxTasks := len(parsed["command"])
+    if len(parsed["response"]) > maxTasks {
+        maxTasks = len(parsed["response"])
+    }
+
+    // Display each command/response pair
+    for i := 0; i < maxTasks; i++ {
+        cmd := ""
+        if i < len(parsed["command"]) {
+            cmd = parsed["command"][i]
+        }
+
+        resp := ""
+        if i < len(parsed["response"]) {
+            resp = parsed["response"][i]
+        }
+
+        cmdLines := wrap(cmd, widthCommand)
+        respLines := wrap(resp, widthResp)
+
+        maxLines := len(cmdLines)
+        if len(respLines) > maxLines {
+            maxLines = len(respLines)
+        }
+
+        for j := 0; j < maxLines; j++ {
+            var cmdField, respField string
+            if j < len(cmdLines) {
+                cmdField = cmdLines[j]
+            }
+            if j < len(respLines) {
+                respField = respLines[j]
+            }
+            fmt.Printf("%-*s  %-*s\n", widthCommand, cmdField, widthResp, respField)
+        }
+        fmt.Println(strings.Repeat("-", len(header)))
+    }
 }
 
 func main() {}
