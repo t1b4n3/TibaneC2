@@ -77,4 +77,11 @@ cleanup:
     ERR_free_strings();
 }
 
+void init() {
+    SSL_load_error_strings();
+    OpenSSL_add_ssl_algorithms(); 
+    ERR_load_crypto_strings();
+}
+
+
 #endif

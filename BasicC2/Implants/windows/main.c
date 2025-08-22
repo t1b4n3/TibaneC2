@@ -25,7 +25,6 @@ CtxtHandle hCtxt;
 SecPkgContext_StreamSizes streamSizes;
 
 
-
 int schannel_recv(char *buffer, int buffer_len) {
     char encrypted[4096];
     SecBuffer secBuffers[4];
