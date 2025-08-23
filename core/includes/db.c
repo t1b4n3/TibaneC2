@@ -11,25 +11,81 @@
 #include "logs.h"
 #include "common.h"
 
-//static DBConfig g_dbconf;
 
-//int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
-//    g_dbconf.host = dbserver;
-//    g_dbconf.user = user;
-//    g_dbconf.pass = pass;
-//    g_dbconf.db   = db;
-//    //g_dbconf.port = port;
-//    con = mysql_init(NULL);
-//    if (con == NULL) return -1;
-//    if (mysql_real_connect(con, dbserver, user, pass, db, 0, NULL, 0) == NULL) return -1;
-//    return 0;
-//}
+// Define the global variables
+MYSQL *db_pool[DB_POOL_SIZE];
+pthread_mutex_t db_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+int db_pool_index = 0;
+
+int init_db_pool(struct DBConf db_conf) {
+    for (int i = 0; i < DB_POOL_SIZE; i++) {
+        db_pool[i] = mysql_init(NULL);
+        if (db_pool[i] == NULL) {
+            log_message(LOG_ERROR, "mysql_init() failed for connection %d", i);
+            return -1;
+        }
+        
+        // Set connection options if needed
+        unsigned int timeout = 30; // 30 seconds timeout
+        mysql_options(db_pool[i], MYSQL_OPT_CONNECT_TIMEOUT, &timeout);
+        
+        if (!mysql_real_connect(db_pool[i], db_conf.host, db_conf.user, 
+                               db_conf.pass, db_conf.db, 0, NULL, 0)) {
+            log_message(LOG_ERROR, "Failed to create DB connection %d: %s", 
+                       i, mysql_error(db_pool[i]));
+            mysql_close(db_pool[i]);
+            return -1;
+        }
+        
+        // Set auto-reconnect option
+        int reconnect = 1;
+        mysql_options(db_pool[i], MYSQL_OPT_RECONNECT, &reconnect);
+        
+        log_message(LOG_INFO, "DB connection %d initialized successfully", i);
+    }
+    return 0;
+}
+
+MYSQL* get_db_connection(void) {
+    pthread_mutex_lock(&db_pool_mutex);
+    MYSQL *conn = db_pool[db_pool_index];
+    db_pool_index = (db_pool_index + 1) % DB_POOL_SIZE;
+    pthread_mutex_unlock(&db_pool_mutex);
+    return conn;
+}
+
+void cleanup_db_pool(void) {
+    for (int i = 0; i < DB_POOL_SIZE; i++) {
+        if (db_pool[i]->net.vio != NULL) { // Check if connection is active
+            mysql_close(db_pool[i]);
+            log_message(LOG_INFO, "Closed DB connection %d", i);
+        }
+    }
+    pthread_mutex_destroy(&db_pool_mutex);
+}
+
+//static DBConfig g_dbconf;
+/*
+int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
+    //g_dbconf.host = dbserver;
+    //g_dbconf.user = user;
+    //g_dbconf.pass = pass;
+    //g_dbconf.db   = db;
+    //g_dbconf.port = port;
+    con = mysql_init(NULL);
+    if (con == NULL) return -1;
+    if (mysql_real_connect(con, dbserver, user, pass, db, 0, NULL, 0) == NULL) return -1;
+    return 0;
+}
+
+
 
 void db_close() {
     mysql_close(con);
 }
+*/
 
-int check_implant_id(char *implant_id) {
+int check_implant_id(MYSQL* con, char *implant_id) {
     mysql_thread_init();
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
@@ -44,7 +100,7 @@ int check_implant_id(char *implant_id) {
     return (num_rows > 0);
 }
 
-char *get_task(int task_id) {
+char *get_task(MYSQL* con, int task_id) {
     char query[1024];
     snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
     if (mysql_query(con, query)) return NULL;
@@ -57,7 +113,7 @@ char *get_task(int task_id) {
     return cmd;
 }
 
-void store_task_response(char *response, int task_id) {
+void store_task_response(MYSQL* con, char *response, int task_id) {
     char esc[BUFFER_SIZE * 2];
     mysql_real_escape_string(con, esc, response, strlen(response));
     char *query = malloc(strlen(esc) + 256);
@@ -67,7 +123,7 @@ void store_task_response(char *response, int task_id) {
 
 }
 
-int check_tasks_queue(char *implant_id) {
+int check_tasks_queue(MYSQL* con, char *implant_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
@@ -87,7 +143,7 @@ int check_tasks_queue(char *implant_id) {
     return -1;
 }
 
-void new_implant(struct db_agents args) {
+void new_implant(MYSQL *con, struct db_agents args) {
     char query[2048];
     snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');",
              args.implant_id, args.os, args.ip, args.arch, args.hostname);
@@ -95,7 +151,7 @@ void new_implant(struct db_agents args) {
 
 }
 
-void update_last_seen(char *implant_id) {
+void update_last_seen(MYSQL* con, char *implant_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
@@ -104,14 +160,14 @@ void update_last_seen(char *implant_id) {
 
 }
 
-void TasksTable(struct db_tasks args) {
+void TasksTable(MYSQL* con, struct db_tasks args) {
     char query[4096 + 4096];
     snprintf(query, sizeof(query), "INSERT INTO Tasks (implant_id, command, response) VALUES ('%s', '%s', '%s');",
              args.implant_id, args.command, args.response);
     mysql_query(con, query);
 }
 
-void new_tasks(char *implant_id, char *command) {
+void new_tasks(MYSQL* con, char *implant_id, char *command) {
     char esc_id[130];
     char esc_cmd[1024];
     mysql_real_escape_string(con, esc_id, implant_id, strlen(implant_id));
@@ -125,7 +181,7 @@ void new_tasks(char *implant_id, char *command) {
 
 }
 
-char *tasks_per_implant(char *implant_id) {
+char *tasks_per_implant(MYSQL* con, char *implant_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char *query = malloc(1024);
@@ -163,7 +219,7 @@ char *tasks_per_implant(char *implant_id) {
 }
 
 
-int authenticate_operator(char *username, char *password) {
+int authenticate_operator(MYSQL* con, char *username, char *password) {
     // Input validation
 
     
@@ -187,10 +243,11 @@ int authenticate_operator(char *username, char *password) {
     //for (int i = 0; i < 3; i++) {
         if (mysql_ping(con) != 0) {
 
-            if (db_conn(g_dbconf.host, g_dbconf.user, g_dbconf.pass, g_dbconf.db) == -1) {
-                log_message(LOG_ERROR, "Reconnection failed: %s", mysql_error(con));
-                return -1;
-            }
+            //if (db_conn(g_dbconf.host, g_dbconf.user, g_dbconf.pass, g_dbconf.db) == -1) {
+            //    log_message(LOG_ERROR, "Reconnection failed: %s", mysql_error(con));
+            //    return -1;
+            //}
+            return -1;
         }
         if (mysql_query(con, query)) {
             //fprintf(stderr, "[-] Query failed: %s\n", mysql_error(con));
@@ -240,25 +297,8 @@ int authenticate_operator(char *username, char *password) {
     return auth_result;
 }
 
-/*
-int authenticate_operator(char *username, char *password) {
-    char esc_user[128];
-    char esc_pass[128];
-    mysql_real_escape_string(con, esc_user, username, strlen(username));
-    mysql_real_escape_string(con, esc_pass, password, strlen(password));
-    char *query = malloc(1024);
-    snprintf(query, 1024, "SELECT * FROM Operators WHERE username='%s' AND password='%s';", esc_user, esc_pass);
-    if (mysql_query(con, query)) return -1;
-    MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) return -1;
-    int num_rows = mysql_num_rows(result);
-    mysql_free_result(result);
-    free(query);
-    return (num_rows > 0) ? 0 : -1;
-}
-*/
 
-char *GetData(char *table) {
+char *GetData(MYSQL* con, char *table) {
     char esc[256];
     mysql_real_escape_string(con, esc, table, strlen(table));
     char *query = malloc(1024);
@@ -286,14 +326,14 @@ char *GetData(char *table) {
     return json_output;
 }
 
-void LogsTable(struct db_logs args) {
+void LogsTable(MYSQL* con, struct db_logs args) {
     char query[4096+1028];
     snprintf(query, sizeof(query), "INSERT INTO Logs (implant_id, log_type, message) VALUES ('%s', '%s', '%s');",
              args.implant_id, args.log_type, args.message);
     mysql_query(con, query);
 }
 
-char *cmd_and_response(int task_id) {
+char *cmd_and_response(MYSQL* con, int task_id) {
     char query[256];
     snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
 

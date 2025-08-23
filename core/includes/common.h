@@ -36,13 +36,9 @@ struct db_logs {
 };
 
 
-struct DBConf {
-    char host[BUFFER_SIZE];
-    char user[BUFFER_SIZE];
-    char pass[BUFFER_SIZE];
-    char db[BUFFER_SIZE];
-    int port;
-};
+
+
+
 struct database_configs_t {
     char database_server[BUFFER_SIZE];
     char username[BUFFER_SIZE];
@@ -76,8 +72,17 @@ struct communication_channels_t {
     char ssl_key[0x100];
 };
 
+struct DBConf {
+    char host[BUFFER_SIZE];
+    char user[BUFFER_SIZE];
+    char pass[BUFFER_SIZE];
+    char db[BUFFER_SIZE];
+    int port;
+};
+
 struct operator_handler_args_t {
     SSL *ssl;
+    struct DBConf db_conf;
 };
 
 
@@ -85,6 +90,7 @@ struct main_threads_args_t {
     char cert[BUFFER_SIZE];
     char key[BUFFER_SIZE];
     int port;
+    struct DBConf db_conf;
 };
 
 // 
@@ -94,18 +100,20 @@ struct implant_handler_t {
     SSL_CTX *ctx;
     int client_fd;
     char ip[INET_ADDRSTRLEN];
+    struct DBConf db_conf;
 };
+
 
 // ---- Global Mutexes ----
 extern pthread_mutex_t db_mutex;
 extern pthread_mutex_t log_mutex;
 
 // ---- Global Variables ----
-extern int server_running;
-extern char base62[];
-extern MYSQL *con;
 
-extern DBConfig g_dbconf;
+extern char base62[];
+
+
+extern  struct DBConf g_dbconf;
 
 
 #endif

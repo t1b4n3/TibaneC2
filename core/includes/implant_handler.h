@@ -27,9 +27,9 @@
 
 void GenerateID(const char *input, char output[9]);
 
-char *register_implant(cJSON *json, char *ip);
+char *register_implant(MYSQL* con, cJSON *json, char *ip);
 
-char *beacon_implant(cJSON *json);
+char *beacon_implant(MYSQL* con, cJSON *json);
 
 void *implant_handler(void *arg);
 

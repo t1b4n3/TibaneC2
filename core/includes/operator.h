@@ -30,8 +30,8 @@
 
 void *operator_handler(void *Args);
 
-char *interact_with_implant(cJSON *rinfo);
+char *interact_with_implant(MYSQL *con, cJSON *rinfo);
 
-int autheticate(SSL *ssl);
+int autheticate(MYSQL *con, SSL *ssl);
 
 #endif
