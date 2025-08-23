@@ -8,30 +8,8 @@
 #include <stdbool.h>
 #include <cjson/cJSON.h>
 
-#define BUFFER_SIZE 4096
-#define MAX_INFO 999999999
+#include "common.h"
 
-struct db_agents {
-    char implant_id[65];
-    char os[50];
-    char ip[50];
-    char hostname[255];
-    char arch[50];
-};
-
-struct db_tasks {
-    char implant_id[65];
-    char command[1024];
-    char response[BUFFER_SIZE];
-};
-
-struct db_logs {
-    char implant_id[65];
-    char log_type[16];
-    char message[BUFFER_SIZE];
-};
-
-extern MYSQL *con;
 
 // open connection to database
 int db_conn(const char *dbserver, const char *user, const char *pass, const char *db);

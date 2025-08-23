@@ -2,6 +2,7 @@
 #define LOGS_H
 
 #include <stdio.h>
+#include "common.h"
 
 typedef enum {
     LOG_DEBUG,

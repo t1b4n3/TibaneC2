@@ -6,7 +6,7 @@
 #include "logs.h"
 #include <stdarg.h>
 #include <time.h>
-
+#include "common.h"
 
 static const char* level_strings[] = { "DEBUG", "INFO", "WARN", "ERROR" };
 static const char* level_colors[] = {

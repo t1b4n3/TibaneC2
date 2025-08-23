@@ -1,8 +1,9 @@
-#ifndef TCP_SSL_BEACON
-#define TCP_SSL_BEACON
+#ifndef LISTENER
+#define LISTENER
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -10,7 +11,6 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <cjson/cJSON.h>
-#include <openssl/sha.h>
 
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -23,19 +23,33 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
-#include "../agent.h"
-
-#include "db.h"
 #include "logs.h"
+#include "implant_handler.h"
 
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
 
 
-void ssl_beacon(cJSON *json, SSL *ssl);
 
-void upload(char *file);
+//void tcp_register_agent(cJSON *json, char *ip, int sock); 
 
-void download(char *file);
+// TCP (unencrypted)
+
+void* tcp_listener(void* port);
+
+// TCP over SSL
+ 
+void* tcp_ssl_listener(void *port);
+
+// for Operator console
+
+void *operator_listener(void* args);
+
+// ssl keys and certifications  
+
+void generate_key_and_cert();
+
+void init();
+
 
 #endif

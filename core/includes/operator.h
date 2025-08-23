@@ -26,10 +26,9 @@
 
 
 #include "db.h"
+#include "common.h"
 
 void *operator_handler(void *Args);
-
-void *Operator_conn(void *args);
 
 char *interact_with_implant(cJSON *rinfo);
 
