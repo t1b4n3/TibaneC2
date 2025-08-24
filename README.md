@@ -1,5 +1,8 @@
 # TibaneC2 - Command & Control Framework
 
+![Image](./tibaneC2.png)
+
+
 **TibaneC2** is a fully custom-built Command & Control (C2) framework designed for offensive security research, red teaming, and adversary simulation. It includes a native C/C++ core server, a PHP-based web panel, a CLI console, cross-platform implants, multi-language stagers, and scripting tools for automation and emulation.
 
 > ⚠️ For educational and authorized testing purposes only.
