@@ -81,11 +81,8 @@ TibaneC2/
 
 ## TODO
 ### Core server
-- Implement Logging
 - Session mode
 - HTTP/HTTPS Communication methods
-- Encrypted Communication
-- Thread saftey for all threads
 
 ### Implants
 - keylogger
@@ -94,9 +91,6 @@ TibaneC2/
 - sandbox and vm detection checks
 - kill switch for self-removal
 - persistence mechanisms
-
-### Web-panel 
-- Authentication 
 
 ---
 
