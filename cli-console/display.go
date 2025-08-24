@@ -202,12 +202,12 @@ func DisplayAllAgents(data *C.char) {
 
 	header := fmt.Sprintf(
 		"%-*s  %-*s  %-*s  %-*s  %-*s  %-*s ",
-		widthImplant, "implant_id",
-		widthOS, "os",
-		widthIP, "ip",
-		widthArch, "arch",
-		widthHostname, "hostname",
-		widthLastSeen, "last_seen",
+		widthImplant, "Implant-ID",
+		widthOS, "Operating-System",
+		widthIP, "Remote Address",
+		widthArch, "Architecture",
+		widthHostname, "Hostname",
+		widthLastSeen, "Last-Seen",
 	)
 
 	separator := strings.Repeat("=", len(header))
