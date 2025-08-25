@@ -11,7 +11,6 @@
 #include "logs.h"
 #include "common.h"
 
-
 // Define the global variables
 MYSQL *db_pool[DB_POOL_SIZE];
 pthread_mutex_t db_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -38,10 +37,10 @@ int init_db_pool(struct DBConf db_conf) {
         }
         
         // Set auto-reconnect option
-        int reconnect = 1;
-        mysql_options(db_pool[i], MYSQL_OPT_RECONNECT, &reconnect);
+        //int reconnect = 1;
+        //mysql_options(db_pool[i], MYSQL_OPT_RECONNECT, &reconnect);
         
-        log_message(LOG_INFO, "DB connection %d initialized successfully", i);
+        //log_message(LOG_INFO, "DB connection %d initialized successfully", i);
     }
     return 0;
 }
@@ -91,7 +90,10 @@ int check_implant_id(MYSQL* con, char *implant_id) {
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
     snprintf(query, sizeof(query), "SELECT * FROM Implants WHERE implant_id = '%s'", esc);
-    if (mysql_query(con, query)) return 0;
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Checking If implant id exists Query Failed: %s", mysql_error(con)); 
+        return 0;
+    }
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) return 0;
     int num_rows = mysql_num_rows(result);
@@ -118,7 +120,10 @@ void store_task_response(MYSQL* con, char *response, int task_id) {
     mysql_real_escape_string(con, esc, response, strlen(response));
     char *query = malloc(strlen(esc) + 256);
     snprintf(query, strlen(esc) + 256, "UPDATE Tasks SET status = TRUE, response = '%s' WHERE task_id = %d;", esc, task_id);
-    mysql_query(con, query);
+    
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Storing Task Response Query Failed: %s", mysql_error(con));
+    }
     free(query);
 
 }
@@ -127,8 +132,11 @@ int check_tasks_queue(MYSQL* con, char *implant_id) {
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
-    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE implant_id = '%s';", esc);
-    if (mysql_query(con, query)) return -1;
+    snprintf(query, sizeof(query), "SELECT task_id, status FROM Tasks WHERE implant_id = '%s';", esc);  
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Checking for Tasks Query Failed: %s", mysql_error(con));
+        return -1;
+    }
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) return -1;
     MYSQL_ROW row;
@@ -147,7 +155,9 @@ void new_implant(MYSQL *con, struct db_agents args) {
     char query[2048];
     snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');",
              args.implant_id, args.os, args.ip, args.arch, args.hostname);
-    mysql_query(con, query);
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Adding New Implant Query Failed: %s", mysql_error(con));
+    }
 
 }
 
@@ -156,16 +166,22 @@ void update_last_seen(MYSQL* con, char *implant_id) {
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char query[1024];
     snprintf(query, sizeof(query), "UPDATE Implants SET last_seen = CURRENT_TIMESTAMP() WHERE implant_id = '%s';", esc);
-    mysql_query(con, query);
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Updating beacon last seen Query Failed: %s", mysql_error(con));
+    }
 
 }
-
+/*
 void TasksTable(MYSQL* con, struct db_tasks args) {
     char query[4096 + 4096];
     snprintf(query, sizeof(query), "INSERT INTO Tasks (implant_id, command, response) VALUES ('%s', '%s', '%s');",
              args.implant_id, args.command, args.response);
-    mysql_query(con, query);
+
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Storing Task Response Query Failed: %s", mysql_error(con));
+    }
 }
+*/
 
 void new_tasks(MYSQL* con, char *implant_id, char *command) {
     char esc_id[130];
@@ -174,11 +190,16 @@ void new_tasks(MYSQL* con, char *implant_id, char *command) {
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
     char *query = malloc(1024 + 130);
     snprintf(query, 1024 + 256, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
-    if (mysql_ping(con) != 0) {
-        mysql_query(con, query);
+    if (mysql_ping(con) == 0) {
+        free(query);
+        return;
+    }
+
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Inserting New Tasks Query Failed: %s", mysql_error(con));
     }
     free(query);
-
+    return;
 }
 
 char *tasks_per_implant(MYSQL* con, char *implant_id) {
@@ -195,6 +216,8 @@ char *tasks_per_implant(MYSQL* con, char *implant_id) {
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) {
         log_message(LOG_ERROR, "Failed to store result [Getting Tasks Per Implant]: %s", mysql_error(con));
+        mysql_free_result(result);
+        free(query);
         return NULL; 
     }
     int num_fields = mysql_num_fields(result);
@@ -211,6 +234,7 @@ char *tasks_per_implant(MYSQL* con, char *implant_id) {
     cJSON *root = cJSON_CreateObject();
     for (int i = 0; i < num_fields; i++) cJSON_AddItemToObject(root, fields[i].name, column_arrays[i]);
     char *json_output = cJSON_Print(root);
+
     cJSON_Delete(root);
     mysql_free_result(result);
     free(query);
@@ -220,9 +244,6 @@ char *tasks_per_implant(MYSQL* con, char *implant_id) {
 
 
 int authenticate_operator(MYSQL* con, char *username, char *password) {
-    // Input validation
-
-    
     if (!username || !password) return -1;
     if (strlen(username) > 100 || strlen(password) > 100) return -1;
 
@@ -231,7 +252,6 @@ int authenticate_operator(MYSQL* con, char *username, char *password) {
     if (strlen(username) * 2 + 1 > sizeof(esc_user)) return -1;
     mysql_real_escape_string(con, esc_user, username, strlen(username));
 
-    // Build query (check for truncation)
     char query[256];
     if (snprintf(query, sizeof(query),
                 "SELECT password FROM Operators WHERE username='%s'", 
@@ -273,7 +293,6 @@ int authenticate_operator(MYSQL* con, char *username, char *password) {
     const char *stored_hash = row[0];
     if (strlen(stored_hash) < 60 || stored_hash[0] != '$') {
         mysql_free_result(res);
-
         return -1;  // Invalid hash format
     }
 
@@ -283,7 +302,7 @@ int authenticate_operator(MYSQL* con, char *username, char *password) {
     if (result == NULL) {
         //perror("crypt() failed");
         log_message(LOG_ERROR, "crypt failed");
-
+        mysql_free_result(res);
         return 1;
     }
 
@@ -303,7 +322,10 @@ char *GetData(MYSQL* con, char *table) {
     mysql_real_escape_string(con, esc, table, strlen(table));
     char *query = malloc(1024);
     snprintf(query, 1024, "SELECT * FROM %s;", esc);
-    if (mysql_query(con, query)) return NULL;
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Geting data from %s Query failed", table);    
+        return NULL;
+    }
     MYSQL_RES *result = mysql_store_result(con);
     if (result == NULL) return NULL;
     int num_fields = mysql_num_fields(result);
@@ -338,6 +360,7 @@ char *cmd_and_response(MYSQL* con, int task_id) {
     snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
 
     if (mysql_query(con, query)) {
+        
         return NULL;
     }
 

