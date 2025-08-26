@@ -69,6 +69,8 @@ char *cmd_and_response(MYSQL* con, int task_id);
 // insert new tasks
 void new_tasks(MYSQL* con, char *implant_id, char *command);
 
+bool update_task(MYSQL* con,int task_id, char*command);
+
 
 
 #endif

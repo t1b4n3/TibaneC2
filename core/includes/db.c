@@ -125,7 +125,6 @@ void store_task_response(MYSQL* con, char *response, int task_id) {
         log_message(LOG_ERROR, "Storing Task Response Query Failed: %s", mysql_error(con));
     }
     free(query);
-
 }
 
 int check_tasks_queue(MYSQL* con, char *implant_id) {
@@ -219,19 +218,26 @@ char *tasks_per_implant(MYSQL* con, char *implant_id) {
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));
     char *query = malloc(1024);
     snprintf(query, 1024, "SELECT task_id, command, response, status FROM Tasks WHERE implant_id = '%s';", esc);
+
     if (mysql_ping(con) != 0) {
-        if (mysql_query(con, query)) {
-            log_message(LOG_ERROR, "Getting Tasks Per Implant Query Failed: %s", mysql_error(con));
-            return NULL;
-        }
-    }
-    MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL) {
-        log_message(LOG_ERROR, "Failed to store result [Getting Tasks Per Implant]: %s", mysql_error(con));
-        mysql_free_result(result);
+        log_message(LOG_ERROR, "MySQL connection lost: %s", mysql_error(con));
         free(query);
-        return NULL; 
+        return NULL;
     }
+
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Query failed [Getting Tasks Per Implant]: %s", mysql_error(con));
+        free(query);
+        return NULL;
+    }
+
+    MYSQL_RES *result = mysql_store_result(con);
+    if (!result) {
+        log_message(LOG_ERROR, "Failed to store result [Getting Tasks Per Implant]: %s", mysql_error(con));
+        free(query);
+        return NULL;
+    }
+
     int num_fields = mysql_num_fields(result);
     MYSQL_FIELD *fields = mysql_fetch_fields(result);
     cJSON *column_arrays[num_fields];
@@ -286,15 +292,14 @@ int authenticate_operator(MYSQL* con, char *username, char *password) {
             log_message(LOG_ERROR, "Authentication Query Failed: %s", mysql_error(con));
             return -1;
         }
-    //}   
-    // Store result
+
     MYSQL_RES *res = mysql_store_result(con);
     if (!res) {
         //fprintf(stderr, "[-] Failed to store result: %s\n", mysql_error(con));
         log_message(LOG_ERROR, "Failed to store result [Authentication]: %s", mysql_error(con));
         return -1;
     }
-    // Fetch row
+    
     MYSQL_ROW row = mysql_fetch_row(res);
     if (!row || !row[0]) {
         mysql_free_result(res);
@@ -389,4 +394,39 @@ char *cmd_and_response(MYSQL* con, int task_id) {
 
     mysql_free_result(result);
     return cmd;  // Must be freed by the caller
+}
+
+
+bool update_task(MYSQL* con,int task_id, char*command) {
+    // first check if task is completed
+    char query[BUFFER_SIZE*2];
+    snprintf(query, sizeof(query), "SELECT status FROM Tasks WHERE task_id = %d", task_id);
+    
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Checking for Update tasks Failed: %s", mysql_error(con));
+        return false;
+    }
+
+    MYSQL_RES *result = mysql_store_result(con);
+    if (result == NULL) return false;
+    MYSQL_ROW row = mysql_fetch_row(result);
+    if (row[0] == NULL || atoi(row[0]) != 0) {
+        mysql_free_result(result);
+        return false    ;
+    }
+    mysql_free_result(result);
+    
+    memset(query, 0, sizeof(query));
+    char esc_cmd[BUFFER_SIZE];
+    mysql_real_escape_string(con, esc_cmd, command, BUFFER_SIZE);
+    snprintf(query, sizeof(query), "UPDATE Tasks SET command = '%s' WHERE task_id = %d", esc_cmd, task_id);
+    if (mysql_ping(con) == 0) { 
+        return false;
+    }
+
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Updating Tasks Query Failed: %s", mysql_error(con));
+        return false;
+    }
+    return true;
 }
