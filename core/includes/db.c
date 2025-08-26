@@ -153,12 +153,24 @@ int check_tasks_queue(MYSQL* con, char *implant_id) {
 
 void new_implant(MYSQL *con, struct db_agents args) {
     char query[2048];
+
+    char esc_id[9];
+    char esc_os[64];
+    char esc_ip[50];
+    char esc_arch[50];
+    char esc_hostname[255];
+
+    mysql_real_escape_string(con, esc_id, args.implant_id, strlen(args.implant_id));
+    mysql_real_escape_string(con, esc_os, args.os, strlen(args.os));
+    mysql_real_escape_string(con, esc_arch, args.arch, strlen(args.arch));
+    mysql_real_escape_string(con, esc_ip, args.ip, strlen(args.ip));
+    mysql_real_escape_string(con, esc_hostname, args.hostname, strlen(args.hostname));
+
     snprintf(query, sizeof(query), "INSERT INTO Implants (implant_id, os, ip, arch, hostname) VALUES ('%s', '%s', '%s', '%s', '%s');",
-             args.implant_id, args.os, args.ip, args.arch, args.hostname);
+             esc_id, esc_os, esc_ip, esc_arch, esc_hostname);
     if (mysql_query(con, query)) {
         log_message(LOG_ERROR, "Adding New Implant Query Failed: %s", mysql_error(con));
     }
-
 }
 
 void update_last_seen(MYSQL* con, char *implant_id) {
@@ -360,7 +372,6 @@ char *cmd_and_response(MYSQL* con, int task_id) {
     snprintf(query, sizeof(query), "SELECT command FROM Tasks WHERE task_id = %d;", task_id);
 
     if (mysql_query(con, query)) {
-        
         return NULL;
     }
 
