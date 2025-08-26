@@ -50,7 +50,7 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
                                         "   beacon [id] : interactive shell for selected beacon\n"
                                         "   use [id] : same as beacon\n"
                                         "   quit, q, exit : exit the program\n"
-                                        "   \n---------------------------------\n\n";
+                                        "   \n---------------------------------\n";
 
 const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]\n\n"                              
                                     "   new-task [task] : Issue new task for the beacon\n"
@@ -598,7 +598,7 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
             free(data);
         }
     } else if (strncmp(cmd, "whoami", 6) == 0) {
-        printf("%s\n", current_operator);
+        printf("\n%s\n", current_operator);
     }   else {
         printf("%s", tibane_shell_help);
     }

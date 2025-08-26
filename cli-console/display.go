@@ -194,7 +194,7 @@ func DisplayAllAgents(data *C.char) {
 	var parsed map[string][]string
 	err := json.Unmarshal([]byte(jsonStr), &parsed)
 	if err != nil {
-		fmt.Println("Invalid JSON input")
+		fmt.Println("Invalid JSON FROM SERVER [Displaying Implants]")
 		return
 	}
 
