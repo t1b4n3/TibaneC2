@@ -123,6 +123,7 @@ Server tries to authenticate and send results
 {
 	"Info":"Tasks"
 }
+
 ```
 
 #### Logs
@@ -133,6 +134,21 @@ Server tries to authenticate and send results
 }
 ```
 ### Interacting with data for a single implant
+
+#### confirm implant_id
+
+```json
+{
+	"Info":"verify_implant",
+	"impland_id":"xxx"
+}
+```
+
+```json
+{
+	"valid_id":"false / true"	
+}
+```
 #### List All Tasks For Specific Beacon
 
 ```json
@@ -143,13 +159,12 @@ Server tries to authenticate and send results
 }
 ```
 
-Options for x are  `list-tasks, response-task, new-task` 
+Options for x are  `list-tasks, response-task, new-task`, `update-task` (will update only if the task is not completed)
 
 If x is list-tasks
 No json is added and the json is send 
 
 response will be 
-
 
 if x is new_task
 ```json
@@ -166,3 +181,11 @@ if x is response-task
 }
 ```
 
+update-task
+```json
+{
+	"update": "true"
+}
+```
+
+---
