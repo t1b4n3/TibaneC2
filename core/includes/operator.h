@@ -32,6 +32,8 @@ void *operator_handler(void *Args);
 
 char *interact_with_implant(MYSQL *con, cJSON *rinfo);
 
+char *verify_id(MYSQL *con, char *id);
+
 int autheticate(MYSQL *con, SSL *ssl);
 
 #endif

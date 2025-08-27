@@ -9,10 +9,7 @@
 
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
-#define MAX_INFO 999999999
-
-
-
+#define MAX_INFO 0x999999
 
 // ---- Structs ----
 struct db_agents {
@@ -34,9 +31,6 @@ struct db_logs {
     char log_type[16];
     char message[BUFFER_SIZE];
 };
-
-
-
 
 
 struct database_configs_t {

