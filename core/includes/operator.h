@@ -10,7 +10,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/in.h>
-
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -27,6 +30,11 @@
 
 #include "db.h"
 #include "common.h"
+
+//upload file to operator | interact with download function from cli
+int operator_file_upload(SSL *ssl);
+// download file to download | cli-console must send (upload) 
+int operator_file_download(SSL *ssl);
 
 void *operator_handler(void *Args);
 

