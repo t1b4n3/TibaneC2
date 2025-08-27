@@ -9,7 +9,6 @@
 - add new task for implant (POST)
     - /api/new_task/implant_id
 - update task for implant (PUT)
-    - /api/new_task/implant_id
+    - /api/update_task/task_id
 - delete task for implant (DELETE)
-    - /api/new_task/implant_id
-
+    - /api/delete_task/task_id
