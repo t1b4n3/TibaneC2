@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-src="main.cpp ./includes/keylogger.c"
+src="main.cpp"
 
 # for linux
 linux_out="agent_linux"
