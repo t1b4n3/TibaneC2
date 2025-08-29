@@ -55,8 +55,8 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
                                         "   beacon [id] : interactive shell for selected beacon\n"
                                         "   use [id] : same as beacon\n"
                                         "   upload [file path] : upload file to server\n"
+                                        "   download [operator/implant] [file_to_download] [path to store] : download file from server\n"
                                         "   quit, q, exit : exit the program\n" 
-                                        "   download [operator/implant] [file_to_download] [path to store]\n"
                                         "   \n---------------------------------\n";
 
 const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]\n\n"                              
@@ -189,6 +189,27 @@ class Communicate_ {
 
 class SendInfo : public Communicate_ {
     public:
+
+    char *view_files(const char *dir) {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            printf("Could Not create\n");
+            return NULL;
+        }
+        cJSON_AddStringToObject(info, "Info", "files");
+        cJSON_AddStringToObject(info, "folder", dir);
+        cJSON_AddStringToObject(info, "option", "view");
+
+        char *info_ = cJSON_Print(info);
+        SSL_write(ssl, info_, strlen(info_));
+        free(info_);
+        cJSON_Delete(info);
+
+        char *contents = (char*)malloc(MAX_SIZE);
+        SSL_read(ssl, contents, MAX_SIZE);
+        return contents;
+    }
+
 
     int upload(const char* path) {
         cJSON *info = cJSON_CreateObject();
@@ -807,11 +828,11 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
         printf("\n%s\n", current_operator);
     }  else if (strncmp(cmd, "upload", 6) == 0) {
         char file_path[BUFFER_SIZE];
-        //if (sscanf(cmd, "upload %s", file_path) != 1) {
-        //    printf("\n[-] Use : upload [file path]\n");
-        //    return;
-        //}
-        strncpy(file_path, cmd + 7, sizeof(file_path));
+        if (sscanf(cmd, "upload %s", file_path) != 1) {
+            printf("\n[-] Use : upload [file path]\n");
+            return;
+        }
+       // strncpy(file_path, , sizeof(file_path));
         if (sendinfo.upload(file_path) == -1) {
             printf("\n[-] Could Not Send File\n");
             return;
@@ -826,7 +847,25 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
             printf("\n[-] Could not download file\n");
             return;
         }
-    } else {
+    } else if (strncmp(cmd, "files", 5) == 0) {
+        char dir[BUFFER_SIZE];
+        if (sscanf(cmd, "files %s", dir) != 1) {
+            printf("\n[-] use : files [operator/implant]\n");
+            return;
+        }
+        if (strncmp(dir, "operator", 8) != 0 && strncmp(dir, "implant", 7) != 0) {
+            printf("\n[-] usage : files [operator/implant] \nNot : %s\n", dir);
+            return;
+        }
+
+        char *files = sendinfo.view_files(cmd + 6);
+        if (files == NULL) {
+            printf("\n[-] Could Not display files\n");
+            return;
+        }
+        DisplayFiles(files);
+        free(files);
+    }else {
         printf("%s", tibane_shell_help);
     }
 }
@@ -838,7 +877,7 @@ char** shell_completion(const char* text, int start, int end) {
 
 char* command_generator(const char* text, int state) {
     static const char* commands[] = {
-        "implants", "beacon", "list-tasks", "whoami","download", "upload", "exit", "quit", "q", "use", NULL
+        "implants", "beacon", "list-tasks", "whoami","download", "upload", "exit", "quit", "q", "use", "files", NULL
     };
     
     static int list_index, len;

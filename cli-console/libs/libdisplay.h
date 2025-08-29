@@ -79,6 +79,7 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
+extern void DisplayFiles(char* data);
 extern void DisplayTasksPerAgent(char* data);
 extern void DisplayAllTasks(char* data);
 extern void DisplayAllAgents(char* data);

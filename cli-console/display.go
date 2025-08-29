@@ -25,6 +25,27 @@ const (
 	widthLastSeen = 15
 )
 
+
+//export DisplayFiles
+func DisplayFiles(data *C.char) {
+	jsonStr := C.GoString(data)
+	var parsed interface{}
+
+	err := json.Unmarshal([]byte(jsonStr), &parsed)
+	if err != nil {
+		fmt.Println("[-] Invalid JSON:", err)
+		return
+	}
+
+	pretty, err := json.MarshalIndent(parsed, "", "  ")
+	if err != nil {
+		fmt.Println("[-] Failed to format JSON:", err)
+		return
+	}
+
+	fmt.Println(string(pretty))
+}
+
 // Word-wrap a string to fit within width
 func wrap(text string, width int) []string {
 	words := strings.Fields(text)

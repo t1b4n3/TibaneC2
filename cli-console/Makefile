@@ -4,10 +4,8 @@ CC = g++
 CFLAGS = -O2 -s
 LDFLAGS = -L./libs -Wl,--whole-archive -ldisplay -Wl,--no-whole-archive \
           -l:libreadline.a -l:libtinfo.a -l:libcjson.a \
-          -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto \
-		  -Wl,-z,relro -Wl,-z,now \
-		  -Wl,-z,noexecstack \
-		  -fPIE -pie 
+          -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto 
+
 
 GO_SRC = display.go
 GO_LIB = libs/libdisplay.a
