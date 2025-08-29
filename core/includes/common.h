@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-
+#include <dirent.h>
 #include "logs.h"
 
 #define BUFFER_SIZE 4096
@@ -121,4 +121,7 @@ extern  struct DBConf g_dbconf;
 bool check_if_dir_exists(char *dir);
 
 bool create_dir(char *dir);
+
+char* search_file(char *base_path, char *filename);
+
 #endif

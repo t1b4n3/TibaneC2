@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
 #include <openssl/rsa.h>
@@ -26,7 +27,7 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
-
+#include <filesystem>
 //#include "includes/session.h"
 //#include "includes/agent.h"
 
@@ -55,7 +56,7 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
                                         "   use [id] : same as beacon\n"
                                         "   upload [file path] : upload file to server\n"
                                         "   quit, q, exit : exit the program\n" 
-                                        "   download [file_to_download] [path to store]\n"
+                                        "   download [operator/implant] [file_to_download] [path to store]\n"
                                         "   \n---------------------------------\n";
 
 const char beacon_shell_help[HELP_SIZE] = "\n[*] Tibane-shell (Beacon Usage) [*]\n\n"                              
@@ -216,8 +217,15 @@ class SendInfo : public Communicate_ {
             return -1;
         }
 
-        char filename[BUFFER_SIZE];
-        strncpy(filename, path, sizeof(filename));
+        std::filesystem::path p(path);
+        std::string filename_str = p.filename().string();
+        //// Get a char* from the std::string
+        const char* filename = filename_str.c_str();
+        //
+        //p.filename();
+        //std::string filename = p.filename();
+        //char filename[BUFFER_SIZE];
+        //strncmp(filename, p.filename(), BUFFER_SIZE);
         cJSON_AddStringToObject(fileO, "file_name", filename);
         printf("Filename : %s", filename);
         char *Sfilename = cJSON_Print(fileO);
@@ -239,7 +247,7 @@ class SendInfo : public Communicate_ {
         return 0;
     }
 
-    int download(const char* filename, const char* filepath) {
+    int download(const char* filename, const char* filepath, const char* dir) {
         cJSON *info = cJSON_CreateObject();
         if (!info) {
             return -1;
@@ -261,10 +269,19 @@ class SendInfo : public Communicate_ {
         cJSON_Delete(info);
 
         cJSON_AddStringToObject(file, "file_name", filename);
+        cJSON_AddStringToObject(file, "dir", dir);
         char *file_ = cJSON_Print(file);
         cJSON_Delete(file);
         SSL_write(ssl, file_, strlen(file_));
         free(file_);
+
+        char exists[BUFFER_SIZE];
+        SSL_read(ssl, exists, sizeof(exists));
+        cJSON *file_exists = cJSON_Parse(exists);
+        cJSON *x = cJSON_GetObjectItem(file_exists, "Exist");
+        if (cJSON_IsBool(x) == false) {
+            return -1;
+        }
 
         printf("[+] Downloading file : %s\n", filename);
         
@@ -738,7 +755,6 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-
 //////////////////////////////////////////////
 // shell
 
@@ -801,12 +817,12 @@ void process_shell_command(const char* cmd, RetriveInfo recvinfo, SendInfo sendi
             return;
         }   
     } else if (strncmp(cmd, "download", 8) == 0) {
-        char file_d[BUFFER_SIZE], file_store[BUFFER_SIZE];
-        if (sscanf(cmd, "download %s %s", file_d, file_store) != 2) {
-            printf("\n[-] use : download [file_to_download] [path to store]\n");
+        char file_d[BUFFER_SIZE], file_store[BUFFER_SIZE], dir[BUFFER_SIZE];
+        if (sscanf(cmd, "download %s %s %s", dir, file_d, file_store) != 3) {
+            printf("\n[-] use : download [operator/implant] [file_to_download] [path to store]\n");
             return;
         }
-        if (sendinfo.download(file_d, file_store) == -1) {
+        if (sendinfo.download(file_d, file_store, dir) == -1) {
             printf("\n[-] Could not download file\n");
             return;
         }
@@ -841,5 +857,3 @@ char* command_generator(const char* text, int state) {
 
     return NULL;
 }
-
-

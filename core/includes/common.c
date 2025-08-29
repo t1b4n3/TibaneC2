@@ -12,6 +12,7 @@ char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 struct DBConf g_dbconf; 
 
 
+
 bool check_if_dir_exists(char *dir){
     if (access(dir, F_OK) != 0) {
         if (ENOENT == errno) {
@@ -44,20 +45,40 @@ bool create_dir(char *dir) {
     return true;
 }
 
-    //struct stat s;
-    //int err = stat(dir, &s);
-    //if(-1 == err) {
-    //    if(ENOENT == errno) {
-    //        return false;
-    //    } else {
-    //        //perror("stat");
-    //        log_message(LOG_ERROR, "ERROR checking dir");
-    //        return false;
-    //    }
-    //} else {  
-    //    if(S_ISDIR(s.st_mode)) {
-    //        return true;
-    //    } else {
-    //        return false;
-    //    }
-    //}
+char* search_file(char *base_path, char *filename) {
+    struct dirent *dp;
+    DIR *dir = opendir(base_path);
+
+    if (!dir) {
+        log_message(LOG_ERROR, "Directory : %s Does not exist", base_path);
+        return NULL;
+    }
+
+    while ((dp = readdir(dir)) != NULL) {
+        if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
+            
+            // Build full path
+            char path[BUFFER_SIZE * 2];
+            snprintf(path, sizeof(path), "%s/%s", base_path, dp->d_name);
+
+            // If file matches, return path
+            if (strcmp(dp->d_name, filename) == 0) {
+                closedir(dir);
+                return strdup(path);
+            }
+
+            // Check if it's a directory using stat()
+            struct stat st;
+            if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+                char *result = search_file(path, filename);
+                if (result) {
+                    closedir(dir);
+                    return result;
+                }
+            }
+        }
+    }
+    log_message(LOG_ERROR, "File : %s Does not exist", filename);
+    closedir(dir);
+    return NULL;
+}
