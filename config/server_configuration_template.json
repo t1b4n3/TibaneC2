@@ -16,9 +16,7 @@
     "CommunicationChannels": [
       {
         "tcp": true,
-        "tcp_port": 9999,
-        "tcp_ssl": false,
-        "tcp_ssl_port": 7777,
+        "tcp_port": 7777,
         "https": false,
         "https_port": 443,
         "ssl_cert": "./cert/agent_cert.pem",
