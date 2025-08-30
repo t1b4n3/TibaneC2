@@ -21,7 +21,6 @@ function main() {
     //$agent_data = AgentInfo();
     $agent_data = AgentInfo();
 }
-
 main();
 ?>
 
@@ -34,11 +33,8 @@ main();
   
     </head>
     <body>
-    
-
     <h3>Agent Information</h3>
-    
-    <?php if (!empty($agent_data['agent_id'])): ?>
+    <?php if (!empty($agent_data['implant_id'])): ?>
     <table class="table">
         <thead lass="thead-dark">
             <tr>
@@ -46,19 +42,17 @@ main();
                 <th scope="col">Agent ID</th>
                 <th scope="col">Operating System</th>
                 <th scope="col">IP address</th>
-                <th scope="col">MAC address</th>
                 <th scope="col">Hostname</th>
                 <th scope="col">Last Seen</th>
             </tr>
         </thead>
         <tbody>
-            <?php for ($i = 0; $i < count($agent_data["agent_id"]); $i++):   ?>
+            <?php for ($i = 0; $i < count($agent_data["implant_id"]); $i++):   ?>
                 <tr>
                     <th scope="row"><?php $i ?></th>
-                    <td><?php echo htmlspecialchars($data['agent_id'][$i]); ?></td>
+                    <td><?php echo htmlspecialchars($data['implant_id'][$i]); ?></td>
                     <td><?php echo htmlspecialchars($data['os'][$i]); ?></td>
                     <td><?php echo htmlspecialchars($data['ip'][$i]); ?></td>
-                    <td><?php echo htmlspecialchars($data['mac'][$i]); ?></td>
                     <td><?php echo htmlspecialchars($data['hostname'][$i]); ?></td>
                     <td><?php echo htmlspecialchars($data['last_seen'][$i]); ?></td>
                 </tr>

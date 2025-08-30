@@ -75,11 +75,11 @@ function AgentInfo() {
     return json_decode($recv_data);
 }
 
-function tasks_per_agent($agent_id) {
+function tasks_per_agent($implant_id) {
     global $socket;
     $json = [
-        "Info" => "agent_id",
-        "agent_id" => $agent_id
+        "Info" => "implant_id",
+        "implant_id" => $implant_id
     ];
 
     $data = json_encode($json);
@@ -89,11 +89,11 @@ function tasks_per_agent($agent_id) {
 
 }
 
-function NewTask($agent_id, $command) {
+function NewTask($implant_id, $command) {
     global $socket;
     $json = [
         "Info" => "new_task",
-        "agent_id" => $agent_id,
+        "implant_id" => $implant_id,
         "command" => $command
     ];
     $data = json_encode($json);

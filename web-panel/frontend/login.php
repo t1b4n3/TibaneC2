@@ -1,4 +1,7 @@
 <?php 
+require_once "api.php";
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -36,9 +39,9 @@
 
 <?php
 function main() {
-  c2_conn();
+  $api = new CallApi("http://localhost:8000");
   if (isset($_POST['Username']) && isset($_POST['Password'])) {
-    if (authenticate($_POST['Username'], $_POST['Password']) == 0) {
+    if ($api->auth($_POST['Username'], $_POST['Password']) == 0) {
         $_SESSION['login'] = $_POST['Username'];
         header("Location: ./index.php");
         exit();

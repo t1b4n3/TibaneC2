@@ -1,32 +1,7 @@
 <?php 
 session_start();
-class CallApi {
-    private $curl;
-    private $url;
-    
-    function __construct($url) {
-        if(!extension_loaded("curl")) {
-            die("cURL extension not loaded! Quit Now.");
-        }
-        $this->curl = curl_init();
-        $this->url = $url;
-    }
 
-    function __destruct() {
-        curl_close($this->curl);
-    }
-
-    public function get_all_implants() {
-        curl_setopt($this->curl, CURLOPT_URL, "$this->url/api/implants");
-        return curl_exec($this->curl);   
-    }
-
-    public function get_all_tasks() {
-        curl_setopt($this->curl, CURLOPT_URL, "$this->url/api/tasks");
-        return curl_exec($this->curl);
-    }
-}
-
+require_once "api.php";
 
 
 function main() {
