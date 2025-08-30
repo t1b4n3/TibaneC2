@@ -7,10 +7,6 @@
 
 > ⚠️ For educational and authorized testing purposes only.
 
-[Already have basic C2 implementation](./BasicC2/README.md) 
-
-### First Release Scheduled For 30 August 2025
-
 The goal is to keep the C2 framework modular by splitting it into clear components, where each component will follow a defined interface so I can swap or add features easily, That way i can extend it without touching the core logic.
 
 [Getting Started](./docs/Getting%20Started.md)
