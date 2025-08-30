@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <dirent.h>
 #include "logs.h"
+#include <cjson/cJSON.h>
 
 #define BUFFER_SIZE 4096
 #define MAX_RESPONSE 0x20000
@@ -65,11 +66,9 @@ struct operator_console_t {
 struct communication_channels_t {
     bool tcp;
     bool https;
-    bool tcp_ssl;
     // ports
     int tcp_port;
     int https_port;
-    int tcp_ssl_port;
     // ssl certificates
     char ssl_cert[0x100];
     char ssl_key[0x100];
@@ -123,5 +122,7 @@ bool check_if_dir_exists(char *dir);
 bool create_dir(char *dir);
 
 char* search_file(char *base_path, char *filename);
+
+cJSON* list_files(const char *base_path);
 
 #endif

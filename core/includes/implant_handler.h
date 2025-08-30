@@ -9,7 +9,7 @@
 #include <openssl/ssl.h>
 #include <openssl/sslerr.h>
 #include <openssl/sha.h>   
-
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <cjson/cJSON.h>
@@ -32,5 +32,11 @@ char *register_implant(MYSQL* con, cJSON *json, char *ip);
 char *beacon_implant(MYSQL* con, cJSON *json);
 
 void *implant_handler(void *arg);
+
+
+// only works for ssl
+int implant_upload(SSL *ssl);
+int implant_download(SSL *ssl);
+
 
 #endif

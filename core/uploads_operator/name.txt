@@ -1,7 +1,0 @@
-Tibane
-{
-	"Info":	"files",
-	"option":	"download"
-}{
-	"file_name":	"./uploads_operator/random_data"
-}

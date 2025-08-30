@@ -116,29 +116,29 @@ int main() {
             }
         }
 
-        if (channels->tcp) {
-            struct main_threads_args_t *tcp_args = malloc(sizeof(*tcp_args));
-            if (!tcp_args) {
-                log_message(LOG_WARN, "Failed to allocate tcp arg memory");
-                continue;
-            }
-            strncpy(tcp_args->cert, channels->ssl_cert, BUFFER_SIZE - 1);
-            strncpy(tcp_args->key, channels->ssl_key, BUFFER_SIZE - 1);
-            tcp_args->db_conf = g_dbconf;
-            tcp_args->port = channels->tcp_port;
-            log_message(LOG_INFO, "TCP Listener Thread Starting : %d", channels->tcp_port);
-            if (pthread_create(&tcp_thread, NULL, tcp_listener, (void*)tcp_args) == 0) {
-                tcp_thread_created = 1;
-            } else {
-                log_message(LOG_ERROR, "Failed to start TCP listener thread");
-                sleep(30);
-                free(tcp_args);
-                tcp_args = NULL;
-                continue;
-            }
-        }
+        //if (channels->tcp) {
+        //    struct main_threads_args_t *tcp_args = malloc(sizeof(*tcp_args));
+        //    if (!tcp_args) {
+        //        log_message(LOG_WARN, "Failed to allocate tcp arg memory");
+        //        continue;
+        //    }
+        //    strncpy(tcp_args->cert, channels->ssl_cert, BUFFER_SIZE - 1);
+        //    strncpy(tcp_args->key, channels->ssl_key, BUFFER_SIZE - 1);
+        //    tcp_args->db_conf = g_dbconf;
+        //    tcp_args->port = channels->tcp_port;
+        //    log_message(LOG_INFO, "TCP Listener Thread Starting : %d", channels->tcp_port);
+        //    if (pthread_create(&tcp_thread, NULL, tcp_listener, (void*)tcp_args) == 0) {
+        //        tcp_thread_created = 1;
+        //    } else {
+        //        log_message(LOG_ERROR, "Failed to start TCP listener thread");
+        //        sleep(30);
+        //        free(tcp_args);
+        //        tcp_args = NULL;
+        //        continue;
+        //    }
+        //}
     
-        if (channels->tcp_ssl) {
+        if (channels->tcp) {
 
             struct main_threads_args_t *ssl_args = malloc(sizeof(*ssl_args));
             if (!ssl_args) {
@@ -149,10 +149,10 @@ int main() {
             strncpy(ssl_args->cert, channels->ssl_cert, BUFFER_SIZE - 1);
             strncpy(ssl_args->key, channels->ssl_key, BUFFER_SIZE - 1);
             ssl_args->db_conf = g_dbconf;
-            ssl_args->port = channels->tcp_ssl_port;
+            ssl_args->port = channels->tcp_port;
 
 
-            log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_ssl_port);
+            log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_port);
            
             if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)ssl_args) == 0) {
                 tcp_ssl_thread_created = 1;
@@ -263,9 +263,9 @@ struct communication_channels_t *channels_config(cJSON *configs) {
         return NULL;
     }
 
-    // Default values (optional)
-    channels->tcp = channels->tcp_ssl = channels->https = 0;
-    channels->tcp_port = channels->tcp_ssl_port = channels->https_port = 0;
+    // Default values 
+    channels->tcp = channels->https = 0;
+    channels->tcp_port = channels->https_port = 0;
     memset(channels->ssl_cert, 0, sizeof(channels->ssl_cert));
     memset(channels->ssl_key, 0, sizeof(channels->ssl_key));
 
@@ -274,17 +274,11 @@ struct communication_channels_t *channels_config(cJSON *configs) {
     if ((item = cJSON_GetObjectItem(comm, "tcp")) && cJSON_IsBool(item))
         channels->tcp = cJSON_IsTrue(item);
 
-    if ((item = cJSON_GetObjectItem(comm, "tcp_ssl")) && cJSON_IsBool(item))
-        channels->tcp_ssl = cJSON_IsTrue(item);
-
     if ((item = cJSON_GetObjectItem(comm, "https")) && cJSON_IsBool(item))
         channels->https = cJSON_IsTrue(item);
 
     if ((item = cJSON_GetObjectItem(comm, "tcp_port")) && cJSON_IsNumber(item))
         channels->tcp_port = item->valueint;
-
-    if ((item = cJSON_GetObjectItem(comm, "tcp_ssl_port")) && cJSON_IsNumber(item))
-        channels->tcp_ssl_port = item->valueint;
 
     if ((item = cJSON_GetObjectItem(comm, "https_port")) && cJSON_IsNumber(item))
         channels->https_port = item->valueint;
