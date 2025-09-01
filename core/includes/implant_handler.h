@@ -35,8 +35,8 @@ void *implant_handler(void *arg);
 
 
 // only works for ssl
-int implant_upload(SSL *ssl);
-int implant_download(SSL *ssl);
+int upload_to_implant(SSL *ssl, char *filename);
+int download_from_implant(SSL *ssl);
 
 
 #endif

