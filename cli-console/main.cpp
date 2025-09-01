@@ -308,8 +308,6 @@ class SendInfo : public Communicate_ {
         
         // get filesize
 
-
-
         char *contents =(char*)malloc(MAX_SIZE);
         size_t bytesRead;
         size_t filesize;
@@ -387,10 +385,7 @@ class SendInfo : public Communicate_ {
         if (strncmp(update->valuestring, "false", sizeof("return")) == 0 ) {
             return false;
         }
-
-
         return true;
-    
     }
 
     void new_task(const char *id, const char* command) {
@@ -712,9 +707,6 @@ int main(int argc, char** argv) {
         strncpy(IP, argv[1], sizeof(IP));
         PORT = atoi(argv[2]);
     }
-    
-    char usage[BUFFER_SIZE] = "";
-
     // start 
     banner();
     Communicate_ com;
