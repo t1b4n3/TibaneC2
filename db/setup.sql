@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS Tasks (
     task_id int AUTO_INCREMENT PRIMARY KEY,
     implant_id VARCHAR(8),
     command TEXT,
-    response TEXT DEFAULT NULL,
+    response LONGBLOB DEFAULT NULL,
     status BOOLEAN DEFAULT FALSE,    
     FOREIGN KEY (implant_id) REFERENCES Implants(implant_id)
 );
