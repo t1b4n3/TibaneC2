@@ -22,3 +22,21 @@ will have two commands from the operator
 	"folder":"implants" # or "operator"
 }
 ```
+
+
+---
+
+```
+operator : upload names.txt 
+operator : (implant) new-task downlaod names.txt 
+server : upload_to_implant | look for file from ./uploads/operator and send
+implant : download_from_server
+```
+
+
+```
+opeartor : (implant) new-task upload ./downloads/names.txt
+server : download_from_implant 
+implant : upload_to_server
+```
+
