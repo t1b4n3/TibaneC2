@@ -117,6 +117,10 @@ extern char base62[];
 
 extern  struct DBConf g_dbconf;
 
+void send_json(SSL *ssl, const char* json_str);
+
+char* recv_json(SSL *ssl);
+
 bool check_if_dir_exists(char *dir);
 
 bool create_dir(char *dir);

@@ -10,6 +10,34 @@ char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 struct DBConf g_dbconf; 
 
+void send_json(SSL* ssl, const char* json_str) {
+    uint32_t length = htonl(strlen(json_str)); // Network byte order
+    SSL_write(ssl, &length, 4);                // Send length first
+    SSL_write(ssl, json_str, strlen(json_str)); // Send JSON
+}
+
+char* recv_json(SSL *ssl) {
+     uint32_t length;
+    int received = SSL_read(ssl, &length, 4);
+    if (received != 4) {
+        log_message(LOG_ERROR, "Failed to receieve size of incoming json"); 
+        return NULL;
+    }
+
+    length = ntohl(length);
+
+    char buffer[length + 0x20];
+    int total = 0;
+    while (total < (int)length) {
+        int bytes = SSL_read(ssl, buffer, length -total);
+        if (bytes <= 0) {
+             log_message(LOG_ERROR, "Incomplete message");
+              return NULL;
+        }
+        total += bytes;
+    }
+    return strdup(buffer);
+}
 
 
 bool check_if_dir_exists(char *dir){
