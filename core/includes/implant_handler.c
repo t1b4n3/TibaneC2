@@ -262,7 +262,7 @@ void *implant_handler(void *args) {
             } else if (strncmp(file, "download", 8) == 0) {
                 download_from_implant(ssl);
             }
-
+            
             char buffer[MAX_RESPONSE];
             int bytes_received = SSL_read(ssl, buffer, sizeof(buffer)-1);
             if (bytes_received <= 0) {
