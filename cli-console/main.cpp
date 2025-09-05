@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <vector>
 
 extern "C" {
     #include "./libs/libdisplay.h"
@@ -78,13 +79,13 @@ class Communicate {
     public:
     Communicate();
 
-    void send_json();
+    void send_json(const char *json_str);
 
-    char *recv_json(const char *json_str);
+    char *recv_json();
 
     bool authenticate();
 
-    bool quit();
+    void quit();
 
     bool verify_id(const char* id);
 
@@ -109,7 +110,6 @@ class Communicate {
 class Shell {
 
     public:
-    
 
     char *shell_command_generator(const char* text, int state);
     char *beacon_shell_command_generator(const char* text, int state);
@@ -117,11 +117,21 @@ class Shell {
     char **beacon_shell_completetion(const char* text, int start, int end);
     char **main_shell_completetion(const char* text, int start, int end);
 
-    void main_shell(Communicate com);
+    
     void beacon_shell(const char* id, Communicate com);
 
     void process_shell_commands(const char* cmd, Communicate com);
     void process_beacon_shell_commands(const char* id, const char* cmd, Communicate com);
+
+    
+    void main_shell(Communicate com);
+    Shell() { read_history(".command_history"); }
+    ~Shell() { write_history(".command_history"); }
+
+    private:
+    static std::vector<std::string> main_cmds;
+    static std::vector<std::string> beacon_cmds;
+
 };
 
 int configuration();
@@ -140,6 +150,16 @@ int main(int argc, char *argv[]) {
     banner();
 
     Communicate com;
+    
+    
+    for (int i = 0; i < 3; i++) {
+        if (com.authenticate() == true) {
+            break;
+        };
+       printf("[-] Failed to authenticate: \n[-] Try Again\n");
+    sleep(1);
+    }
+    
     Shell sh;
 
     sh.main_shell(com);
@@ -147,30 +167,70 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+
+
+int configuration() {
+    char filename[BUFFER_SIZE] = "tibane_console_conf.json";
+    if (access(filename, F_OK) != 0) {
+        return -1;
+    }
+
+    int conf = open(filename, O_RDONLY);
+    if (conf == -1) {
+        write(1, "Failed to Configuration file\n", 20);
+
+        return -1;
+    }
+
+    char buffer[0x200];
+
+    size_t bytesRead;
+    if ((bytesRead = read(conf, buffer, sizeof(buffer))) <= 0) {
+        perror("Read Error");
+        return -1;
+    }
+
+    cJSON *config = cJSON_Parse(buffer);
+    if (!config) {
+        fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
+        return -1;
+    }
+
+    cJSON *SERVER_ADDR = cJSON_GetObjectItem(config, "SERVER_ADDR");
+    cJSON *SERVER_PORT = cJSON_GetObjectItem(config, "SERVER_PORT");
+
+    //IP = SERVER_ADDR->valuestring;
+    strncpy(IP, SERVER_ADDR->valuestring, sizeof(IP));
+    PORT = SERVER_PORT->valueint;
+    return 0;
+}
+
+
+
+
+std::vector<std::string> Shell::main_cmds  = {
+        "implants", "beacon", "list-tasks", "whoami", "download", "upload", "exit", "quit", "q", "use", "ls"
+    };
+
+std::vector<std::string> Shell::beacon_cmds = {
+        "info", "list-tasks", "new-task", "exit", "quit", "q", "whoami"
+    };
+
 char** Shell::main_shell_completetion(const char* text, int start, int end) {
-    rl_attempted_completion_over = 1;
-    return rl_completion_matches(text, shell_command_generator);
+    (void)start; (void)end;
+    return rl_completion_matches(text, [](const char* t, int s)->char* {
+        return Shell().shell_command_generator(t, s);
+    });
 }
 
 char* Shell::shell_command_generator(const char* text, int state) {
-        static const char* commands[] = {
-        "implants", "beacon", "list-tasks", "whoami", "download", "upload", "exit", "quit", "q", "use", "ls", NULL
-    };
-    
-    static int list_index, len;
-    const char* name;
-
-    if (!state) {
-        list_index = 0;
-        len = strlen(text);
+    static size_t idx;
+    if (state == 0) idx = 0;
+    while (idx < main_cmds.size()) {
+        const std::string &cmd = main_cmds[idx++];
+        if (cmd.rfind(text, 0) == 0) return strdup(cmd.c_str());
     }
-
-    while ((name = commands[list_index++])) {
-        if (strncmp(name, text, len) == 0) {
-            return strdup(name);
-        }
-    }
-    return NULL;
+    return nullptr;
 }
 
 
@@ -193,6 +253,8 @@ void Shell::main_shell(Communicate com) {
         free(cmd);
     }
 }
+
+
 
 
 void Shell::process_shell_commands(const char* cmd, Communicate com) {
@@ -352,7 +414,22 @@ void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Commu
 }
 
 
+char** Shell::beacon_shell_completetion(const char* text, int start, int end) {
+    (void)start; (void)end;
+    return rl_completion_matches(text, [](const char* t, int s)->char* {
+        return Shell().beacon_shell_command_generator(t, s);
+    });
+}
 
+char* Shell::beacon_shell_command_generator(const char* text, int state) {
+    static size_t idx;
+    if (state == 0) idx = 0;
+    while (idx < beacon_cmds.size()) {
+        const std::string &cmd = beacon_cmds[idx++];
+        if (cmd.rfind(text, 0) == 0) return strdup(cmd.c_str());
+    }
+    return nullptr;
+}
 
 
 
@@ -418,3 +495,371 @@ Communicate::Communicate() {
         SSL_set_fd(ssl, sock);
         SSL_connect(ssl); 
 }
+
+void Communicate::send_json(const char *json_str) {
+    uint32_t length = htonl(strlen(json_str)); 
+    SSL_write(ssl, &length, 4);                
+    SSL_write(ssl, json_str, strlen(json_str));    
+}
+
+char* Communicate::recv_json() {
+    uint32_t length;
+    int received = SSL_read(ssl, &length, 4);
+    if (received != 4) return NULL;
+
+    length = ntohl(length);
+
+    char buffer[length + 0x20];
+    int total = 0;
+    while (total < length) {
+        int bytes = SSL_read(ssl, buffer, length -total);
+        if (bytes <= 0) return NULL;
+        total += bytes;
+    }
+    return strdup(buffer);
+}
+
+bool Communicate::authenticate() {
+    char user[BUFFER_SIZE];
+    char pass[BUFFER_SIZE];
+    printf("[+] Enter Username: ");
+    fgets(user, sizeof(user) -1, stdin);
+    user[strcspn(user, "\n")] = 0;
+    printf("[+] Enter Password: ");
+    fgets(pass, sizeof(pass) -1, stdin);
+    pass[strcspn(pass, "\n")] = 0;
+
+    cJSON *credentials = cJSON_CreateObject();
+    if (!credentials) {
+        return false;
+    }
+    cJSON_AddStringToObject(credentials, "username", user);
+    cJSON_AddStringToObject(credentials, "password", pass);
+
+    char *creds = cJSON_Print(credentials);
+    if (!creds) {
+        return false;
+    }
+
+    cJSON_Delete(credentials);
+    send_json(creds);
+    free(creds);
+
+    char *buffer = recv_json();
+    if (!buffer) {
+        // handle this
+        return false;
+    }
+
+    cJSON *response = cJSON_Parse(buffer);
+    free(buffer);
+    if (!response) return false;
+
+    cJSON *sign_in = cJSON_GetObjectItem(response, "authenticated");
+    if (strcmp(sign_in->valuestring, "true") == 0) {
+        cJSON_Delete(response);
+        strncpy(current_operator, user,BUFFER_SIZE);
+        return true;    
+    }
+    cJSON_Delete(response);
+    return false;
+}
+
+void Communicate::quit() {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return;
+    }
+    cJSON_AddStringToObject(info, "Info", "exit");
+    char *info_ = cJSON_Print(info);
+    send_json(info_);
+    cJSON_Delete(info);
+    free(info_);
+}
+
+bool Communicate::verify_id(const char* id) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return false;
+    }
+    cJSON_AddStringToObject(info, "Info", "verify_implant");
+    cJSON_AddStringToObject(info, "implant_id", id);
+    char *info_ = cJSON_Print(info);
+    send_json(info_);
+    cJSON_Delete(info);
+    free(info_);
+
+    char *reply = recv_json();
+    if (!reply) return false;
+
+    cJSON *re = cJSON_Parse(reply);
+    if (!re) {
+        printf("\n[-]failed to parse json");
+        free(reply);
+        return false;
+    }
+    cJSON *valid_id = cJSON_GetObjectItem(re, "valid_id");
+    
+    if (strncmp(valid_id->valuestring, "false", sizeof("false")) ==0) {
+        free(reply);
+        cJSON_Delete(re);
+        return false;
+    }
+    cJSON_Delete(re);
+    free(reply);
+    return true;
+}
+
+char* Communicate::view_files(const char* dir) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) return NULL;
+    cJSON_AddStringToObject(info, "Info", "files");
+    cJSON_AddStringToObject(info, "folder", dir);
+    cJSON_AddStringToObject(info, "option", "view");
+    char *info_ = cJSON_Print(info);
+    send_json(info_);
+    free(info_);
+    cJSON_Delete(info);
+    char *contents = recv_json();
+    if (!contents) return NULL;
+    return contents;
+}
+
+int Communicate::file_upload(const char* path) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return -1;
+    }
+    cJSON_AddStringToObject(info, "Info", "files");
+    cJSON_AddStringToObject(info, "option", "upload");
+    char *info_ = cJSON_Print(info);    
+    send_json(info_);
+    free(info_);
+    cJSON_Delete(info);
+    int file = open(path, O_RDONLY);
+    if (file == -1) return -1;
+    char *contents = (char*)malloc(MAX_SIZE);
+    if (!contents) {
+        close(file);
+        return -1;
+    }
+    if (access(path, F_OK) != 0) {
+        close(file);
+        free(contents);
+        return -1;
+    }
+
+    cJSON *fileO = cJSON_CreateObject();
+    if (!fileO) {
+        free(contents);
+        close(file);
+        return -1;
+    }
+    
+    
+    std::filesystem::path p(path);
+    std::string filename_str = p.filename().string();
+
+    const char* filename = filename_str.c_str();
+    
+    cJSON_AddStringToObject(fileO, "file_name", filename);
+    printf("Filename : %s", filename);
+    char *Sfilename = cJSON_Print(fileO);
+    cJSON_Delete(fileO);
+    
+    send_json(Sfilename);
+
+    free(Sfilename);
+    size_t bytesRead;
+    struct stat st;
+    fstat(file, &st);
+    size_t filesize = st.st_size;
+    SSL_write(ssl, &filesize, sizeof(filesize));
+    
+    while ((bytesRead = read(file, contents, FILE_CHUNK)) > 0) {
+        SSL_write(ssl, contents, bytesRead);
+    }
+    free(contents);
+    return 0;
+}
+
+int Communicate::file_download(const char* filename, const char* filepath, const char* dir) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return -1;
+    }
+    int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fd == -1) {
+        cJSON_Delete(info);
+        return -1;
+    }
+    cJSON *file = cJSON_CreateObject();
+    if (!file) {
+        cJSON_Delete(info);
+        close(fd);
+        return -1;
+    }
+    cJSON_AddStringToObject(info, "Info", "files");
+    cJSON_AddStringToObject(info, "option", "download");
+    char *info_ = cJSON_Print(info);
+    send_json(info_);
+    free(info_);
+    cJSON_Delete(info);
+    cJSON_AddStringToObject(file, "file_name", filename);
+    cJSON_AddStringToObject(file, "dir", dir);
+    char *file_ = cJSON_Print(file);
+    cJSON_Delete(file);
+    
+    //SSL_write(ssl, file_, strlen(file_));
+    send_json(file_);
+    free(file_);
+
+    //char exists[BUFFER_SIZE];
+    //SSL_read(ssl, exists, sizeof(exists));
+    char *exists = recv_json();
+    if (!exists) {
+        close(fd);
+        return -1;
+    }
+    cJSON *file_exists = cJSON_Parse(exists);
+    cJSON *x = cJSON_GetObjectItem(file_exists, "Exist");
+    if (cJSON_IsBool(x) == false) {
+        close(fd);
+        return -1;
+    }
+    printf("[+] Downloading file : %s\n", filename);
+    
+    // get filesize
+    char *contents =(char*)malloc(MAX_SIZE);
+    size_t bytesRead;
+    size_t filesize;
+    SSL_read(ssl, &filesize, sizeof(filesize));
+    size_t received = 0;
+    while (received < filesize) {
+        bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+        write(fd, contents, bytesRead);
+        received += bytesRead;
+    }
+    printf("[+] File stored at %s \n", filepath);
+    free(contents);
+    close(fd);
+    return 0;
+}
+
+
+void Communicate::new_task(const char* id, const char* command) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return;
+    }
+    cJSON_AddStringToObject(info, "Info", "implant_id");
+    cJSON_AddStringToObject(info, "implant_id", id);
+    cJSON_AddStringToObject(info, "action", "new-task");
+    cJSON_AddStringToObject(info, "command", command);
+    char *info_ = cJSON_Print(info);
+    
+    send_json(info_);
+    cJSON_Delete(info);
+    free(info_);
+    char reply[BUFFER_SIZE];
+    SSL_read(ssl, reply, sizeof(reply)-1);
+}
+
+bool Communicate::update_task(const char* id, int task_id, const char* command) {
+     cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return false;
+    }
+    cJSON_AddStringToObject(info, "Info", "implant_id");
+    cJSON_AddStringToObject(info, "implant_id", id);
+    cJSON_AddStringToObject(info, "action", "update-task");
+    cJSON_AddStringToObject(info, "command", command);
+    cJSON_AddNumberToObject(info, "task_id", task_id);
+    char *info_ = cJSON_Print(info);
+
+    send_json(info_);
+    cJSON_Delete(info);
+    free(info_);
+
+    char *reply = recv_json();
+    if (!reply) return false;
+
+    cJSON *re = cJSON_Parse(reply);
+    if (!re) {
+        free(reply);
+        return false;
+    }
+    cJSON *update = cJSON_GetObjectItem(re, "update");
+    if (strncmp(update->valuestring, "false", sizeof("return")) == 0 ) {
+        free(reply);
+        return false;
+    }
+    free(reply);
+    return true;
+}
+
+char* Communicate::get_info(const char* table) {
+        cJSON *info = cJSON_CreateObject();
+        if (!info) {
+            return NULL;
+        }
+        cJSON_AddStringToObject(info, "Info", table);
+        char *info_ = cJSON_Print(info);
+
+        send_json(info_);
+        cJSON_Delete(info);
+        free(info_);
+
+        char *info_container = recv_json();
+        if (!info_container) return NULL;
+        return info_container;
+}
+
+char* Communicate::list_tasks(const char* id) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return NULL;
+    }
+
+    cJSON_AddStringToObject(info, "Info", "implant_id");
+    cJSON_AddStringToObject(info, "implant_id", id);
+    cJSON_AddStringToObject(info, "action", "list-tasks");
+
+    char *info_json = cJSON_Print(info);
+    if (!info_json) {
+        cJSON_Delete(info);
+        return NULL;
+    }
+
+    send_json(info_json);
+    
+
+    free(info_json);
+    cJSON_Delete(info);
+
+    // Receive response
+    char *info_container = recv_json();
+    if (!info_container) return NULL;
+    return info_container;
+}
+
+
+char *Communicate::get_response_task(const char* id , int task_id) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return NULL;
+    }
+    cJSON_AddStringToObject(info, "Info", "implant_id");
+    cJSON_AddStringToObject(info, "implant_id", id);
+    cJSON_AddStringToObject(info, "action", "response-task");
+    cJSON_AddNumberToObject(info, "task_id", task_id);
+    char *info_ = cJSON_Print(info);
+
+    send_json(info_);
+    cJSON_Delete(info);
+    free(info_);
+    char *info_container = recv_json();
+    if (!info_container) return NULL;
+    return info_container;
+}
+
