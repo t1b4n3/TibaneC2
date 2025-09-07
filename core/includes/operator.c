@@ -36,13 +36,17 @@
 char USERNAME[0x100];
 
 int autheticate(MYSQL *con, SSL *ssl) {
-    char auth[1024];
-    int bytes_received = SSL_read(ssl, auth, sizeof(auth));
-    if (bytes_received <= 0) {
-        log_message(LOG_ERROR, "Failed to recieve authentication data from operator" );
+    //char auth[1024];
+    //int bytes_received = SSL_read(ssl, auth, sizeof(auth));
+    //if (bytes_received <= 0) {
+    //    log_message(LOG_ERROR, "Failed to recieve authentication data from operator" );
+    //    return -1;
+    //}
+    //auth[bytes_received] = '\0'; 
+    char *auth = recv_json(ssl);
+    if (!auth) {
         return -1;
     }
-    auth[bytes_received] = '\0'; 
     cJSON *creds = cJSON_Parse(auth);
 
     if (creds == NULL) {
@@ -92,12 +96,14 @@ int autheticate(MYSQL *con, SSL *ssl) {
     cJSON_AddStringToObject(reply, "authenticated", "true");
     char *reply_ = cJSON_Print(reply);
     //send(sock, reply_, strlen(reply_), 0);
-    SSL_write(ssl, reply_, strlen(reply_));
+    //SSL_write(ssl, reply_, strlen(reply_));
+    send_json(ssl, reply_);
+    
     strncpy(USERNAME, username->valuestring, sizeof(USERNAME) -1);
     USERNAME[sizeof(USERNAME) - 1] = '\0';
     log_message(LOG_INFO, "Operator [%s] authenticated successfully",USERNAME);
     free(reply_);
-    free(reply);
+    cJSON_Delete(reply);
 
     cJSON_Delete(creds);
     return 0;
@@ -239,6 +245,7 @@ void *operator_handler(void *Args) {
         //    return NULL;
         //}
         char *buffer = recv_json(ssl);
+        if (!buffer) continue;
 
         //buffer[bytes_received] = '\0'; 
         cJSON *requested_info = cJSON_Parse(buffer);
@@ -322,12 +329,14 @@ void *operator_handler(void *Args) {
                 cJSON *list = list_files(base_path);
                 if (!list) {
                     log_message(LOG_ERROR, "Failed To get data from list_files");
-                    SSL_write(ssl, "NO DATA", 7);
+                    //SSL_write(ssl, "NO DATA", 7);
+                    send_json(ssl, "No Data");
                     continue;
                 }
                 char *arr = cJSON_Print(list);
                 cJSON_Delete(list);
-                SSL_write(ssl, arr, strlen(arr));
+                send_json(ssl, arr);
+                //SSL_write(ssl, arr, strlen(arr));
                 free(arr);
             }
         }
@@ -395,10 +404,13 @@ int operator_file_download(SSL *ssl) {
 int operator_file_upload(SSL *ssl) {
 
     char filename[BUFFER_SIZE];
-    SSL_read(ssl, filename, sizeof(filename) -1);
-    cJSON *get_filename = cJSON_Parse(filename);
+    //SSL_read(ssl, filename, sizeof(filename) -1);
+    char *buffer = recv_json(ssl);
+    if (!buffer) return -1;
+    cJSON *get_filename = cJSON_Parse(buffer);
     if (!get_filename) {
         log_message(LOG_ERROR, "Failed to ");
+        free(buffer);
         return -1;
     }
     cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
@@ -432,7 +444,8 @@ int operator_file_upload(SSL *ssl) {
         cJSON_AddBoolToObject(dir_exists, "Exist", false);
         char *exists = cJSON_Print(dir_exists);
         cJSON_Delete(dir_exists);
-        SSL_write(ssl, exists, strlen(exists));
+        //SSL_write(ssl, exists, strlen(exists));
+        send_json(ssl, exists);
         free(exists);
         //log_message(LOG_ERROR, "File Does Not Exist filename - %s", filename);
         return -1;
@@ -441,7 +454,8 @@ int operator_file_upload(SSL *ssl) {
 
     char *exists = cJSON_Print(dir_exists);
     cJSON_Delete(dir_exists);
-    SSL_write(ssl, exists, strlen(exists));
+    //SSL_write(ssl, exists, strlen(exists));
+    send_json(ssl, exists);
     free(exists);
     
     log_message(LOG_INFO, "Uploading %s", filename);
