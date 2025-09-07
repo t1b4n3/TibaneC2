@@ -79,8 +79,6 @@ class CallApi {
         
     }
 
-
-
     public function getLastHttpCode() {
         return curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
     }
