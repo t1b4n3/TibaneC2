@@ -67,6 +67,9 @@ class Keylogger {
     #endif
 };
 
+class Persistance {
+
+};
 
 class GetDeviceInfo {
     public:
