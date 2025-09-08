@@ -115,7 +115,7 @@ class Shell {
     char *beacon_shell_command_generator(const char* text, int state);
 
     char **beacon_shell_completetion(const char* text, int start, int end);
-    char **main_shell_completetion(const char* text, int start, int end);
+    static char **main_shell_completetion(const char* text, int start, int end);
 
     
     void beacon_shell(const char* id, Communicate com);
@@ -159,10 +159,10 @@ int main(int argc, char *argv[]) {
        printf("[-] Failed to authenticate: \n[-] Try Again\n");
     sleep(1);
     }
-    
+
     Shell sh;
 
-    sh.main_shell(com);
+    sh.main_shell(&com);
 
     return 0;
 }
@@ -221,6 +221,7 @@ char** Shell::main_shell_completetion(const char* text, int start, int end) {
     return rl_completion_matches(text, [](const char* t, int s)->char* {
         return Shell().shell_command_generator(t, s);
     });
+    return nullptr;
 }
 
 char* Shell::shell_command_generator(const char* text, int state) {
@@ -235,7 +236,7 @@ char* Shell::shell_command_generator(const char* text, int state) {
 
 
 void Shell::main_shell(Communicate com) {
-    //rl_attempted_completion_function = main_shell_completetion;
+    rl_attempted_completion_function = main_shell_completetion;
     using_history();
 
     while (true) {
