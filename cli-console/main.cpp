@@ -156,13 +156,16 @@ int main(int argc, char *argv[]) {
         if (com.authenticate() == true) {
             break;
         };
-       printf("[-] Failed to authenticate: \n[-] Try Again\n");
-    sleep(1);
+        printf("\n[-] Failed to authenticate: \n[-] Try Again\n\n");
+        if (i == 2) {
+            printf("[-] Exiting\n");
+            exit(0);
+        }
     }
 
     Shell sh;
 
-    sh.main_shell(&com);
+    sh.main_shell(com);
 
     return 0;
 }
@@ -236,7 +239,7 @@ char* Shell::shell_command_generator(const char* text, int state) {
 
 
 void Shell::main_shell(Communicate com) {
-    rl_attempted_completion_function = main_shell_completetion;
+    rl_attempted_completion_function = nullptr; // main_shell_completetion;
     using_history();
 
     while (true) {
@@ -272,7 +275,7 @@ void Shell::process_shell_commands(const char* cmd, Communicate com) {
         com.quit();
         exit(0);
     } else if (strcmp(cmd, "list-tasks") == 0) {
-        char *data = com.get_info("list-tasks");
+        char *data = com.get_info("Tasks");
         if (!data) {
             printf("\n[-] NO DATA ABOUT IMPLANTS \n");
             return;
@@ -510,14 +513,25 @@ char* Communicate::recv_json() {
 
     length = ntohl(length);
 
-    char buffer[length + 0x20];
+    //if (length > 10*1024*1024) { // sanity check: max 10 MB
+    //    return NULL;
+    //}
+
+    char *buffer = (char*)malloc(length + 1);  // heap allocation
+    if (!buffer) return NULL;
+
+    //char buffer[length + 0x20];
     int total = 0;
     while (total < length) {
         int bytes = SSL_read(ssl, buffer, length -total);
-        if (bytes <= 0) return NULL;
+        if (bytes <= 0) {
+            free(buffer);
+            return NULL;
+        }
         total += bytes;
     }
-    return strdup(buffer);
+    //buffer[length] = '\0';  // null terminate
+    return buffer;
 }
 
 bool Communicate::authenticate() {
@@ -547,8 +561,7 @@ bool Communicate::authenticate() {
     free(creds);
 
     char *buffer = recv_json();
-    if (!buffer) {
-        // handle this
+    if (buffer == NULL) {
         return false;
     }
 
@@ -560,7 +573,7 @@ bool Communicate::authenticate() {
     if (strcmp(sign_in->valuestring, "true") == 0) {
         cJSON_Delete(response);
         strncpy(current_operator, user,BUFFER_SIZE);
-        return true;    
+        return true;
     }
     cJSON_Delete(response);
     return false;
