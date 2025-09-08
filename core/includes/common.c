@@ -17,7 +17,7 @@ void send_json(SSL* ssl, const char* json_str) {
 }
 
 char* recv_json(SSL *ssl) {
-     uint32_t length;
+    uint32_t length;
     int received = SSL_read(ssl, &length, 4);
     if (received != 4) {
         log_message(LOG_ERROR, "Failed to receieve size of incoming json"); 
@@ -26,17 +26,21 @@ char* recv_json(SSL *ssl) {
 
     length = ntohl(length);
 
-    char buffer[length + 0x20];
+    char *buffer = (char*)malloc(length + 1);  // heap allocation
+    if (!buffer) return NULL;
+
+    //char buffer[length + 0x20];
     int total = 0;
     while (total < (int)length) {
         int bytes = SSL_read(ssl, buffer, length -total);
         if (bytes <= 0) {
-             log_message(LOG_ERROR, "Incomplete message");
-              return NULL;
+            free(buffer);
+            return NULL;
         }
         total += bytes;
     }
-    return strdup(buffer);
+    //buffer[length] = '\0';  // null terminate
+    return buffer;
 }
 
 
