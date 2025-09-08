@@ -50,7 +50,6 @@ int autheticate(MYSQL *con, SSL *ssl) {
     cJSON *creds = cJSON_Parse(auth);
 
     if (creds == NULL) {
-        //fprintf(stderr, "Failed to parse JSON: %s\n", auth);
         log_message(LOG_WARN, "Failed to parse JSON from Operator (Authenticating): %s", auth);
         cJSON_Delete(creds);
         return -1;
@@ -59,14 +58,12 @@ int autheticate(MYSQL *con, SSL *ssl) {
     cJSON *username = cJSON_GetObjectItem(creds, "username");
     
     if (username == NULL || !cJSON_IsString(username)) {
-        //fprintf(stderr, "Missing or invalid 'Username' field in JSON\n");
         log_message(LOG_WARN, "Missing or invalid 'Username' field in JSON\n");
         cJSON_Delete(creds);
         return -1;
     }
     cJSON *password = cJSON_GetObjectItem(creds, "password");
     if (password == NULL || !cJSON_IsString(password)) {
-        //printf(stderr, "Missing or invalid 'Password' field in JSON\n");
         log_message(LOG_WARN, "Missing or invalid 'Password' field in JSON");
         cJSON_Delete(creds);
         return -1;
@@ -85,14 +82,16 @@ int autheticate(MYSQL *con, SSL *ssl) {
         cJSON_AddStringToObject(reply, "authenticated", "false");
         char *reply_ = cJSON_Print(reply);
         //send(sock, reply_, strlen(reply_), 0);
-        SSL_write(ssl, reply_, strlen(reply_));
+        //SSL_write(ssl, reply_, strlen(reply_));
+        send_json(ssl, reply_);
         log_message(LOG_WARN, "Operator failed to authenticate");
         free(reply_);
-        free(reply);
+        //free(reply);
+        cJSON_Delete(reply);
         cJSON_Delete(creds);
-        return -1;
-        
+        return -1;   
     }
+
     cJSON_AddStringToObject(reply, "authenticated", "true");
     char *reply_ = cJSON_Print(reply);
     //send(sock, reply_, strlen(reply_), 0);
@@ -234,18 +233,20 @@ void *operator_handler(void *Args) {
     
     
     // operator requesting infomartion or add new tasks
+    int x = 0;
     START:
     while (1) {
-        //char buffer[1024];
-        //memset(buffer, 0, sizeof(buffer));
-        //int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1); // recv(sock, buffer, sizeof(buffer), 0);
-        //if (bytes_received <= 0) {
-        //    //perror("recv failed");
-        //    log_message(LOG_ERROR, "Failed to receive data from operator");
-        //    return NULL;
-        //}
+
         char *buffer = recv_json(ssl);
-        if (!buffer) continue;
+        if (!buffer) { 
+            if (x >= 0) { // This condition is always true but helps the compiler
+                x++;
+                continue;
+            } else if (x == 5) {
+                log_message(LOG_ERROR, "Operator console no active anymore");
+                return NULL;
+            }
+         }
 
         //buffer[bytes_received] = '\0'; 
         cJSON *requested_info = cJSON_Parse(buffer);
