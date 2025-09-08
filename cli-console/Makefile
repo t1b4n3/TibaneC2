@@ -1,11 +1,10 @@
 SRC = main.cpp
 TARGET = tibane-console
 CC = g++
-CFLAGS = -O2 -s
+CFLAGS = -g -O0            # debug mode
 LDFLAGS = -L./libs -Wl,--whole-archive -ldisplay -Wl,--no-whole-archive \
           -l:libreadline.a -l:libtinfo.a -l:libcjson.a \
           -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto -lhistory
-
 
 GO_SRC = display.go
 GO_LIB = libs/libdisplay.a
