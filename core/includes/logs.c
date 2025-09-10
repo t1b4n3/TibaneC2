@@ -18,12 +18,20 @@ static const char* level_colors[] = {
 
 #define COLOR_RESET "\x1b[0m"
 
+
+char log_path[BUFFER_SIZE];
+
+// set log_file
+void set_logfile_path(char *path) {
+    strncpy(log_path, path, BUFFER_SIZE - 1);
+}
+
 void log_message(LogLevel level, const char *format, ...) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
 
     // --- log to file (with colors too) ---
-    FILE *log_file = fopen("c2_server.log", "a");
+    FILE *log_file = fopen(log_path, "a");
     if (log_file) {
         va_list args;
         va_start(args, format);
@@ -44,30 +52,3 @@ void log_message(LogLevel level, const char *format, ...) {
     }
 
 }
-
-/*
-static const char* level_strings[] = {
-    "DEBUG", "INFO", "WARN", "ERROR"
-};
-
-void log_message(LogLevel level, const char *format, ...) {
-    FILE *log_file = fopen("c2_server.log", "a");
-    if (!log_file) return;
-
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-
-    fprintf(log_file, "[%02d-%02d-%04d %02d:%02d:%02d] [%s] ",
-        t->tm_mday, t->tm_mon+1, t->tm_year+1900,
-        t->tm_hour, t->tm_min, t->tm_sec,
-        level_strings[level]);
-
-    va_list args;
-    va_start(args, format);
-    vfprintf(log_file, format, args);
-    va_end(args);
-
-    fprintf(log_file, "\n");
-    fclose(log_file);
-}
-*/
