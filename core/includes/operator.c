@@ -259,7 +259,7 @@ void *operator_handler(void *Args) {
 
         if (strncmp(about->valuestring, "Implants", 8) == 0) { // all info about implants
             char *implants = GetData(con, "Implants");
-            printf("Caller \n%s\n---\n", implants);
+            //printf("Caller \n%s\n---\n", implants);
 
             if (!implants) {
                 log_message(LOG_ERROR, "Failed to get Implant data from database");
@@ -269,13 +269,15 @@ void *operator_handler(void *Args) {
             size_t len = strlen(implants);
             if (len > 0 && implants[len-1] != '}') {
                 char *fixed_json = malloc(len + 2);
-                if (fixed_json) {
-                    strcpy(fixed_json, implants);
-                    fixed_json[len] = '}';
-                    fixed_json[len + 1] = '\0';
-                    free(implants); 
+                if (!fixed_json) {
+                    log_message(LOG_DEBUG, "Failed to allocate memory");
+                    continue;    
                 }
-                printf("Fixed \n%s\n--", fixed_json);
+                strcpy(fixed_json, implants);
+                fixed_json[len] = '}';
+                fixed_json[len + 1] = '\0';
+                free(implants); 
+                //printf("Fixed \n%s\n--", fixed_json);
                 cJSON *re = cJSON_Parse(fixed_json);
                 if (!re) {
                     log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
@@ -286,7 +288,6 @@ void *operator_handler(void *Args) {
                 send_json(ssl, fixed_json);
                 free(fixed_json);
             } else {
-                log_message(LOG_ERROR, "XXX");
                 send_json(ssl, implants);
                 free(implants);
             }
