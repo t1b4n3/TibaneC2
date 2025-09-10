@@ -363,6 +363,7 @@ char *GetData(MYSQL* con, char *table) {
     cJSON_Delete(root);
     mysql_free_result(result);
     free(query);
+    printf("---\n%s\n---\n", json_output);
     return json_output;
 }
 
