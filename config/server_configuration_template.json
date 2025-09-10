@@ -1,5 +1,6 @@
 {   
     "_comment": "This file is used for configuring the server",
+    "LogFile":"./logfile.txt",
     "Database": [
       {
         "database_server": "localhost",
