@@ -26,7 +26,7 @@
 #include "logs.h"
 #include "implant_handler.h"
 
-#define BUFFER_SIZE 4096
+
 #define MAX_RESPONSE 0x20000
 
 
