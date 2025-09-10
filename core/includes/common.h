@@ -16,7 +16,7 @@
 #include "logs.h"
 #include <cjson/cJSON.h>
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 0x1000
 #define MAX_RESPONSE 0x20000
 #define MAX_INFO 0x999999
 #define FILE_CHUNK 0x256
@@ -116,6 +116,8 @@ extern char base62[];
 
 
 extern  struct DBConf g_dbconf;
+
+
 
 void send_json(SSL *ssl, const char* json_str);
 
