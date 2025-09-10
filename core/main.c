@@ -23,6 +23,7 @@ struct communication_channels_t *channels_config(cJSON *configs);
 struct operator_console_t *operator_console(cJSON *configs);
 
 int main() {
+
     log_message(LOG_INFO, "Server started");
     char *buffer = server_config();
     PARSE:
@@ -40,6 +41,8 @@ int main() {
         goto PARSE;
     } 
     free(buffer);
+    cJSON *logPath = cJSON_GetObjectItem(config, "LogFile");
+    set_logfile_path(logPath->valuestring);
 
     struct database_configs_t *database = database_config(config);
     if (database == NULL) log_message(LOG_WARN, "Failed to parse database configurations");
@@ -181,7 +184,7 @@ int main() {
 
 
 char *server_config() {
-    char *buffer = (char*)malloc(0x400);
+    char *buffer = (char*)malloc(BUFFER_SIZE);
     size_t bytesRead;
 
 
@@ -198,7 +201,7 @@ char *server_config() {
         // logfile
         exit(EXIT_FAILURE);
     }
-    if ((bytesRead = read(conf, buffer, 0x400 - 1)) <= 0) {
+    if ((bytesRead = read(conf, buffer, BUFFER_SIZE - 1)) <= 0) {
         log_message(LOG_ERROR, "Failed to read data from configuration file");
         exit(EXIT_FAILURE);
     }
