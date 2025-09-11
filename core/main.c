@@ -23,26 +23,23 @@ struct communication_channels_t *channels_config(cJSON *configs);
 struct operator_console_t *operator_console(cJSON *configs);
 
 int main() {
-
-    log_message(LOG_INFO, "Server started");
     char *buffer = server_config();
-    PARSE:
     cJSON *config = cJSON_Parse(buffer);
     if (!config) {
         const char *error_ptr = cJSON_GetErrorPtr();
         
         if (error_ptr != NULL) {
-            log_message(LOG_ERROR, "Failed to parse configuratation file JSON | near: %s", error_ptr);
+            printf("Failed to parse configuration file\n %s \n", error_ptr);
         } else {
-            log_message(LOG_ERROR, "Failed to parse configuratation file JSON ");
+            printf("Failed to parse configuratation file\n");
         }
         free(buffer);
-        sleep(30);
-        goto PARSE;
+        exit(EXIT_FAILURE);
     } 
     free(buffer);
     cJSON *logPath = cJSON_GetObjectItem(config, "LogFile");
     set_logfile_path(logPath->valuestring);
+    log_message(LOG_INFO, "Server started");
 
     struct database_configs_t *database = database_config(config);
     if (database == NULL) log_message(LOG_WARN, "Failed to parse database configurations");
