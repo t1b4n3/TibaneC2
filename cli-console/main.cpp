@@ -409,11 +409,13 @@ void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Commu
             return;
         }
         if (com.update_task(id, task_id, command)) {
-            printf("\n[+] TASK UPDATED");
+            printf("\n[+] TASK UPDATED SUCCESSFULLY");
         } else {
-            printf("\n[-] TASK NOT UPDATED\n");
+            printf("\n[-] TASK UPDATE UNSUCCESSFUL\n");
         }
                 
+    } else {
+        printf("%s",beacon_shell_help);
     }
 }
 
