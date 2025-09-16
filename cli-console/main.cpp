@@ -17,6 +17,14 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <vector>
+#include <iomanip>
+#include <sstream>
+#include <algorithm>
+#include <nlohmann/json.hpp>
+
+
+using json = nlohmann::json;
+
 
 extern "C" {
     #include "./libs/libdisplay.h"
@@ -157,8 +165,10 @@ int main(int argc, char *argv[]) {
             break;
         };
         printf("\n[-] Failed to authenticate: \n[-] Try Again\n\n");
+        //tui_error("Failed to authenticate: Try Again");
         if (i == 2) {
             printf("[-] Exiting\n");
+            //tui_info("Exiting")
             exit(0);
         }
     }
@@ -186,7 +196,7 @@ int configuration() {
     }
 
     char buffer[0x200];
-
+	memset(buffer, 0, sizeof(buffer));
     size_t bytesRead;
     if ((bytesRead = read(conf, buffer, sizeof(buffer))) <= 0) {
         perror("Read Error");
