@@ -181,7 +181,8 @@ int main() {
 
 
 char *server_config() {
-    char *buffer = (char*)malloc(BUFFER_SIZE);
+    char *buffer;
+    buffer = (char*)malloc(BUFFER_SIZE);
     size_t bytesRead;
 
 
