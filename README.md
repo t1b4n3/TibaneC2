@@ -1,3 +1,12 @@
+# 🚧 Project Under Construction 🚧
+
+> ⚠️ This project is currently a work in progress.  
+> Most features are not yet implemented, but updates will come soon.  
+> 
+> Stay tuned for development progress and new commits!
+
+---
+
 # TibaneC2 - Command & Control Framework
 
 ![Image](./tibaneC2.png)
