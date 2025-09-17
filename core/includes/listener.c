@@ -35,12 +35,7 @@ void* tcp_ssl_listener(void *args) {
     strncpy(cert, Args->cert, BUFFER_SIZE);
     strncpy(key, Args->key, BUFFER_SIZE);
 
-    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
-        generate_key_and_cert(cert, key);
-        log_message(LOG_INFO, "Create new certification and key");
-    }
 
-    // create TCP socket
     int serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock < 0) { log_message(LOG_ERROR, "Socket creation failed (TCP, SSL)"); return NULL; }
 
@@ -188,13 +183,7 @@ void *operator_listener(void* args) {
     strncpy(cert, Args->cert, BUFFER_SIZE);
     strncpy(key, Args->key, BUFFER_SIZE);
 
-        // generate certificates if they dont exesits
-    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
-        generate_key_and_cert(cert, key);
-        log_message(LOG_ERROR, "Create new certification and key");
-    }
 
- 
     int serverSock;
 
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
@@ -261,18 +250,14 @@ void *operator_listener(void* args) {
         
         SSL *ssl = SSL_new(ctx);
         SSL_set_fd(ssl, sock);
-        // perform tls handshake
+
         if (SSL_accept(ssl) <= 0) {
-            log_message(LOG_ERROR, "TLS Handshake failed ");
-            //ERR_print_errors_fp(stderr);
+            log_message(LOG_ERROR, "TLS Handshake Failed [Operator]");
             SSL_free(ssl);
             close(sock);
             continue;
         }
-        // port = ntohs(clientAddr.sin_port) 
-        // ip = inet_ntoa(client_addr.sin_addr)
-
-
+        
         struct operator_handler_args_t *args = malloc(sizeof(*args));
         args->ssl = ssl;
         args->db_conf = Args->db_conf;
@@ -295,7 +280,7 @@ void *operator_listener(void* args) {
 
 }
 
-void generate_key_and_cert() {
+void generate_key_and_cert(char *cert_path, char *key_path) {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     X509 *x509 = NULL;
@@ -333,17 +318,17 @@ void generate_key_and_cert() {
     X509_set_issuer_name(x509, name);
 
     if (!X509_sign(x509, pkey, EVP_sha256())) {
-        log_message(LOG_ERROR, "Failed to sign certificate\n");
+        log_message(LOG_ERROR, "Failed To Sign Certificate\n");
         goto cleanup;
     }
 
-    key_file = fopen("./certs/key.pem", "wb");
+    key_file = fopen(key_path, "wb");
     if (!key_file || !PEM_write_PrivateKey(key_file, pkey, NULL, NULL, 0, NULL, NULL)) {
-        log_message(LOG_ERROR, "Failed to write private key to key.pem\n");
+        log_message(LOG_ERROR, "Failed To Write Private key to key.pem\n");
     }
     if (key_file) fclose(key_file);
 
-    cert_file = fopen("certs/cert.pem", "wb");
+    cert_file = fopen(cert_path, "wb");
     if (!cert_file || !PEM_write_X509(cert_file, x509)) {
         log_message(LOG_ERROR, "Failed to write certificate to cert.pem\n");
     }

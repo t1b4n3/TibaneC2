@@ -39,21 +39,21 @@ int main() {
     free(buffer);
     cJSON *logPath = cJSON_GetObjectItem(config, "LogFile");
     set_logfile_path(logPath->valuestring);
-    log_message(LOG_INFO, "Server started");
+    log_message(LOG_INFO, "Server Started");
 
     struct database_configs_t *database = database_config(config);
-    if (database == NULL) log_message(LOG_WARN, "Failed to parse database configurations");
+    if (database == NULL) log_message(LOG_WARN, "Failed To Parse Database Configurations");
 
     struct communication_channels_t *channels = channels_config(config);
-    if (channels == NULL) log_message(LOG_WARN, "Failed to parse communications configurations");
+    if (channels == NULL) log_message(LOG_WARN, "Failed To Parse Communications Configurations");
     
     struct operator_console_t *operator = operator_console(config); 
     if  (operator == NULL) {
-        log_message(LOG_ERROR, "Failed to parse Operator Console configurations");
+        log_message(LOG_ERROR, "Failed To Parse Operator-Console Configurations");
         cJSON_Delete(config);
         exit(EXIT_FAILURE);
     }
-    log_message(LOG_INFO, "Operator console port: %d", operator->port);
+    log_message(LOG_INFO, "Operator Console Port: %d", operator->port);
 
 
     
@@ -85,8 +85,12 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-
-    //log_message(LOG_INFO, "Database connect successfully");
+    // set cert and key
+    if (access(channels->ssl_cert, F_OK) != 0 || access(channels->ssl_key, F_OK) != 0) {
+        log_message(LOG_INFO, "Creating New SSL Certification and Key");
+        generate_key_and_cert(channels->ssl_cert, channels->ssl_key);
+        
+    }
 
 
     do {
@@ -107,10 +111,10 @@ int main() {
             operator_args->port = operator->port;
             if (pthread_create(&operator_thread, NULL, operator_listener, (void*)operator_args) == 0) {
                 operator_thread_created = 1; // Mark as created
-                log_message(LOG_INFO, "Operator Console listener started successfully");
+                log_message(LOG_INFO, "Operator Console Listener Started Successfully");
             } else {
                 //log_message(LOG_WARN, "Failed to start operator thread");
-                log_message(LOG_ERROR, "Failed to create operator thread (error: %s)", strerror(errno));
+                log_message(LOG_ERROR, "Failed To Create Operator Thread (Error: %s)", strerror(errno));
                 free(operator_args);
                 operator_args = NULL;
             }
@@ -151,13 +155,12 @@ int main() {
             ssl_args->db_conf = g_dbconf;
             ssl_args->port = channels->tcp_port;
 
-
             log_message(LOG_INFO, "TCP (SSL) Listener Thread Starting : %d", channels->tcp_port);
            
             if (pthread_create(&tcp_ssl_thread, NULL, tcp_ssl_listener, (void*)ssl_args) == 0) {
                 tcp_ssl_thread_created = 1;
             } else {
-                log_message(LOG_ERROR, "Failed to start SSL TCP listener thread");
+                log_message(LOG_ERROR, "Failed To Start SSL TCP Listener Thread [Implants]");
                 free(ssl_args); // Cleanup on failure
                 ssl_args = NULL;
                 sleep(30);
