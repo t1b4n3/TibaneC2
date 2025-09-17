@@ -11,9 +11,34 @@ char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 struct DBConf g_dbconf; 
 
 void send_json(SSL* ssl, const char* json_str) {
-    uint32_t length = htonl(strlen(json_str)); // Network byte order
-    SSL_write(ssl, &length, 4);                // Send length first
-    SSL_write(ssl, json_str, strlen(json_str)); // Send JSON
+    //uint32_t length = htonl(strlen(json_str)); 
+    //SSL_write(ssl, &length, 4);                
+    //SSL_write(ssl, json_str, strlen(json_str)); 
+     if (!ssl || !json_str) {
+        log_message(LOG_ERROR, "Invalid parameters");
+        return;
+        }
+
+    uint32_t length = htonl(strlen(json_str));
+    
+    // Send length
+    int sent = SSL_write(ssl, &length, sizeof(length));
+    //if (sent != sizeof(length)) {
+    //    log_message(LOG_ERROR, "Failed to send length");
+    //    return;
+    //}
+
+    // Send JSON data
+    size_t total_sent = 0;
+        size_t json_len = strlen(json_str);
+     while (total_sent < json_len) {
+        sent = SSL_write(ssl, json_str + total_sent, json_len - total_sent);
+        if (sent <= 0) {
+            log_message(LOG_ERROR, "Failed to send JSON data");
+            break;
+        }
+        total_sent += sent;
+    }
 }
 
 char* recv_json(SSL *ssl) {
@@ -26,20 +51,19 @@ char* recv_json(SSL *ssl) {
 
     length = ntohl(length);
 
-    char *buffer = (char*)malloc(length + 1);  // heap allocation
+    char *buffer = (char*)malloc(length + 1); 
     if (!buffer) return NULL;
 
-    //char buffer[length + 0x20];
     int total = 0;
     while (total < (int)length) {
-        int bytes = SSL_read(ssl, buffer, length -total);
+        int bytes = SSL_read(ssl, buffer + total, length - total);
         if (bytes <= 0) {
             free(buffer);
             return NULL;
         }
         total += bytes;
-    }
-    //buffer[length] = '\0';  // null terminate
+    }   
+    buffer[length] = '\0';
     return buffer;
 }
 
