@@ -11,20 +11,23 @@ shell example
 - `implants` :  shows all active implants
 - `get-implant` : generates implant
 - `beacon [id]` : interactive shell for beacons
-- `quit` || `exit` | `q` : Exit and close shell
+- `quit` | `exit` | `q` : Exit and close shell
 - `list-tasks` : show all tasks, status and responses for all implants
-- 
-
-
+- `new-task` : Add tasks for all implants
+	- `new-task [linux/windows]` : Add task for implants in specific operating system.
+---
+- `history` : view command history
+- `clear-history` : clear command history
 ### Beacon shell
 
 shell example
 
 ```sh
-[ tibane-shell ] (id) $
+[ tibane-shell ] (implant_id) $
 ```
 
-1. `new-task [task]` issuing new tasks
-2. `list-tasks` : list all tasks, status, and responses related to this implant
-3. `response-task [task id]` shows task and response
-4. ``  
+-  `new-task [task]` issuing new tasks
+-  `list-tasks` : list all tasks, status, and responses related to this implant
+-  `response-task [task id]` shows task and response
+-  `update-task [task id] [cmd]` : update task (only if it is not completed)
+
