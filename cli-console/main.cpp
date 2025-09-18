@@ -250,7 +250,14 @@ char* Shell::shell_command_generator(const char* text, int state) {
 
 void Shell::main_shell(Communicate com) {
     rl_attempted_completion_function = nullptr; // main_shell_completetion;
+
+    const char* home = getenv("HOME");
+    std::string history_file = home ? std::string(home) + "/.cmd_history" : ".cmd_history";
+
     using_history();
+    stifle_history(1000);
+    read_history(history_file.c_str());
+
 
     while (true) {
         char *cmd = readline("\n[ tibane-shell ] $ ");
@@ -262,9 +269,32 @@ void Shell::main_shell(Communicate com) {
             continue;
         }
 
+        if (strcmp(cmd, "history") == 0) {
+            HIST_ENTRY** hist_list = history_list();
+            if (!hist_list) {
+                puts("\n[-] No history available");
+                add_history(cmd);
+                free(cmd);
+                continue;
+            }
+            puts("\n[+] History available");
+            for (int i = 0; hist_list[i]; i++) {    
+                //cout << i + history_base << ": " << hist_list[i]->line << endl;
+                printf("%d : %s \n", (i + history_base), hist_list[i]->line);
+            }
+            //printf("\n");
+        } else if (strcmp(cmd, "clear-history") == 0) {
+            clear_history();
+            printf("\n[+] History Cleared\n");
+        } else {
+            process_shell_commands(cmd, com);
+        }
         add_history(cmd);
-        process_shell_commands(cmd, com);
         free(cmd);
+    }
+    if (write_history(history_file.c_str()) != 0) {
+        // Handle error saving history
+        printf("[-] Error Saving History");
     }
 }
 
@@ -370,16 +400,22 @@ void Shell::beacon_shell(const char* id, Communicate com) {
             continue;
         }
         add_history(cmd);
+        if (strcmp(cmd, "exit") == 0 ||  strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0) {
+                printf("\n[-] Back to home shell \n");
+                return;
+        }
         process_beacon_shell_commands(id, cmd, com);
         free(cmd);
     }
 }
 
 void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Communicate com) {
-    if (strcmp(cmd, "exit") == 0 ||  strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0) {
-        printf("\n[-] Back to home shell \n");
-    } else if (strcmp(cmd, "list-tasks") == 0) {
-        char *data = com.list_tasks(id);
+        if (strcmp(cmd, "exit") == 0 ||  strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0) {
+                printf("\n[-] Back to home shell \n");
+                return;
+        }
+        if (strcmp(cmd, "list-tasks") == 0) {
+                char *data = com.list_tasks(id);
         if (!data) {
             printf("\n [-] NO DATA RELATED TO TASKS FOR %s \n\n", id);
             return;
@@ -398,7 +434,7 @@ void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Commu
     } else if (strncmp(cmd, "response-task", strlen("response-task")) == 0) {
         int task_id;
         if (sscanf(cmd, "response-task %d", task_id) != 1) {
-             printf("\n[-] MUST HAVE TASK ID\n");
+            printf("\n[-] Use: response-task [task id]\n");
             return;
         }
         char *data = com.get_response_task(id, task_id);
@@ -418,7 +454,7 @@ void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Commu
             printf("\n[-] MUST HAVE TASK ID AND NEW COMMAND \n [*] update-task [id] [cmd]\n");
             return;
         }
-        if (com.update_task(id, task_id, command)) {
+        if (com.update_task(id, task_id, command) == true) {
             printf("\n[+] TASK UPDATED SUCCESSFULLY");
         } else {
             printf("\n[-] TASK UPDATE UNSUCCESSFUL\n");
@@ -822,7 +858,7 @@ bool Communicate::update_task(const char* id, int task_id, const char* command) 
         return false;
     }
     cJSON *update = cJSON_GetObjectItem(re, "update");
-    if (strncmp(update->valuestring, "false", sizeof("return")) == 0 ) {
+    if (strcmp(update->valuestring, "false") == 0 ) {
         free(reply);
         return false;
     }
@@ -877,7 +913,7 @@ char* Communicate::list_tasks(const char* id) {
 }
 
 
-char *Communicate::get_response_task(const char* id , int task_id) {
+char* Communicate::get_response_task(const char* id , int task_id) {
     cJSON *info = cJSON_CreateObject();
     if (!info) {
         return NULL;
