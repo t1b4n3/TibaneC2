@@ -13,8 +13,8 @@ shell example
 - `beacon [id]` : interactive shell for beacons
 - `quit` | `exit` | `q` : Exit and close shell
 - `list-tasks` : show all tasks, status and responses for all implants
-- `new-task` : Add tasks for all implants
-	- `new-task [linux/windows]` : Add task for implants in specific operating system.
+- `batch-task` : Add tasks for all implants
+	- `batch-task [linux/windows]` : Add task for  implants in specific operating system.
 ---
 - `history` : view command history
 - `clear-history` : clear command history
