@@ -91,6 +91,7 @@ TibaneC2/
 ### Core server
 - Session mode
 - HTTP/HTTPS Communication methods
+- Scripting Capabilities
 
 ### Implants
 - keylogger
