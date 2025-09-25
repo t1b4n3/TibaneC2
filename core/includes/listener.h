@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <cjson/cJSON.h>
+
 
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -25,7 +25,7 @@
 
 #include "logs.h"
 #include "implant_handler.h"
-
+#include "./cJSON/cJSON.h"
 
 #define MAX_RESPONSE 0x20000
 

@@ -2,7 +2,7 @@
 
 #include <openssl/err.h>
 #include <openssl/ssl.h>
-#include <cjson/cJSON.h>
+#include "./cJSON/cJSON.h"
 #include <fcntl.h>
 
 #include "logs.h"

@@ -21,7 +21,7 @@
 #include <sstream>
 #include <algorithm>
 #include <nlohmann/json.hpp>
-
+#include <bits/stdc++.h>
 
 using json = nlohmann::json;
 
@@ -45,7 +45,7 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
 										"   whoami : shows logged in operator\n"
 										"   implants : show all active implants\n"
 										"   beacons : show all active beacons\n"
-										"   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant\n"
+										//"   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant\n"
 										"   list-tasks : shows all tasks for all implants\n"    
 										"   beacon [id] : interactive shell for selected beacon\n"
 										"   use [id] : same as beacon\n"
@@ -75,6 +75,10 @@ printf("========================================================================
 printf("[+] Welcome to tibane shell | type 'help' for options \n\n");
 }
 
+
+static const std::string IMPLANT_TEMPLATE = R"TEMPLATE(
+	
+)TEMPLATE";
 
 class Communicate {
 	private:

@@ -1,6 +1,6 @@
 #include "common.h"
 #include "logs.h"
-#include <cjson/cJSON.h>
+
 
 // Define (allocate storage for) global vars
 pthread_mutex_t db_mutex = PTHREAD_MUTEX_INITIALIZER;

@@ -5,7 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <cjson/cJSON.h>
+
+#include "./cJSON/cJSON.h"
 
 #include <crypt.h>
 #include "logs.h"

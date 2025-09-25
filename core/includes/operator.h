@@ -2,7 +2,6 @@
 #define OPERATOR_H
 
 #include <pthread.h>
-#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +26,7 @@
 #include <openssl/sslerr.h>
 
 
-
+#include "./cJSON/cJSON.h"
 #include "db.h"
 #include "common.h"
 

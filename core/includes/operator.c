@@ -1,7 +1,6 @@
 #include "operator.h"
 
 #include <pthread.h>
-#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +24,7 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
-
+#include "./cJSON/cJSON.h"
 #include "db.h"
 #include "logs.h"
 #include "common.h"
@@ -430,7 +429,7 @@ int operator_file_upload(SSL *ssl) {
     if (!buffer) return -1;
     cJSON *get_filename = cJSON_Parse(buffer);
     if (!get_filename) {
-        log_message(LOG_ERROR, "Failed to ");
+        log_message(LOG_ERROR, "Failed TO Parse JSON");
         free(buffer);
         return -1;
     }
@@ -451,9 +450,11 @@ int operator_file_upload(SSL *ssl) {
         return -1;
     }
 
+    
+
     int fd = open(filepath, O_RDONLY);
     if (fd == -1) {
-        log_message(LOG_ERROR, "[Upload file] Failed to open file descriptor for : %s", filepath);
+        log_message(LOG_ERROR, "[Upload file] Failed to open File Fescriptor for : %s", filepath);
         return -1;
     }
 

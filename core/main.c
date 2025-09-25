@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <fcntl.h>
-#include <cjson/cJSON.h>
+#include "./includes/cJSON/cJSON.h"
 
 // my headers
 #include "./includes/db.h"

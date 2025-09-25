@@ -12,7 +12,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <cjson/cJSON.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
@@ -23,6 +22,7 @@
 #include <pthread.h>
 
 #include "common.h"
+#include "./cJSON/cJSON.h"
 
 
 void GenerateID(const char *input, char output[9]);

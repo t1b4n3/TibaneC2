@@ -14,7 +14,7 @@
 #include <netinet/in.h>
 #include <dirent.h>
 #include "logs.h"
-#include <cjson/cJSON.h>
+#include "./cJSON/cJSON.h"
 
 #define BUFFER_SIZE 0x1000
 #define MAX_RESPONSE 0x20000

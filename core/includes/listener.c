@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <cjson/cJSON.h>
+
 
 #include <openssl/evp.h>
 #include <openssl/x509v3.h>
@@ -23,6 +23,7 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
+#include "./cJSON/cJSON.h"
 #include "logs.h"
 #include "implant_handler.h"
 #include "operator.h"

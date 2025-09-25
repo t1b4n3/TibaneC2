@@ -1,0 +1,28 @@
+{   
+    "_comment": "This file is used for configuring the server",
+    "LogFile":"./logfile.txt",
+    "Database": [
+      {
+        "database_server": "localhost",
+        "username": "core",
+        "password": "core",
+        "database": "c2_database"
+      }
+    ],
+    "OperatorConsole": [
+      {
+        "port": 8888
+      }
+    ],
+    "CommunicationChannels": [
+      {
+        "tcp": true,
+        "tcp_port": 7777,
+        "https": false,
+        "https_port": 443,
+        "ssl_cert": "./certs/agent_cert.pem",
+        "ssl_key": "./certs/agent_key.pem"
+      }
+    ]
+  }
+  

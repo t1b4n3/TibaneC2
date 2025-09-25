@@ -9,7 +9,9 @@
 #include <filesystem>
 
 #include <iostream>
+
 #include "./includes/cJSON/cJSON.h"
+
 #ifdef _WIN32
     #define SECURITY_WIN32
     #include <winsock2.h>

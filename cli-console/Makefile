@@ -4,7 +4,7 @@ CC = g++
 CFLAGS = -g -O0            # debug mode
 LDFLAGS = -L./libs -Wl,--whole-archive -ldisplay -Wl,--no-whole-archive \
           -l:libreadline.a -l:libtinfo.a -l:libcjson.a \
-          -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto -lhistory
+          -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto -lhistory -s
 
 GO_SRC = display.go
 GO_LIB = libs/libdisplay.a
