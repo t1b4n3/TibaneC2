@@ -85,7 +85,8 @@ void db_close() {
 }
 */
 
-int check_implant_id(MYSQL* con, char *implant_id) {
+int check_implant_id(MYSQL* con, char* implant_id) {
+
     mysql_thread_init();
     char esc[130];
     mysql_real_escape_string(con, esc, implant_id, strlen(implant_id));

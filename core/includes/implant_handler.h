@@ -25,11 +25,11 @@
 #include "./cJSON/cJSON.h"
 
 
-void GenerateID(const char *input, char output[9]);
+char * GenerateID(cJSON *json);
 
-char *register_implant(MYSQL* con, cJSON *json, char *ip);
+void register_implant(MYSQL* con, cJSON *json, char *ip);
 
-char *beacon_implant(MYSQL* con, cJSON *json);
+char *beacon_implant(MYSQL* con, cJSON *json, char* ip);
 
 void *implant_handler(void *arg);
 
