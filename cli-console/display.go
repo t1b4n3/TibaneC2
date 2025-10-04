@@ -27,6 +27,7 @@ const (
 
 
 //export DisplayFiles
+/*
 func DisplayFiles(data *C.char) {
 	jsonStr := C.GoString(data)
 	var parsed interface{}
@@ -37,14 +38,82 @@ func DisplayFiles(data *C.char) {
 		return
 	}
 
-	pretty, err := json.MarshalIndent(parsed, "", "  ")
-	if err != nil {
-		fmt.Println("[-] Failed to format JSON:", err)
+	// Handle different possible JSON structures
+	switch v := parsed.(type) {
+	case []interface{}:
+		// Case 1: It's a list of files
+		for i, item := range v {
+			if name, ok := item.(string); ok {
+				fmt.Printf("%d. %s\n", i+1, name)
+			}
+		}
+
+	case map[string]interface{}:
+		// Case 2: Object with a "files" field
+		if files, ok := v["files"].([]interface{}); ok {
+			for i, item := range files {
+				if name, ok := item.(string); ok {
+					fmt.Printf("%d. %s\n", i+1, name)
+				}
+			}
+		} else {
+			fmt.Println("[-] No 'files' field found in JSON")
+		}
+
+	default:
+		fmt.Println("[-] Unexpected JSON format")
+	}
+}
+*/
+
+//export DisplayFiles
+func DisplayFiles(data *C.char) {
+	fmt.Println("")
+	jsonStr := C.GoString(data)
+
+	if len(jsonStr) == 0 {
+		fmt.Println("[-] Empty input received")
 		return
 	}
 
-	fmt.Println(string(pretty))
+	var parsed interface{}
+	err := json.Unmarshal([]byte(jsonStr), &parsed)
+	if err != nil {
+		fmt.Println("[-] Invalid JSON:", err)
+		return
+	}
+
+	switch v := parsed.(type) {
+	case []interface{}:
+		// Case 1: plain array of filenames
+		if len(v) == 0 {
+			fmt.Println("[-] No files found")
+			return
+		}
+		for i, item := range v {
+			if name, ok := item.(string); ok {
+				fmt.Printf("%d. %s\n", i+1, name)
+			}
+		}
+
+	case map[string]interface{}:
+		// Case 2: JSON object with "files" field
+		files, ok := v["files"].([]interface{})
+		if !ok || len(files) == 0 {
+			fmt.Println("[-] No files found")
+			return
+		}
+		for i, item := range files {
+			if name, ok := item.(string); ok {
+				fmt.Printf("%d. %s\n", i+1, name)
+			}
+		}
+
+	default:
+		fmt.Println("[-] Unexpected JSON format")
+	}
 }
+
 
 // Word-wrap a string to fit within width
 func wrap(text string, width int) []string {
