@@ -5,24 +5,13 @@ Server communicates with both implants and operator console by sending json over
 ## Server <-> Implant communication
 
 ### Beacon Implants
-On first connection beacons register to the C2 server. The implant sends some data about the system and then it receives a agent id to store on disk 
-#### Register
+On every connection beacon sends to the C2 server. The implant sends some data about the system then the c2 server creates a id based on those system info
 ##### Implant Sends
 ```json
 {
-	"mode":"register",
 	"hostname":"",
 	"os":"",
 	"arch":""
-}
-```
-
-##### Receives this from server
-
-```json
-{
-	"mode":"ack",
-	"implant_id":"xxx"
 }
 ```
 
@@ -30,17 +19,6 @@ On first connection beacons register to the C2 server. The implant sends some da
 
 Every time the beacon implant process starts up on the compromised host the implant checks if the implant_id exists in disk and saves it in memory, if the implant_id file does not exist the implant will register again.
 When beaconing.
-
-##### Beacon sends
-```json
-{
-	"mode":"beacon",
-	"implant_id":"xxxx",
-}
-```
-
-Beacon Receives tasks (If task is available), executes tasks and sends back response
-
 
 ##### If task is not available it receives 
 ```json

@@ -1,8 +1,0 @@
-[32m[24-09-2025 14:52:19] [INFO][0m Server Started
-[32m[24-09-2025 14:52:19] [INFO][0m Operator Console Port: 8888
-[32m[24-09-2025 14:52:19] [INFO][0m Operator Console Listener Started Successfully
-[32m[24-09-2025 14:52:19] [INFO][0m TCP (SSL) Listener Thread Starting : 7777
-[32m[25-09-2025 12:13:56] [INFO][0m Server Started
-[32m[25-09-2025 12:13:56] [INFO][0m Operator Console Port: 8888
-[32m[25-09-2025 12:13:56] [INFO][0m Operator Console Listener Started Successfully
-[32m[25-09-2025 12:13:56] [INFO][0m TCP (SSL) Listener Thread Starting : 7777
