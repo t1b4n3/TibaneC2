@@ -4,7 +4,7 @@ TARGET = tibane-server
 # Compiler and flags - use gcc for C code
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -I./includes -g  -s #-std=c99
-LDFLAGS = -static
+LDFLAGS = #-static
 
 # Source files
 SRC = main.c ./includes/db.c ./includes/implant_handler.c ./includes/listener.c \
