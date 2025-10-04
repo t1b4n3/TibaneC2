@@ -69,20 +69,18 @@ TibaneC2/
 ## Features
 
 - Multi-agent support with task queueing
-- CLI and Web-based control interfaces
-- Encrypted C2 communication (planned: AES/TLS)
+- CLI control interface
+- Encrypted C2 communication
 - File upload/download and command execution
 - Stagers for rapid deployment
 - Persistent implant options (Windows & Linux)
 - Central logging, audit trail, and command results
-- Payload obfuscation and delivery automation
-
 
 ## Communication Methods
 
 - **Custom TCP communication:** Communicates via custom tcp and sends data via json
 ### Planned
-- **Encrypted TCP Communication:** Encrypt communications (ssl/tls)
+- **gRPC:**
 - **HTTP/HTTPS:** Web traffic to blend in with normal traffic
 
 ---
@@ -90,16 +88,23 @@ TibaneC2/
 ## TODO
 ### Core server
 - Session mode
-- HTTP/HTTPS Communication methods
-- Scripting Capabilities
+- HTTPS Communication method
+- gRPC Communication method
 
 ### Implants
 - keylogger
 - screenshot capture
-- file upload/download
-- sandbox and vm detection checks
-- kill switch for self-removal
 - persistence mechanisms
+- Kill switch / self-removal and safe uninstall
+
+---
+
+## Feature Requests & Issues
+I welcome suggestions, feature requests, and bug reports. Ways to contribute:
+
+- Open an issue: please include a short description, expected behavior, and steps to reproduce (if applicable).
+
+- Feature requests: use the feature-request issue template and include your motivation and possible design ideas.
 
 ---
 
