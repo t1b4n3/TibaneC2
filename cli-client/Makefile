@@ -1,5 +1,5 @@
 SRC = main.cpp
-TARGET = tibane-console
+TARGET = tibane-client
 CC = g++
 CFLAGS = -g -O0            # debug mode
 LDFLAGS = -L./libs -Wl,--whole-archive -ldisplay -Wl,--no-whole-archive \
