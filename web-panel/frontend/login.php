@@ -1,6 +1,26 @@
 <?php 
+session_start();
+
 require_once "api.php";
 
+function main() {
+  $api = new CallApi("http://localhost:8000");
+  if (isset($_POST['Username']) && isset($_POST['Password'])) {
+    if ($api->auth($_POST['Username'], $_POST['Password']) == 0) {
+        $_SESSION['user'] = $_POST['Username'];
+        $_SESSION['logged_in_at'] = time();
+        header("Location: ./index.php");
+        exit();
+    }  else {
+        //echo "\n\n\n Invalid Credentials";      
+    }
+  }
+}
+
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    main();
+}
 
 ?>
 <!DOCTYPE html>
@@ -36,23 +56,3 @@ require_once "api.php";
 
 </body>
 </html>
-
-<?php
-function main() {
-  $api = new CallApi("http://localhost:8000");
-  if (isset($_POST['Username']) && isset($_POST['Password'])) {
-    if ($api->auth($_POST['Username'], $_POST['Password']) == 0) {
-        $_SESSION['login'] = $_POST['Username'];
-        header("Location: ./index.php");
-        exit();
-    }  else {
-        echo "\n\n\n Invalid Credentials";      
-    }
-  }
-}
-
-
-if (isset($_POST['log-in'])) {
-    main();
-}
-?>

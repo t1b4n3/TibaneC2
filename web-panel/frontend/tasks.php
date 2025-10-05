@@ -1,7 +1,8 @@
-<?php 
+<?php
 session_start();
 
 require_once "api.php";
+
 
 
 // is user logged in
@@ -13,7 +14,7 @@ if (empty($_SESSION['user'])) {
 $url = "http://localhost:8000";
 $call_api = new CallApi($url);
 
-$implant_data = json_decode($call_api->get_all_implants(), true);
+$tasks_data = json_decode($call_api->get_all_tasks(), true);
 
 ?>
 
@@ -35,7 +36,7 @@ $implant_data = json_decode($call_api->get_all_implants(), true);
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link active" aria-current="page" href="./index.php">Home</a>
+          <a class="nav-link active" aria-current="page" href="././index.php">Home</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="./tasks.php">Tasks</a>
@@ -49,40 +50,38 @@ $implant_data = json_decode($call_api->get_all_implants(), true);
 </nav>
 
 <br>
-<h2>HELLO <?php echo htmlspecialchars($_SESSION['user']); ?></h2>
 
 
-    <h3>Implant Information</h3>
-    <?php if (!empty($implant_data)): ?>
+    <h3>Tasks Information</h3>
+    <?php if (!empty($tasks_data)): ?>
     <table class="table">
         <thead lass="thead-dark">
             <tr>
-                <th scope='col'>#</th>
+                <th scope='col'>Task ID</th>
                 <th scope="col">Implant ID</th>
-                <th scope="col">Operating System</th>
-                <th scope="col">IP address</th>
-		<th scope="col">Architecture</th>
-                <th scope="col">Hostname</th>
-                <th scope="col">Last Seen</th>
+                <th scope="col">Command</th>
+                <th scope="col">Response</th>
+		<th scope="col">Status</th>
+
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($implant_data as $i => $data): ?>
+        <?php foreach ($tasks_data as $i => $data): ?>
             <tr>
-                <th scope="row"><?php echo $i + 1; ?></th>
-                <a href="./implant.php"><td><?php echo htmlspecialchars($data['implant_id']); ?></td> </a>
-                <td><?php echo htmlspecialchars($data['os']); ?></td>
-                <td><?php echo htmlspecialchars($data['ip']); ?></td>
-                <td><?php echo htmlspecialchars($data['arch']); ?></td>
-                <td><?php echo htmlspecialchars($data['hostname']); ?></td>
-                <td><?php echo htmlspecialchars($data['last_seen']); ?></td>
+               <td><?php echo htmlspecialchars($data['task_id']); ?></td>
+                <td><?php echo htmlspecialchars($data['implant_id']); ?></td>
+                <td><?php echo htmlspecialchars($data['command']); ?></td>
+                <td><?php echo htmlspecialchars((string)$data['response']); ?></td>
+                <td><?php echo ($data['status'] == 0) ? "Pending" : "Completed"; ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
     <?php else: ?>
-        <h3>No Implant data available.</h3>
+        <h5>No task data available.</h5>
     <?php endif; ?>
+
+
 
     </body>
 </html>

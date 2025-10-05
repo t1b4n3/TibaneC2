@@ -1,10 +1,11 @@
 <?php
+//session_start();
 
 class CallApi {
     private $curl;
     private $url;
     private $options;
-    
+     
     function __construct($url) {
         if (!extension_loaded("curl")) {
             throw new Exception("cURL extension not loaded!");
