@@ -3,8 +3,8 @@
 
 
 if [[ "$1" == "POST" ]]; then
-	curl -X POST http://localhost:8000/api/$2/$3 \
-		-d "cmd=$4"
+	curl -X POST http://localhost:8000/api/$2/ \
+		-d "Username=$3&Password=$4"
 elif [[ "$1" == "GET" ]]; then 
 	curl http://localhost:8000/api/$2/$3
 elif [[ "$1" == "PUT" ]]; then 

@@ -71,12 +71,12 @@ function main() {
             case "update_task":
                 $task_id = $parts[3] ?? null;
                 if ($task_id == null ) {
-                    http_response_code(404);
-                    die();
+                        http_response_code(404);
+                        die();
                 }
                 if (!isset($_POST['cmd'])) {
-                    http_response_code(304);
-                    die();
+                        http_response_code(304);
+                        die();
                 }
                 $cmd = $_POST['cmd'];
                 // check if status  = 0
@@ -84,17 +84,17 @@ function main() {
                 $result = $stmt->fetchALL(PDO : FETCH_ASSOC);
                 $row = $result->fetch_assoc();
                 if ($row[0] != 0) {
-                    $reply->update = false;
-                    echo json_encode($reply);
-                    return  ;
+                        $reply->update = false;
+                        echo json_encode($reply);
+                        return  ;
                 }
                 $stmt = $pdo->query("UPDATE Tasks SET command = '$cmd' WHERE task_id = $task_id");
                 $reply->update = true;
                 echo json_encode($reply);
                 break;
                 default;
-                    http_response_code(404);
-                    die();
+                        http_response_code(404);
+                        die();
             }
             break;
         case "POST":
@@ -120,29 +120,36 @@ function main() {
                         if (!isset($_POST["Username"]) || !isset($_POST["Password"])) {
                                 die("Invalid Username or Password Field");
                         }
-                        $username = $_POST['Username'];
-                        $password = $_POST['Password'];
-                        $stmt = $pdo->query("SELECT password FROM Operators WHERE username ='$username`");
-                        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        if (isset($results)) {
-                                if (password_verify($password, $results)) {
-                                        $output = array("Authenticated" => true);
-                                        return json_encode($output);
-                                }
+                        $username = $_POST['Username'] ?? "";
+                        $password = $_POST['Password'] ?? "";
+                        if (empty($username) || empty($password)) {
+                                $output = array("Authenticated" => false);
+                                echo json_encode($output);
+                                exit;
                         }
+                        $stmt = $pdo->query("SELECT password FROM Operators WHERE username ='$username'");
+                        $result= $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($result && password_verify($password, $result['password'])) {
+                                $output = array("Authenticated" => true);
+                                echo json_encode($output);
+                                exit;
+                        }
+                        
                         $output = array("Authenticated" => false);
-                        return json_encode($output);
+                        echo json_encode($output);
+                        exit;
                     break;
                 default;
                 http_response_code(404);
                 die();
-            }
-            break;
+                }
+                break;
         case "DELETE":
-            break;
+                break;
         default:
-            http_response_code(404);
-            die();
+                http_response_code(404);
+                die();
     }
 }
 
