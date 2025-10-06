@@ -117,9 +117,21 @@ function main() {
                     break;
 
                 case "auth":
-                    if (!isset($_POST["username"]) || !isset($_POST["password"])) {
-                        die("Invalid Username or Password Field");
-                    }
+                        if (!isset($_POST["Username"]) || !isset($_POST["Password"])) {
+                                die("Invalid Username or Password Field");
+                        }
+                        $username = $_POST['Username'];
+                        $password = $_POST['Password'];
+                        $stmt = $pdo->query("SELECT password FROM Operators WHERE username ='$username`");
+                        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        if (isset($results)) {
+                                if (password_verify($password, $results)) {
+                                        $output = array("Authenticated" => true);
+                                        return json_encode($output);
+                                }
+                        }
+                        $output = array("Authenticated" => false);
+                        return json_encode($output);
                     break;
                 default;
                 http_response_code(404);
