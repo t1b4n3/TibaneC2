@@ -6,14 +6,15 @@ require_once "api.php";
 function main() {
   $api = new CallApi("http://localhost:8000");
   if (isset($_POST['Username']) && isset($_POST['Password'])) {
-    if ($api->auth($_POST['Username'], $_POST['Password']) == 0) {
-        $_SESSION['user'] = $_POST['Username'];
-        $_SESSION['logged_in_at'] = time();
-        header("Location: ./index.php");
-        exit();
-    }  else {
-        //echo "\n\n\n Invalid Credentials";      
-    }
+        $authenticate = $api->auth($_POST['Username'], $_POST['Password']);
+        if ($authenticate['Authenticate'] == true) {
+                $_SESSION['user'] = $_POST['Username'];
+                $_SESSION['logged_in_at'] = time();
+                header("Location: ./index.php");
+                exit();
+        }  else {
+            //echo "\n\n\n Invalid Credentials";      
+        }
   }
 }
 

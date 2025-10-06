@@ -77,7 +77,12 @@ class CallApi {
 
     public function auth($username, $password) {
         $this->setCommonOptions();
+        #curl_setopt($this->curl, CURLOPT_HTTPPOST, true);
+        $_POST['Username'] = $username;
+        $_POST['Password'] = $password;
         
+        curl_setopt($this->curl, CURLOPT_URL, $this->url . "/api/auth");
+        return $this->executeRequest;
     }
 
     public function getLastHttpCode() {
