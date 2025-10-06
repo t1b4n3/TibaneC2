@@ -45,7 +45,6 @@ class CallApi {
 
     private function executeRequest() {
         $response = curl_exec($this->curl);
-        
         if ($response === false) {
             $error = curl_error($this->curl);
             $errno = curl_errno($this->curl);
@@ -77,12 +76,24 @@ class CallApi {
 
     public function auth($username, $password) {
         $this->setCommonOptions();
-        #curl_setopt($this->curl, CURLOPT_HTTPPOST, true);
-        $_POST['Username'] = $username;
-        $_POST['Password'] = $password;
-        
+        $postFields = [
+                'Username' => $username,
+                'Password' => $password
+        ];
         curl_setopt($this->curl, CURLOPT_URL, $this->url . "/api/auth");
-        return $this->executeRequest;
+        curl_setopt($this->curl, CURLOPT_POST, true);
+        curl_setopt($this->curl, CURLOPT_VERBOSE, true);
+        //curl_setopt($this->curl, CURLOPT_STDERR, fopen('curl_debug.txt', 'w+'));
+        curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($postFields));
+        //curl_setopt($this->curl, CURLOPT_POSTFIELDS, "Username=$username&Password=$password");
+        //curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($postFields));
+        curl_setopt($this->curl, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/x-www-form-urlencoded',
+        ]);
+
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+
+        return $this->executeRequest();
     }
 
     public function getLastHttpCode() {

@@ -5,15 +5,17 @@ require_once "api.php";
 
 function main() {
   $api = new CallApi("http://localhost:8000");
-  if (isset($_POST['Username']) && isset($_POST['Password'])) {
-        $authenticate = $api->auth($_POST['Username'], $_POST['Password']);
-        if ($authenticate['Authenticate'] == true) {
-                $_SESSION['user'] = $_POST['Username'];
+  if (isset($_POST['my_password']) && isset($_POST['my_username'])) {
+        $username = $_POST['my_username'] ?? '';
+        $password = $_POST['my_password'] ?? '';
+        $authenticate = json_decode($api->auth($username, $password), true);
+        if (isset($authenticate) && $authenticate['Authenticated'] == true) {
+                $_SESSION['user'] = $username;
                 $_SESSION['logged_in_at'] = time();
                 header("Location: ./index.php");
                 exit();
         }  else {
-            //echo "\n\n\n Invalid Credentials";      
+            //echo "Invalid Credentials";      
         }
   }
 }
@@ -43,12 +45,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <form method="POST">
       <div class="mb-3">
         <label for="Username" class="form-label">Username</label>
-        <input type="text" class="form-control" id="username" name="Username" required>
+        <input type="text" class="form-control" id="username" name="my_username" required>
       </div>
 
       <div class="mb-3">
         <label for="Password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" name="Password" required>
+        <input type="password" class="form-control" id="password" name="my_password" required>
       </div>
 
       <button type="submit" name='log-in' class="btn btn-primary w-100">Login</button>
