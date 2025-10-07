@@ -14,6 +14,19 @@ $call_api = new CallApi($url);
 
 $impland_id = $_SESSION['implant_id'];
 
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        if (isset($_POST["add_task"]) && isset($_POST["new_task"])) {
+                $task = $_POST["new_task"];
+                $call_api->add_new_task($impland_id, $task);
+        } elseif (isset($_POST['updating_task'])) {
+                $task = $_POST["update_task"];
+                $task_id = $_POST["task_id"];
+                $call_api->update_task($impland_id, $task, $task_id);
+        }
+
+
+}
+
 ?>
 
 
@@ -28,7 +41,7 @@ $impland_id = $_SESSION['implant_id'];
 	<!-- Navbar -->
 <nav class="navbar navbar-expand-lg bg-body-tertiary">
   <div class="container-fluid">
-    <a class="navbar-brand" href="./index.php">TibaneC2 Web Client</a>
+    <a class="navbar-brand" href="./index.php">TibaneC2</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -50,12 +63,21 @@ $impland_id = $_SESSION['implant_id'];
 
 <br>
 
+<?php echo "  ID: $impland_id"; ?>
+<br>
 
+<hr>
 <form method='post'>
-        <label>
-
+        <label> New Task : </label> <input name='new_task' type='text'>
+        <button type='submit' name='add_task'>Add Task</button>
 </form>
-
+<hr>
+<form method='post'>
+        <h3>Update Task </h3>
+        <label> Task </label> <input name='update_task' type='text'> <br>
+        <label> Task ID </label> <input name='task_id' type='number'> 
+        <buttom type='submit' name='updating_task'> Update Task</button>
+</form>
 
 
 

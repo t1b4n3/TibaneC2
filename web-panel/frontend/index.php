@@ -28,7 +28,7 @@ $implant_data = json_decode($call_api->get_all_implants(), true);
 	<!-- Navbar -->
 <nav class="navbar navbar-expand-lg bg-body-tertiary">
   <div class="container-fluid">
-    <a class="navbar-brand" href="./index.php">TibaneC2 Web Client</a>
+    <a class="navbar-brand" href="./index.php">TibaneC2</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -70,7 +70,14 @@ $implant_data = json_decode($call_api->get_all_implants(), true);
         <?php foreach ($implant_data as $i => $data): ?>
             <tr>
                 <th scope="row"><?php echo $i + 1; ?></th>
-                <td><?php echo htmlspecialchars($data['implant_id']); ?></td> 
+                
+                
+                <td>
+                        <a href="./implant.php">
+                                <?php $_SESSION['implant_id'] = $data['implant_id']; ?>
+                                <?php echo htmlspecialchars($data['implant_id']); ?>
+                        </a>
+                </td> 
                 <td><?php echo htmlspecialchars($data['os']); ?></td>
                 <td><?php echo htmlspecialchars($data['ip']); ?></td>
                 <td><?php echo htmlspecialchars($data['arch']); ?></td>

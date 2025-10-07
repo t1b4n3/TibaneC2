@@ -83,16 +83,47 @@ class CallApi {
         curl_setopt($this->curl, CURLOPT_URL, $this->url . "/api/auth");
         curl_setopt($this->curl, CURLOPT_POST, true);
         curl_setopt($this->curl, CURLOPT_VERBOSE, true);
-        //curl_setopt($this->curl, CURLOPT_STDERR, fopen('curl_debug.txt', 'w+'));
         curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($postFields));
-        //curl_setopt($this->curl, CURLOPT_POSTFIELDS, "Username=$username&Password=$password");
-        //curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($postFields));
         curl_setopt($this->curl, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/x-www-form-urlencoded',
         ]);
 
         curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
 
+        return $this->executeRequest();
+    }
+
+    public function add_new_task($implant_id, $task) {
+        $this->setCommonOptions();
+        $postFields = [
+                'cmd' => $task
+        ];
+        curl_setopt($this->curl, CURLOPT_URL, $this->url . "/api/new_task/$implant_id");
+        curl_setopt($this->curl, CURLOPT_POST, true);
+        curl_setopt($this->curl, CURLOPT_VERBOSE, true);
+        curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($postFields));
+        curl_setopt($this->curl, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/x-www-form-urlencoded',
+        ]);
+
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+        return $this->executeRequest();
+    }
+
+    public function update_task($implant_id, $task, $task_id) {
+        $this->setCommonOptions();
+        $putFields = [
+                'cmd' => $task
+        ];
+        curl_setopt($this->curl, CURLOPT_URL, $this->url . "/api/update_task/$implant_id/$task_id");
+        curl_setopt($this->curl, CURLOPT_PUT, true);
+        curl_setopt($this->curl, CURLOPT_VERBOSE, true);
+        curl_setopt($this->curl, CURLOPT_PUTFIELDS, http_build_query($postFields));
+        curl_setopt($this->curl, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/x-www-form-urlencoded',
+        ]);
+
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
         return $this->executeRequest();
     }
 
