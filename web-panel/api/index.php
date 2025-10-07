@@ -69,8 +69,9 @@ function main() {
         case "PUT":
             switch ($parts[2]) {
             case "update_task":
+                $implant_id = $parts[4] ?? null;
                 $task_id = $parts[3] ?? null;
-                if ($task_id == null ) {
+                if ($task_id == null || $implant_id == null ) {
                         http_response_code(404);
                         die();
                 }
