@@ -23,7 +23,8 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
-#include "./cJSON/cJSON.h"
+//#include "./cJSON/cJSON.h"
+#include <cjson/cJSON.h>
 #include "logs.h"
 #include "implant_handler.h"
 #include "operator.h"

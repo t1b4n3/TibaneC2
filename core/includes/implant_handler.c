@@ -2,7 +2,8 @@
 
 #include <openssl/err.h>
 #include <openssl/ssl.h>
-#include "./cJSON/cJSON.h"
+//#include "./cJSON/cJSON.h"
+#include <cjson/cJSON.h>
 #include <fcntl.h>
 
 #include "logs.h"
@@ -60,17 +61,17 @@ char* GenerateID(cJSON *json) {
 void register_implant(MYSQL* con, cJSON *json, char *ip) {
     	cJSON *hostname =  cJSON_GetObjectItem(json, "hostname");
     	if (!hostname) {
-    	    return NULL;
+    	    return;
     	}
 
     	cJSON *os =  cJSON_GetObjectItem(json, "os");
     	if (!os) {
-    	    return NULL;
+    	    return;
     	}
 
     	cJSON *arch = cJSON_GetObjectItem(json, "arch");
     	if (!arch) {
-    	    return NULL;
+    	    return;
     	}
     	char *implant_id = GenerateID(json);
 	
@@ -91,7 +92,7 @@ void register_implant(MYSQL* con, cJSON *json, char *ip) {
     	new_implant(con, args);
 
     	DONE:
-    	return NULL;
+    	return;
 }
 
 char *beacon_implant(MYSQL* con, cJSON *json, char *ip) {

@@ -22,8 +22,8 @@
 #include <pthread.h>
 
 #include "common.h"
-#include "./cJSON/cJSON.h"
-
+//#include "./cJSON/cJSON.h"
+#include <cjson/cJSON.h>
 
 char * GenerateID(cJSON *json);
 

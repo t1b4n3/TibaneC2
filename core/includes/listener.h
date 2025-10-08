@@ -25,7 +25,8 @@
 
 #include "logs.h"
 #include "implant_handler.h"
-#include "./cJSON/cJSON.h"
+//#include "./cJSON/cJSON.h"
+#include <cjson/cJSON.h>
 
 #define MAX_RESPONSE 0x20000
 

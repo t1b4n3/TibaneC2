@@ -26,7 +26,8 @@
 #include <openssl/sslerr.h>
 
 
-#include "./cJSON/cJSON.h"
+//#include "./cJSON/cJSON.h"
+#include <cjson/cJSON.h>
 #include "db.h"
 #include "common.h"
 

