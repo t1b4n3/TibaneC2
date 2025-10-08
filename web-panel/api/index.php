@@ -80,16 +80,28 @@ function main() {
                         die();
                 }
                 $cmd = $_POST['cmd'];
-                // check if status  = 0
-                $stmt = $pdo->query("SELECT status FROM Tasks WHERE task_id = $task_id");
-                $result = $stmt->fetchALL(PDO : FETCH_ASSOC);
-                $row = $result->fetch_assoc();
-                if ($row[0] != 0) {
-                        $reply->update = false;
-                        echo json_encode($reply);
-                        return  ;
+                $stmt = $pdo->prepare("SELECT status FROM Tasks WHERE task_id = ?");
+                $stmt->execute([$task_id]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$row) {
+                    $reply->update = false;
+                    $reply->error = "Task not found.";
+                    echo json_encode($reply);
+                    exit;
                 }
-                $stmt = $pdo->query("UPDATE Tasks SET command = '$cmd' WHERE task_id = $task_id");
+
+                if ($row['status'] != 0) {
+                    $reply->update = false;
+                    $reply->error = "Task cannot be modified (already completed).";
+                    echo json_encode($reply);
+                    exit;
+                }
+
+                // Step 2: Update command safely
+                $stmt = $pdo->prepare("UPDATE Tasks SET command = ? WHERE task_id = ?");
+                $stmt->execute([$cmd, $task_id]);
+
                 $reply->update = true;
                 echo json_encode($reply);
                 break;
