@@ -112,13 +112,13 @@ class CallApi {
 
     public function update_task($implant_id, $task, $task_id) {
         $this->setCommonOptions();
-        $putFields = [
+        $postFields = [
                 'cmd' => $task
         ];
         curl_setopt($this->curl, CURLOPT_URL, $this->url . "/api/update_task/$implant_id/$task_id");
-        curl_setopt($this->curl, CURLOPT_PUT, true);
+        curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, "PUT");
         curl_setopt($this->curl, CURLOPT_VERBOSE, true);
-        curl_setopt($this->curl, CURLOPT_PUTFIELDS, http_build_query($postFields));
+        curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($postFields));
         curl_setopt($this->curl, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/x-www-form-urlencoded',
         ]);

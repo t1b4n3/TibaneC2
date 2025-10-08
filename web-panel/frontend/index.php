@@ -70,14 +70,11 @@ $implant_data = json_decode($call_api->get_all_implants(), true);
         <?php foreach ($implant_data as $i => $data): ?>
             <tr>
                 <th scope="row"><?php echo $i + 1; ?></th>
-                
-                
                 <td>
-                        <a href="./implant.php">
-                                <?php $_SESSION['implant_id'] = $data['implant_id']; ?>
+                        <a href="./implant.php?id=<?php echo urlencode($data['implant_id']); ?>">
                                 <?php echo htmlspecialchars($data['implant_id']); ?>
                         </a>
-                </td> 
+                </td>
                 <td><?php echo htmlspecialchars($data['os']); ?></td>
                 <td><?php echo htmlspecialchars($data['ip']); ?></td>
                 <td><?php echo htmlspecialchars($data['arch']); ?></td>

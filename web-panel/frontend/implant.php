@@ -12,7 +12,8 @@ if (empty($_SESSION['user'])) {
 $url = "http://localhost:8000";
 $call_api = new CallApi($url);
 
-$impland_id = $_SESSION['implant_id'];
+$_SESSION['implant_id'] = $_GET['id'];
+$impland_id = $_GET['id'];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (isset($_POST["add_task"]) && isset($_POST["new_task"])) {

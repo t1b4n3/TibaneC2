@@ -69,7 +69,11 @@ $tasks_data = json_decode($call_api->get_all_tasks(), true);
         <?php foreach ($tasks_data as $i => $data): ?>
             <tr>
                <td><?php echo htmlspecialchars($data['task_id']); ?></td>
-                <td><?php echo htmlspecialchars($data['implant_id']); ?></td>
+                <td>
+                        <a href="./implant.php?id=<?php echo urlencode($data['implant_id']); ?>">
+                                <?php echo htmlspecialchars($data['implant_id']); ?>
+                        </a>
+                </td>
                 <td><?php echo htmlspecialchars($data['command']); ?></td>
                 <td><?php echo htmlspecialchars((string)$data['response']); ?></td>
                 <td><?php echo ($data['status'] == 0) ? "Pending" : "Completed"; ?></td>
