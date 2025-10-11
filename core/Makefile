@@ -1,23 +1,22 @@
-# Name of output binary
 TARGET = tibane-server
 
-# Compiler and flags - use gcc for C code
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -I./includes -g  -s #-std=c99
-LDFLAGS = #-static
+CFLAGS = -Wall -Wextra -O2 -I./includes -g \
+         -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie \
+         -Wformat -Wformat-security -Werror=format-security \
+         -fstack-clash-protection -fcf-protection=full \
+         -Wl,-z,relro,-z,now,-z,noexecstack -s
 
-# Source files
+LDFLAGS = $(shell mysql_config --cflags --libs)
 SRC = main.c ./includes/db.c ./includes/implant_handler.c ./includes/listener.c \
       ./includes/logs.c ./includes/operator.c ./includes/common.c
 
-# Libraries
 LIBS = -lcjson -lssl -lcrypto -lmysqlclient -lz -lcrypt -ldl -lpthread -lstdc++
 
-# Build target
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC) $(LIBS) $(shell mysql_config --cflags --libs)
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(LIBS) $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET)
