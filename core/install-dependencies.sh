@@ -1,6 +1,4 @@
 #!/bin/bash
-# install-deps.sh
-# Debian dependency installer for your binary's shared libraries
 
 set -e
 
