@@ -197,12 +197,14 @@ void TasksTable(MYSQL* con, struct db_tasks args) {
 */
 
 void new_tasks(MYSQL* con, char *implant_id, char *command) {
-    char esc_id[130];
+    char esc_id[9];
     char esc_cmd[1024];
     mysql_real_escape_string(con, esc_id, implant_id, strlen(implant_id));
     mysql_real_escape_string(con, esc_cmd, command, strlen(command));
-    char *query = malloc(1024 + 130);
-    snprintf(query, 1024 + 256, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
+    size_t len = snprintf(NULL, 0, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
+    char *query = malloc(len + 1);
+
+    snprintf(query, len + 1, "INSERT INTO Tasks (implant_id, command) VALUES ('%s', '%s');", esc_id, esc_cmd);
     //if (mysql_ping(con) == 0) {
     //    log_message(LOG_ERROR, "No mysql Connection");
     //    free(query);

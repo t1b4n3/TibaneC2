@@ -373,16 +373,46 @@ int operator_file_download(SSL *ssl) {
     	}
 
     	log_message(LOG_INFO, "Writing to file : %s ", filepath);
-    	size_t bytesRead;
+    	int bytesRead;
     	size_t filesize;
     	SSL_read(ssl, &filesize, sizeof(filesize));
 
     	size_t received = 0;
-    	while (received < filesize) {
-    	    	bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
-    	    	write(fd, contents, bytesRead);
-    	    	received += bytesRead;
-    	}
+    	//while (received < filesize) {
+    	//    	bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+    	//    	if (write(fd, contents, bytesRead) != bytesRead) {
+        //                continue;
+        //        }
+    	//    	received += bytesRead;
+    	//}
+        while (received < filesize) {
+    bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+
+    if (bytesRead <= 0) {
+        int err = SSL_get_error(ssl, bytesRead);
+        if (err == SSL_ERROR_ZERO_RETURN) {
+            log_message(LOG_ERROR, "SSL connection closed cleanly.\n");
+            break;
+        } else {
+           log_message(LOG_ERROR, "SSL_read error: %d\n", err);
+            break;
+        }
+    }
+    ssize_t bytesWritten;
+    ssize_t totalWritten = 0;
+    while (totalWritten < bytesRead) {
+        bytesWritten = write(fd, contents + totalWritten, bytesRead - totalWritten);
+        if (bytesWritten < 0) {
+            perror("write");
+            close(fd);
+            SSL_shutdown(ssl);
+            return -1;
+        }
+        totalWritten += bytesWritten;
+    }
+
+    received += bytesRead;
+}
 
     	log_message(LOG_INFO, "Wrote data to file : %s ", filepath);
     	free(contents);
