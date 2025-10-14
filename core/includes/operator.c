@@ -366,6 +366,11 @@ int operator_file_download(SSL *ssl) {
 
     	snprintf(filepath, sizeof(filepath), "./uploads/operator/%s", filename);
 
+        if (!access(filepath, F_OK)) {
+                free(contents);
+                return -1;
+        }
+
     	int fd = open(filepath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
     	if (fd == -1) {
     	    	log_message(LOG_ERROR, "Failed to create file descriptor for : %s", filepath);
@@ -445,13 +450,25 @@ int operator_file_upload(SSL *ssl) {
     	snprintf(filepath, sizeof(filepath), "%s/%s", base_path, filename);
 
 
+        cJSON *dir_exists = cJSON_CreateObject();
+
     	char *contents = (char*)malloc(MAX_INFO);
     	if (contents == NULL) {
+                cJSON_AddBoolToObject(dir_exists, "Exist", false);
+    	    	char *exists = cJSON_Print(dir_exists);
+    	    	cJSON_Delete(dir_exists);
+    	    	send_json(ssl, exists);
+    	    	free(exists);
     	    	log_message(LOG_ERROR, "[Upload File] failed to allocate memory");
     	    	return -1;
     	}
 
 	if (!access(filepath, F_OK)) {
+                cJSON_AddBoolToObject(dir_exists, "Exist", false);
+    	    	char *exists = cJSON_Print(dir_exists);
+    	    	cJSON_Delete(dir_exists);
+    	    	send_json(ssl, exists);
+    	    	free(exists);
 		log_message(LOG_ERROR, "File %s Does Not Exist", filepath);
 		free(contents);
 		return -1;
@@ -460,6 +477,11 @@ int operator_file_upload(SSL *ssl) {
 
     	int fd = open(filepath, O_RDONLY);
     	if (fd == -1) {
+                cJSON_AddBoolToObject(dir_exists, "Exist", false);
+    	    	char *exists = cJSON_Print(dir_exists);
+    	    	cJSON_Delete(dir_exists);
+    	    	send_json(ssl, exists);
+    	    	free(exists);
     	    	log_message(LOG_ERROR, "[Upload file] Failed to open File Fescriptor for : %s", filepath);
     	    	free(contents);
 		return -1;
@@ -467,13 +489,12 @@ int operator_file_upload(SSL *ssl) {
 
     
 
-    	cJSON *dir_exists = cJSON_CreateObject();
+    	
     	char *filepath_ = search_file(base_path, filename);
     	if (filepath_ == NULL) {
     	    	cJSON_AddBoolToObject(dir_exists, "Exist", false);
     	    	char *exists = cJSON_Print(dir_exists);
     	    	cJSON_Delete(dir_exists);
-    	    	//SSL_write(ssl, exists, strlen(exists));
     	    	send_json(ssl, exists);
     	    	free(exists);
     	    	//log_message(LOG_ERROR, "File Does Not Exist filename - %s", filename);

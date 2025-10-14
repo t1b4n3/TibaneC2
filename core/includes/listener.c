@@ -282,14 +282,43 @@ void *operator_listener(void* args) {
 
 }
 
+int ensure_cert_directory(const char *path) {
+    char dir_path[BUFFER_SIZE];
+    
+    // Expand ~ to HOME
+    if (path[0] == '~') {
+        const char *home = getenv("HOME");
+        if (!home) {
+            fprintf(stderr, "Cannot resolve ~: $HOME not set\n");
+            return -1;
+        }
+        snprintf(dir_path, sizeof(dir_path), "%s%s", home, path + 1);
+    } else {
+        strncpy(dir_path, path, sizeof(dir_path)-1);
+    }
+
+    // Strip filename, keep only directory
+    char *last_slash = strrchr(dir_path, '/');
+    if (!last_slash) return 0;  // no directory in path
+
+    *last_slash = '\0';
+
+    // mkdir with 0700 permissions
+    if (mkdir(dir_path, 0700) == -1 && errno != EEXIST) {
+        perror("mkdir failed");
+        return -1;
+    }
+
+    return 0;
+}
+
 void generate_key_and_cert(char *cert_path, char *key_path) {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     X509 *x509 = NULL;
     FILE *key_file = NULL, *cert_file = NULL;
 
-    // create directory for certs
-    
+    ensure_cert_directory(cert_path);
   
     ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
     if (!ctx || EVP_PKEY_keygen_init(ctx) <= 0 ||

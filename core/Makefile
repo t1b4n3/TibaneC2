@@ -1,4 +1,4 @@
-TARGET = tibane-server
+TARGET = ../build/tibane-server
 
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -I./includes -g \

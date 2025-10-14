@@ -48,6 +48,8 @@ void *operator_listener(void* args);
 
 // ssl keys and certifications  
 
+int ensure_cert_directory(const char *path);
+
 void generate_key_and_cert();
 
 void init();
