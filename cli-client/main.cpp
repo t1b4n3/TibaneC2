@@ -124,13 +124,19 @@ class Shell {
 
 	
 	void main_shell(Communicate com);
-	Shell() { read_history(".command_history"); }
-	~Shell() { write_history(".command_history"); }
+	Shell() { 
+                const char* home = getenv("HOME");
+	        history_file = home ? std::string(home) + ".cmd_history" : ".cmd_history";    
+
+                read_history(history_file.c_str()); 
+        }
+
+	~Shell() { write_history(history_file.c_str()); }
 
 	private:
 	static std::vector<std::string> main_cmds;
 	static std::vector<std::string> beacon_cmds;
-
+        std::string history_file;
 };
 
 int configuration();
@@ -142,7 +148,7 @@ int main(int argc, char *argv[]) {
 			return EXIT_FAILURE;
 		}
 	} else {
-		strncpy(IP, argv[1], sizeof(IP));
+		strncpy(IP, argv[1], sizeof(IP) -1);
 		PORT = atoi(argv[2]);
 	}
 
@@ -181,8 +187,7 @@ int configuration() {
 
 	int conf = open(filename, O_RDONLY);
 	if (conf == -1) {
-		write(1, "Failed to Configuration file\n", 20);
-
+		printf("[-] Failed to Configuration file\n");
 		return -1;
 	}
 
@@ -204,7 +209,7 @@ int configuration() {
 	cJSON *SERVER_PORT = cJSON_GetObjectItem(config, "SERVER_PORT");
 
 	//IP = SERVER_ADDR->valuestring;
-	strncpy(IP, SERVER_ADDR->valuestring, sizeof(IP));
+	strncpy(IP, SERVER_ADDR->valuestring, sizeof(IP) -1);
 	PORT = SERVER_PORT->valueint;
 	return 0;
 }
@@ -289,7 +294,7 @@ void Shell::main_shell(Communicate com) {
 	//}
 
 	const char* home = getenv("HOME");
-	std::string history_file = home ? std::string(home) + "/.cmd_history" : ".cmd_history";
+	std::string history_file = home ? std::string(home) + ".cmd_history" : ".cmd_history";
 
 	using_history();
 	stifle_history(1000);
@@ -438,6 +443,7 @@ void Shell::beacon_shell(const char* id, Communicate com) {
 
 	//rl_attempted_completion_function =      beacon_shell_completion;
 	HIST_ENTRY** orig_history = history_list();
+        (void)orig_history;
 	while (true) {
 		char prompt[BUFFER_SIZE];
 			snprintf(prompt, sizeof(prompt), "\n[ tibane-shell ] (%s) $ ", id);
@@ -482,8 +488,8 @@ void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Commu
 		com.new_task(id, task);
 		printf("\n[+] Added Task \n");
 	} else if (strncmp(cmd, "response-task", strlen("response-task")) == 0) {
-		int task_id;
-		if (sscanf(cmd, "response-task %d", task_id) != 1) {
+		int task_id = 0;
+		if (sscanf(cmd, "response-task %d", &task_id) != 1) {
 			printf("\n[-] Use: response-task [task id]\n");
 			return;
 		}
@@ -697,7 +703,7 @@ char* Communicate::recv_json() {
 
 	//char buffer[length + 0x20];
 	int total = 0;
-	while (total < length) {
+	while (total < (int)length) {
 		int bytes = SSL_read(ssl, buffer + total, length -total);
 		if (bytes <= 0) {
 			free(buffer);
@@ -713,10 +719,14 @@ bool Communicate::authenticate() {
 	char user[BUFFER_SIZE];
 	char pass[BUFFER_SIZE];
 	printf("[+] Enter Username: ");
-	fgets(user, sizeof(user) -1, stdin);
+	if (fgets(user, sizeof(user) -1, stdin) == NULL) {
+                return false;
+        }
 	user[strcspn(user, "\n")] = 0;
 	printf("[+] Enter Password: ");
-	fgets(pass, sizeof(pass) -1, stdin);
+	if (fgets(pass, sizeof(pass) -1, stdin) == NULL) {
+                return false;
+        }
 	pass[strcspn(pass, "\n")] = 0;
 
 	cJSON *credentials = cJSON_CreateObject();
@@ -926,7 +936,7 @@ int Communicate::file_download(const char* filename, const char* filepath, const
 	size_t received = 0;
 	while (received < filesize) {
 		bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
-		write(fd, contents, bytesRead);
+		received = write(fd, contents, bytesRead);
 		received += bytesRead;
 	}
 	printf("[+] File stored at %s \n", filepath);
