@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 #include <netinet/in.h>
 #include <dirent.h>
 #include "logs.h"

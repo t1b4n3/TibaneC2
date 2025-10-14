@@ -67,7 +67,7 @@ int main() {
     struct DBConf g_dbconf;
 
     strncpy(g_dbconf.host, database->database_server, BUFFER_SIZE-1);
-    g_dbconf.host[BUFFER_SIZE-1] = '\0'; // ensure null-termination
+    g_dbconf.host[BUFFER_SIZE-1] = '\0'; // 
 
     strncpy(g_dbconf.user, database->username, BUFFER_SIZE-1);
     g_dbconf.user[BUFFER_SIZE-1] = '\0';
