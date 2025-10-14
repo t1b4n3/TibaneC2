@@ -11,7 +11,6 @@ echo "[*] Installing required libraries..."
 sudo apt install -y \
     libcjson1 \
     libssl3 \
-    libmysqlclient21 \
     libcrypt1 \
     libc6 \
     libssl-dev \
