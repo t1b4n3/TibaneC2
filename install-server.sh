@@ -15,7 +15,6 @@ sudo apt install -y \
     libcrypt1 \
     libc6 \
     libssl-dev \
-    libmysqlclient-dev \
     zlib1g-dev \
     zlib1g \
     libcjson-dev \
@@ -23,12 +22,44 @@ sudo apt install -y \
     libgcc-s1 \
     build-essential
 
+if apt-cache show libmysqlclient-dev >/dev/null 2>&1; then
+    echo "[*] Installing libmysqlclient-dev..."
+    sudo apt install -y libmysqlclient-dev
+else
+    echo "[*] libmysqlclient-dev not found. Installing MariaDB alternatives..."
+    sudo apt install -y libmariadb-dev libmariadb-dev-compat
+fi
+
+if apt-cache show mysql-server >/dev/null 2>&1; then
+    echo "[*] Installing mysql-server..."
+    sudo apt install -y mysql-server
+else
+    echo "[*] mysql-server not found. Installing mariadb-server instead..."
+    sudo apt install -y mariadb-server
+fi
+
+# Install client package
+if apt-cache show mysql-client >/dev/null 2>&1; then
+    echo "[*] Installing mysql-client..."
+    sudo apt install -y mysql-client
+else
+    echo "[*] mysql-client not found. Installing mariadb-client-compat instead..."
+    sudo apt install -y mariadb-client-compat
+fi
+
+
+if apt-cache show libmysqlclient21 >/dev/null 2>&1; then
+    echo "[*] Installing libmysqlclient21 ..."
+    sudo apt install -y libmysqlclient21
+else
+    echo "[*] mysql-client not found. Installing mariadb-client-compat instead..."
+    sudo apt install -y libmariadb3
+fi
+
 echo "[*] Installing MySQL, Python, and utilities..."
 sudo apt install -y \
-    mysql-server \
     python3 \
     apache2-utils \
-    mysql-client \
     jq 
 
 echo "[*] Starting MySQL service..."
