@@ -21,39 +21,32 @@ sudo apt install -y \
     libgcc-s1 \
     build-essential
 
-if apt-cache show libmysqlclient-dev >/dev/null 2>&1; then
-    echo "[*] Installing libmysqlclient-dev..."
-    sudo apt install -y libmysqlclient-dev
-else
-    echo "[*] libmysqlclient-dev not found. Installing MariaDB alternatives..."
-    sudo apt install -y libmariadb-dev libmariadb-dev-compat
-fi
 
-if apt-cache show mysql-server >/dev/null 2>&1; then
-    echo "[*] Installing mysql-server..."
-    sudo apt install -y mysql-server
-else
-    echo "[*] mysql-server not found. Installing mariadb-server instead..."
-    sudo apt install -y mariadb-server
-fi
+install_or_alternative() {
+    local pkg="$1"
+    local alt="$2"
+    local msg="$3"
 
-# Install client package
-if apt-cache show mysql-client >/dev/null 2>&1; then
-    echo "[*] Installing mysql-client..."
-    sudo apt install -y mysql-client
-else
-    echo "[*] mysql-client not found. Installing mariadb-client-compat instead..."
-    sudo apt install -y mariadb-client-compat
-fi
+    if apt-cache show "$pkg" >/dev/null 2>&1; then
+        echo "[*] Installing $pkg..."
+        sudo apt install -y "$pkg"
+    else
+        echo "[*] $pkg not found. Installing alternative $alt..."
+        sudo apt install -y "$alt"
+    fi
+}
 
+# C client libraries
+install_or_alternative libmysqlclient-dev "libmariadb-dev libmariadb-dev-compat" "MariaDB dev libraries"
 
-if apt-cache show libmysqlclient21 >/dev/null 2>&1; then
-    echo "[*] Installing libmysqlclient21 ..."
-    sudo apt install -y libmysqlclient21
-else
-    echo "[*] mysql-client not found. Installing mariadb-client-compat instead..."
-    sudo apt install -y libmariadb3
-fi
+# Server packages
+install_or_alternative mysql-server mariadb-server "MariaDB server"
+
+# Client packages
+install_or_alternative mysql-client mariadb-client-compat "MariaDB client"
+
+# Runtime library
+install_or_alternative libmysqlclient21 libmariadb3 "MariaDB runtime library"
 
 echo "[*] Installing MySQL, Python, and utilities..."
 sudo apt install -y \
