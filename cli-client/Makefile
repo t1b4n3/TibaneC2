@@ -1,42 +1,48 @@
-# Makefile.static -- builds a static binary. Some mitigations are limited with -static.
+# Makefile -- builds tibane-client with Go static library
+
 SRC = main.cpp
-TARGET = tibane-client
+TARGET = ../build/tibane-client
 CC = g++
 
-# Note: static linking reduces effectiveness of a few mitigations (PIE, full RELRO behavior),
-# and can make binaries brittle across distros. Use only if you must deliver a single-file static binary.
+# Compiler flags
 CFLAGS = -Wall -Wextra -Wformat -Wformat-security -Werror=format-security \
          -O2 -pipe -g \
-         -D_FORTIFY_SOURCE=2 \
          -fstack-protector-strong \
          -fstack-clash-protection \
          -fcf-protection=full \
          -fvisibility=hidden
 
-# For static linking we cannot reliably use -fPIE/-pie (in many toolchains), so omitted.
-# Linker flags: try to keep RELRO and noexecstack flags, but note some libc static builds ignore them.
+# Linker flags
 LDFLAGS = -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed
 
-# Static link everything. This is aggressive and increases chance of linker errors.
-LIBS = -L./libs -Wl,--whole-archive -ldisplay -Wl,--no-whole-archive \
-       -l:libreadline.a -l:libtinfo.a -l:libcjson.a \
+# Libraries for static linking
+LIBS = -L./libs \
+       -l:libreadline.a -l:libtinfo.a -l:libcjson \
        -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto -lhistory -s
 
+# Go library
 GO_SRC = display.go
 GO_LIB = libs/libdisplay.a
 GO_HEADER = libs/libdisplay.h
 
-all: libdir $(GO_LIB) $(TARGET)
+# Default target
+all: $(TARGET)
 
-libdir:
+# Ensure libs directory exists
+libs:
 	@mkdir -p libs
 
-$(GO_LIB): $(GO_SRC) | libdir
+# Build Go static library and header
+$(GO_LIB) $(GO_HEADER): $(GO_SRC) | libs
 	go build -buildmode=c-archive -o $(GO_LIB) $(GO_SRC)
 
-$(TARGET): $(SRC) $(GO_LIB)
+# Build C++ target - link Go library directly without -ldisplay flag
+$(TARGET): $(SRC) $(GO_LIB) $(GO_HEADER)
 	$(CC) $(CFLAGS) $(SRC) $(GO_LIB) $(LDFLAGS) $(LIBS) -o $(TARGET)
 
+# Clean build artifacts
 clean:
 	rm -f $(TARGET) $(GO_LIB) $(GO_HEADER)
 	rmdir libs 2>/dev/null || true
+
+.PHONY: all clean
