@@ -2,8 +2,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <fcntl.h>
-#include "./includes/cJSON/cJSON.h"
-
+//#include "./includes/cJSON/cJSON.h"
+#include <cjson/cJSON.h>
 // my headers
 #include "./includes/db.h"
 #include "./includes/operator.h"
@@ -189,21 +189,27 @@ char *server_config() {
     size_t bytesRead;
 
 
-    char filename[BUFFER_SIZE] = "tibane_server_conf.json";
+    //char filename[BUFFER_SIZE] = "~/.tibane-server-conf.json";
+    char filename[BUFFER_SIZE];
+    snprintf(filename, BUFFER_SIZE, "%s/.tibane-server-conf.json", getenv("HOME"));; 
+
     if (access(filename, F_OK) != 0) {
-        log_message(LOG_ERROR, "Create configuration file and name is tibane_server_conf.json");
+        //log_message(LOG_ERROR, "Create configuration file and name is ~/.tibane-server-conf.json");
+        printf("[-] Configuration file no found\n[*] Create configuration file and name is ~/.tibane-server-conf.json\n");
         exit(EXIT_FAILURE);
     }
     int conf = open(filename, O_RDONLY);
     if (conf == -1) {
         //write(1, "Failed to Configuration file\n", 20);
-        //perror( "Failed to Configuration file\n");
-        log_message(LOG_ERROR, "Failed to open configuration file");
+        perror("[-] Failed to open configuration file\n");
+        //log_message(LOG_ERROR, "Failed to open configuration file");
         // logfile
+        
         exit(EXIT_FAILURE);
     }
     if ((bytesRead = read(conf, buffer, BUFFER_SIZE - 1)) <= 0) {
-        log_message(LOG_ERROR, "Failed to read data from configuration file");
+        //log_message(LOG_ERROR, "Failed to read data from configuration file");
+        perror("[-] Failed to read from configuration file");
         exit(EXIT_FAILURE);
     }
     close(conf);
