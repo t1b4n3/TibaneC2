@@ -1,22 +1,42 @@
 
 # Getting Started
 
-1. Download the latest release.
-2. Setup database `(mysql)` and add at least 1 operator's  credentials using this script [Add_Users.py](../scripts/add_user.py). 
-3. Modify the server configurations in the `tibane_server_conf.json` file that is in the same directory as the `tibane_server` according to your needs.
-4. Run the server binary `tibane_server` in a Linux host.
-5. Run console client `tibane-console` from your preferred platform or use the website.
+## Option 1
 
-The following libraries must be installed on the server. 
+1. Clone the repository
 
-Linux 
 ```sh
-sudo apt install mingw-x64* \
-	libcurl lcjson lcrypto lmysqlclient \
-	libcjson-dev libreadline-dev \ 
-	gcc gcc-multilib g++ g++-multilib
+git clone https://github.com/tibane0TibaneC2 
+cd TibaneC2
 ```
-### setup automatic service
+2.  Run the server installer
+
+```sh
+sudo ./install-server.sh
+```
+- This script will install dependencies, setup the database, and add a user.
+
+3.  Verify Installation
+
+```sh
+ls ~/.tibane-server-conf.json
+ls ./build/tibane-server
+```
+
+You see both the server binary and configuration file created.
+
+4. Install the client installer
+
+```sh
+sudo ./install-client.sh
+```
+
+5. Run both the server and client in different terminals
+
+```sh
+./build/tibane-server
+./build/tibane-client
+
+```
 
 
-[Compile From Source](./compiling_from_source.md)
