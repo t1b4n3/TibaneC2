@@ -49,7 +49,7 @@ int main() {
     
     struct operator_console_t *operator = operator_console(config); 
     if  (operator == NULL) {
-        log_message(LOG_ERROR, "Failed To Parse Operator-Console Configurations");
+        printf("[-] Failed To Parse Operator-Console Configurations\n");
         cJSON_Delete(config);
         exit(EXIT_FAILURE);
     }
@@ -81,7 +81,8 @@ int main() {
 
 
     if (init_db_pool(g_dbconf) == -1) {
-        log_message(LOG_ERROR, "Failed to connect to database");
+        //log_message(LOG_ERROR, "Failed to connect to database");
+        printf("[-] Failed to connect to database\n");
         exit(EXIT_FAILURE);
     }
 
@@ -89,7 +90,6 @@ int main() {
     if (access(channels->ssl_cert, F_OK) != 0 || access(channels->ssl_key, F_OK) != 0) {
         log_message(LOG_INFO, "Creating New SSL Certification and Key");
         generate_key_and_cert(channels->ssl_cert, channels->ssl_key);
-        
     }
 
 

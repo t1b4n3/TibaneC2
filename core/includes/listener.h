@@ -50,7 +50,7 @@ void *operator_listener(void* args);
 
 int ensure_cert_directory(const char *path);
 
-void generate_key_and_cert();
+void generate_key_and_cert(char *cert_path, char *key_path);
 
 void init();
 

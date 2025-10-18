@@ -21,7 +21,6 @@ sudo apt install -y \
     libgcc-s1 \
     build-essential
 
-
 install_or_alternative() {
     local pkg="$1"
     local alt="$2"
@@ -84,6 +83,54 @@ read -s -p "Enter MySQL password: " DBPASS
 echo
 
 read -p "Enter MySQL database to use or create: " DBNAME
+
+
+ESC_USER="$(sql_escape "$DBUSER")"
+ESC_PASS="$(sql_escape "$DBPASS")"
+ESC_DB="$(sql_escape "$DBNAME")"
+
+SQL=$(cat <<EOF
+CREATE USER IF NOT EXISTS '${ESC_USER}'@'localhost' IDENTIFIED BY '${ESC_PASS}';
+GRANT ALL PRIVILEGES ON \`${ESC_DB}\`.* TO '${ESC_USER}'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+)
+
+# Try to run via sudo mysql (no password) — best on many Linux distros.
+if sudo mysql -e "SELECT 1;" >/dev/null 2>&1; then
+  echo "[*] Using sudo mysql (socket/auth) to run SQL..."
+  echo "$SQL" | sudo mysql || { echo "[-] Failed to execute SQL via sudo mysql"; exit 1; }
+  echo "[+] User '$DBUSER' created / granted on '$DBNAME' (via sudo)."
+  exit 0
+fi
+
+# If sudo mysql didn't work, prompt for MySQL root password and use a secure defaults file.
+read -s -p "Enter MySQL root password: " ROOT_MYSQL_PASS
+echo
+
+# Create temporary defaults file to avoid exposing the password on command line
+TMP_CNF="$(mktemp)"
+chmod 600 "$TMP_CNF"
+cat >"$TMP_CNF" <<EOF
+[client]
+user=root
+password=${ROOT_MYSQL_PASS}
+host=localhost
+EOF
+
+# Execute SQL using the temporary config
+if mysql --defaults-extra-file="$TMP_CNF" -e "$SQL"; then
+  echo "[+] User '$DBUSER' created / granted on '$DBNAME' (via provided root password)."
+  # destroy temp file securely
+  shred -u "$TMP_CNF" 2>/dev/null || rm -f "$TMP_CNF"
+  exit 0
+else
+  echo "[-] Failed to execute SQL using provided root password."
+  shred -u "$TMP_CNF" 2>/dev/null || rm -f "$TMP_CNF"
+  exit 1
+fi
+
+
 
 # Create the database if it doesn't exist
 echo "[*] Ensuring database '$DBNAME' exists..."
