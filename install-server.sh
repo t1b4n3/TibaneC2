@@ -36,9 +36,13 @@ sudo apt install -y \
 
 echo "[*] Starting MySQL service..."
 # In containers, use this instead of service command
-    # For systemd-less containers
-    mysqld_safe --daemonize
-
+# For systemd-less containers
+if ! pgrep -x "mysqld" > /dev/null; then
+    echo "[*] Starting MySQL service..."
+    sudo mysqld_safe  
+else
+    echo "[*] MySQL is already running."
+fi
 
 echo "[*] Waiting for MySQL to start..."
 sleep 10  # Give MySQL time to start
