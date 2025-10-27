@@ -7,14 +7,7 @@ TibaneC2 supports two modes:
 	- Implements a interactive session using either a persistent connection or long polling depending on the protocol used.
 ## Generating Implants
 ### Examples
-- Beacon Mode
-```sh
-get-implant beacon -os=linux -channel=https -domain=attacker.com:433 -o=agent
-```
-- Session Mode
-```sh
-get-implant session -os=windows -channel=tcp_ssl  -domain=redirector.com:8888 -o=/home/user/implant.exe
-```
+
 
 ## Interacting with implants
 The console `tibane-console` is used to interact with implants
