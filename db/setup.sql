@@ -1,6 +1,6 @@
-CREATE DATABASE IF NOT EXISTS Command_and_Control
+CREATE DATABASE IF NOT EXISTS tibane-server
 
-USE Command_and_Control
+USE tibane-server
 
 CREATE TABLE IF NOT EXISTS Implants (
     implant_id VARCHAR(8) PRIMARY KEY,
