@@ -37,6 +37,7 @@ if [ -f "./cli-client/Makefile" ]; then
     cd ./cli-client/includes/
     cd ../../
     git clone https://github.com/DaveGamble/cJSON.git
+    cd ../../
     make -C ./cli-client || { echo "[-] Build failed"; exit 1; }
         chown $TARGET_USER:$TARGET_USER ./build/tibane-client
     rm -r ./cli-client/includes/cJSON

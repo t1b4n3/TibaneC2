@@ -27,7 +27,6 @@ sudo apt install -y \
     mysql-server mysql-client \
     libmysqlclient21
 
-
 echo "[*] Installing MySQL, Python, and utilities..."
 sudo apt install -y \
     python3 \
