@@ -1,7 +1,7 @@
 # Makefile -- builds tibane-client with Go static library
 
-SRC = main.cpp
-TARGET = ../build/tibane-client ./includes/cJSON/cJSON.c
+SRC = main.cpp ./includes/cJSON/cJSON.c
+TARGET = ../build/tibane-client 
 CC = g++
 
 # Compiler flags
@@ -9,6 +9,7 @@ CFLAGS = -Wall -Wextra -Wformat -Wformat-security -Werror=format-security \
          -O2 -pipe -g \
          -fstack-protector-strong \
          -fstack-clash-protection \
+	 -fPIE -pie -D_FORTIFY_SOURCE=2 \
          -fcf-protection=full \
          -fvisibility=hidden
 

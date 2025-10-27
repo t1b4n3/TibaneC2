@@ -7,16 +7,23 @@ CFLAGS = -Wall -Wextra -O2 -I./includes -g \
          -fstack-clash-protection -fcf-protection=full \
          -Wl,-z,relro,-z,now,-z,noexecstack -s
 
-LDFLAGS = $(shell mysql_config --cflags --libs)
-SRC = main.c ./includes/db.c ./includes/implant_handler.c ./includes/listener.c \
-      ./includes/logs.c ./includes/operator.c ./includes/common.c #./includes/cJSON/cJSON.c
+MYSQL_CFLAGS = $(shell mysql_config --cflags)
+MYSQL_LIBS = $(shell mysql_config --libs)
 
-LIBS = -lssl -lcrypto -lmysqlclient -lz -lcrypt -ldl -lpthread -lstdc++
+LDFLAGS = -L/usr/lib/x86-64-linux-gnu -lmysqlclient -lz -lzstd -lssl -lcrypto \
+	-lresolv -lm -lcjson -ldl -lpthread -lstdc++
+
+SRC = main.c \
+	./includes/db.c ./includes/implant_handler.c \ 
+	./includes/listener.c \
+      	./includes/logs.c ./includes/operator.c \
+	./includes/common.c #./includes/cJSON/cJSON.c
+
+INCLUDES = -I/usr/include/mysql
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(LIBS) $(LDFLAGS)
-
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $(SRC) $(MYSQL_CFLAGS) $(MYSQL_LIBS) $(LDFLAGS)
 clean:
 	rm -f $(TARGET)
