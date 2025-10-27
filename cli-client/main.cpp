@@ -8,7 +8,6 @@
 #include <crypt.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <cjson/cJSON.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -22,7 +21,8 @@
 #include <algorithm>
 #include <nlohmann/json.hpp>
 #include <bits/stdc++.h>
-
+#include "./includes/cJSON/cJSON.h"
+//#include <cjson/cJSON.h>
 using json = nlohmann::json;
 
 

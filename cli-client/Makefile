@@ -17,7 +17,7 @@ LDFLAGS = -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed
 
 # Libraries for static linking
 LIBS = -L./libs \
-       -l:libreadline.a -l:libtinfo.a -l:libcjson \
+       -l:libreadline.a -l:libtinfo.a -lcjson \
        -static -lstdc++ -lm -lc -lgcc -lssl -lcrypto -lhistory -s
 
 # Go library

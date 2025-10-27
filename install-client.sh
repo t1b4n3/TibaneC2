@@ -45,8 +45,12 @@ echo "[*] All required libraries and compilers installed successfully!"
 # Build if Makefile exists
 if [ -f "./cli-client/Makefile" ]; then
     mkdir -p ./build
+    cd ./cli-client/includes/
+    cd ../../
+    git clone git clone https://github.com/DaveGamble/cJSON.git
     make -C ./cli-client || { echo "[-] Build failed"; exit 1; }
         chown $TARGET_USER:$TARGET_USER ./build/tibane-client
+    rm -r ./cli-client/includes/cJSON
 else
     echo "[-] No Makefile found in ./cli-client, skipping build"
 fi
