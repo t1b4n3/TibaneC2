@@ -14,7 +14,7 @@ LDFLAGS = -L/usr/lib/x86-64-linux-gnu -lmysqlclient -lz -lzstd -lssl -lcrypto \
 	-lresolv -lm -lcjson -ldl -lpthread -lstdc++
 
 SRC = main.c \
-	./includes/db.c ./includes/implant_handler.c \ 
+	./includes/db.c ./includes/implant_handler.c \
 	./includes/listener.c \
       	./includes/logs.c ./includes/operator.c \
 	./includes/common.c #./includes/cJSON/cJSON.c
