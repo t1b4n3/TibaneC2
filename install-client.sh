@@ -26,7 +26,7 @@ echo "[*] Checking Go version..."
 go version
 
 echo "[*] Installing additional tools..."
-sudo apt install -y jq go
+sudo apt install -y jq 
 
 echo "[*] All required libraries and compilers installed successfully!"
 
