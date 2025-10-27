@@ -6,7 +6,7 @@
         "database_server": "localhost",
         "username": "root",
         "password": "",
-        "database": ""
+        "database": "tibane-server"
       }
     ],
     "OperatorConsole": [

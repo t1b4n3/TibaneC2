@@ -21,31 +21,12 @@ sudo apt install -y \
     libgcc-s1 \
     build-essential
 
-install_or_alternative() {
-    local pkg="$1"
-    local alt="$2"
-    local msg="$3"
 
-    if apt-cache show "$pkg" >/dev/null 2>&1; then
-        echo "[*] Installing $pkg..."
-        sudo apt install -y "$pkg"
-    else
-        echo "[*] $pkg not found. Installing alternative $alt..."
-        sudo apt install -y "$alt"
-    fi
-}
+sudo apt install -y \
+    libmysqlclient-dev \
+    mysql-server mysql-client \
+    libmysqlclient21
 
-# C client libraries
-install_or_alternative libmysqlclient-dev "libmariadb-dev libmariadb-dev-compat" "MariaDB dev libraries"
-
-# Server packages
-install_or_alternative mysql-server mariadb-server "MariaDB server"
-
-# Client packages
-install_or_alternative mysql-client mariadb-client-compat "MariaDB client"
-
-# Runtime library
-install_or_alternative libmysqlclient21 libmariadb3 "MariaDB runtime library"
 
 echo "[*] Installing MySQL, Python, and utilities..."
 sudo apt install -y \
@@ -55,12 +36,9 @@ sudo apt install -y \
 
 echo "[*] Starting MySQL service..."
 # In containers, use this instead of service command
-#if [ -d /etc/init.d ]; then
-#    /etc/init.d/mysql start
-#else
-#    # For systemd-less containers
-#    mysqld_safe --daemonize
-#fi
+    # For systemd-less containers
+    mysqld_safe --daemonize
+
 
 echo "[*] Waiting for MySQL to start..."
 sleep 10  # Give MySQL time to start
@@ -73,6 +51,11 @@ echo "[*] Done installing libraries and dependencies."
 
 echo
 echo "[*] Setting up database..."
+
+sql_escape() {
+    echo "$1" | sed "s/'/\\\\'/g; s/\"/\\\\\"/g; s/\\/\\\\//g"
+}
+
 read -p "Enter MySQL server (default: localhost): " SERVER
 SERVER=${SERVER:-localhost}
 
@@ -82,8 +65,7 @@ DBUSER=${DBUSER:-root}
 read -s -p "Enter MySQL password: " DBPASS
 echo
 
-read -p "Enter MySQL database to use or create: " DBNAME
-
+DBNAME="tibane_server"
 
 ESC_USER="$(sql_escape "$DBUSER")"
 ESC_PASS="$(sql_escape "$DBPASS")"
@@ -101,7 +83,6 @@ if sudo mysql -e "SELECT 1;" >/dev/null 2>&1; then
   echo "[*] Using sudo mysql (socket/auth) to run SQL..."
   echo "$SQL" | sudo mysql || { echo "[-] Failed to execute SQL via sudo mysql"; exit 1; }
   echo "[+] User '$DBUSER' created / granted on '$DBNAME' (via sudo)."
-  exit 0
 fi
 
 # If sudo mysql didn't work, prompt for MySQL root password and use a secure defaults file.
@@ -123,11 +104,9 @@ if mysql --defaults-extra-file="$TMP_CNF" -e "$SQL"; then
   echo "[+] User '$DBUSER' created / granted on '$DBNAME' (via provided root password)."
   # destroy temp file securely
   shred -u "$TMP_CNF" 2>/dev/null || rm -f "$TMP_CNF"
-  exit 0
 else
   echo "[-] Failed to execute SQL using provided root password."
   shred -u "$TMP_CNF" 2>/dev/null || rm -f "$TMP_CNF"
-  exit 1
 fi
 
 
@@ -146,43 +125,72 @@ fi
 # Import schema/data from ./db/setup.sql (if exists)
 if [ -f "./db/setup.sql" ]; then
     echo "[*] Importing tables from ./db/setup.sql..."
-    
-    if [ -z "$DBPASS" ]; then
-        mysql -h "$SERVER" -u "$DBUSER" "$DBNAME" < ./db/setup.sql 2>/dev/null || echo "[-] Failed to import schema"
-    else
-        mysql -h "$SERVER" -u "$DBUSER" -p"$DBPASS" "$DBNAME" < ./db/setup.sql 2>/dev/null || echo "[-] Failed to import schema"
+
+    # Check if the file is readable
+    if [ ! -r "./db/setup.sql" ]; then
+        echo "[-] Error: ./db/setup.sql is not readable. Check file permissions."
+        exit 1
     fi
-    echo "[+] Imported ./db/setup.sql successfully."
+    
+    # MySQL import command
+    if [ -z "$DBPASS" ]; then
+        # If DBPASS is not provided, use the default user passwordless connection
+        echo "[*] Importing schema without password..."
+        mysql -h "$SERVER" -u "$DBUSER" "$DBNAME" < ./db/setup.sql
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to import schema. Check MySQL server, user permissions, and the setup.sql file."
+            exit 1
+        fi
+    else
+        # If DBPASS is provided, use it for the MySQL connection
+        echo "[*] Importing schema with password..."
+        mysql -h "$SERVER" -u "$DBUSER" -p"$DBPASS" "$DBNAME" < ./db/setup.sql
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to import schema. Check MySQL server, user permissions, and the setup.sql file."
+            exit 1
+        fi
+    fi
+
+    echo "[*] Schema imported successfully."
+
 else
     echo "[-] Warning: ./db/setup.sql not found in current directory, skipping import."
 fi
-
 # Escape single quotes for SQL safety
-sql_escape() {
-    printf "%s" "$1" | sed "s/'/''/g"
-}
 
 # Function to add user
 AddUsers() {
     local username="$1"
     local password="$2"
 
+    # Check if htpasswd is installed
     if ! command -v htpasswd >/dev/null 2>&1; then
         echo "[-] Error: apache2-utils not installed."
         return 1
     fi
 
+    # Escape user input to prevent SQL injection
     ESC_USER="$(sql_escape "$username")"
     ESC_PASS="$(sql_escape "$password")"
 
+    # Hash the password using htpasswd
     hashed_pw=$(htpasswd -bnBC 12 "" "$ESC_PASS" | tr -d ':\n' | sed 's/^\$2y/\$2b/')
 
+    # Check if DBPASS is provided for MySQL login
     if [ -z "$DBPASS" ]; then
+        # Using default MySQL credentials (no password)
         mysql -h "$SERVER" -u "$DBUSER" "$DBNAME" -e \
-            "INSERT INTO Operators (username, password) VALUES ('$ESC_USER', '$hashed_pw');" 2>/dev/null || echo "[-] Failed to add user"
+            "INSERT INTO Operators (username, password) VALUES ('$ESC_USER', '$hashed_pw');"
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to add user (no DBPASS provided)."
+        fi
     else
+        # Using provided MySQL password
         mysql -h "$SERVER" -u "$DBUSER" -p"$DBPASS" "$DBNAME" -e \
-            "INSERT INTO Operators (username, password) VALUES ('$ESC_USER', '$hashed_pw');" 2>/dev/null || echo "[-] Failed to add user"
+            "INSERT INTO Operators (username, password) VALUES ('$ESC_USER', '$hashed_pw');"
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to add user (with DBPASS provided)."
+        fi
     fi
 }
 

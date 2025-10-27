@@ -19,25 +19,14 @@ sudo apt install -y \
 
 echo "[*] Installing Go (if not installed)..."
 if ! command -v go >/dev/null 2>&1; then
-    GO_VERSION="1.21.2"
-    OS=$(uname | tr '[:upper:]' '[:lower:]')
-    ARCH=$(uname -m)
-    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
-
-    wget "https://go.dev/dl/go${GO_VERSION}.${OS}-${ARCH}.tar.gz" -O /tmp/go.tar.gz
-    sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf /tmp/go.tar.gz
-    rm /tmp/go.tar.gz
-
-    echo "export PATH=\$PATH:/usr/local/go/bin" >> "$HOME/.bashrc"
-    export PATH=$PATH:/usr/local/go/bin
+    apt install golang
 fi
 
 echo "[*] Checking Go version..."
 go version
 
 echo "[*] Installing additional tools..."
-sudo apt install -y jq
+sudo apt install -y jq go
 
 echo "[*] All required libraries and compilers installed successfully!"
 
@@ -47,7 +36,7 @@ if [ -f "./cli-client/Makefile" ]; then
     mkdir -p ./build
     cd ./cli-client/includes/
     cd ../../
-    git clone git clone https://github.com/DaveGamble/cJSON.git
+    git clone https://github.com/DaveGamble/cJSON.git
     make -C ./cli-client || { echo "[-] Build failed"; exit 1; }
         chown $TARGET_USER:$TARGET_USER ./build/tibane-client
     rm -r ./cli-client/includes/cJSON

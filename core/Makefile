@@ -9,9 +9,9 @@ CFLAGS = -Wall -Wextra -O2 -I./includes -g \
 
 LDFLAGS = $(shell mysql_config --cflags --libs)
 SRC = main.c ./includes/db.c ./includes/implant_handler.c ./includes/listener.c \
-      ./includes/logs.c ./includes/operator.c ./includes/common.c
+      ./includes/logs.c ./includes/operator.c ./includes/common.c ./includes/cJSON/cJSON.c
 
-LIBS = -lcjson -lssl -lcrypto -lmysqlclient -lz -lcrypt -ldl -lpthread -lstdc++
+LIBS = -lssl -lcrypto -lmysqlclient -lz -lcrypt -ldl -lpthread -lstdc++
 
 all: $(TARGET)
 

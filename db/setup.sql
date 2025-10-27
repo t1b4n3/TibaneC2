@@ -1,9 +1,9 @@
-CREATE DATABASE IF NOT EXISTS tibane-server
+CREATE DATABASE IF NOT EXISTS tibane_server;
 
-USE tibane-server
+USE tibane_server;
 
 CREATE TABLE IF NOT EXISTS Implants (
-    implant_id VARCHAR(8) PRIMARY KEY,
+    implant_id VARCHAR(9) PRIMARY KEY,
     os VARCHAR(50),
     ip VARCHAR(50),
     arch VARCHAR(50),
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS logs (
 
 CREATE TABLE IF NOT EXISTS Tasks (
     task_id int AUTO_INCREMENT PRIMARY KEY,
-    implant_id VARCHAR(8),
+    implant_id VARCHAR(9),
     command TEXT,
     response LONGBLOB DEFAULT NULL,
     status BOOLEAN DEFAULT FALSE,    
