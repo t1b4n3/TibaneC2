@@ -35,7 +35,6 @@ echo "[*] All required libraries and compilers installed successfully!"
 if [ -f "./cli-client/Makefile" ]; then
     mkdir -p ./build
     cd ./cli-client/includes/
-    cd ../../
     git clone https://github.com/DaveGamble/cJSON.git
     cd ../../
     make -C ./cli-client || { echo "[-] Build failed"; exit 1; }
