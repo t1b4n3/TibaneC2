@@ -16,6 +16,7 @@
 extern MYSQL *db_pool[DB_POOL_SIZE];
 extern pthread_mutex_t db_pool_mutex;
 extern int db_pool_index;
+extern bool user_exists;
 
 
 
@@ -56,8 +57,12 @@ void LogsTable(MYSQL* con, struct db_logs args);
 // used to view all implants, all tasks, all logs
 char *GetData(MYSQL* con, char *table);
 
-// authenticated operator
+// authenticated and add operator
 int authenticate_operator(MYSQL* con, char *username, char *password);
+
+bool add_operator(MYSQL* con, char *username, char *password_hash);
+
+bool check_operator(MYSQL* con);
 
 // get all tasks per agent
 char *tasks_per_implant(MYSQL* con, char *implant_id);
@@ -72,5 +77,7 @@ void new_tasks(MYSQL* con, char *implant_id, char *command);
 bool update_task(MYSQL* con,int task_id, char*command);
 
 bool batch_tasks(MYSQL* con, char *command, char *os);
+
+
 
 #endif

@@ -10,8 +10,8 @@ CFLAGS = -Wall -Wextra -O2 -I./includes -g \
 MYSQL_CFLAGS = $(shell mysql_config --cflags)
 MYSQL_LIBS = $(shell mysql_config --libs)
 
-LDFLAGS = -L/usr/lib/x86-64-linux-gnu -lmysqlclient -lz -lzstd -lssl -lcrypto \
-	-lresolv -lm -lcjson -ldl -lpthread -lstdc++ -lcrypt
+LDFLAGS = -L/usr/lib/x86-64-linux-gnu -lmysqlclient -lz -lssl -lcrypto \
+	-lresolv -lm -lcjson -ldl -lpthread -lstdc++ -lcrypt # -lzstd 
 
 SRC = main.c \
 	./includes/db.c ./includes/implant_handler.c \

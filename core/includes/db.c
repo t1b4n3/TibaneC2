@@ -16,6 +16,7 @@
 MYSQL *db_pool[DB_POOL_SIZE];
 pthread_mutex_t db_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 int db_pool_index = 0;
+bool user_exists = false;
 
 int init_db_pool(struct DBConf db_conf) {
     for (int i = 0; i < DB_POOL_SIZE; i++) {
@@ -338,6 +339,50 @@ int authenticate_operator(MYSQL* con, char *username, char *password) {
     return auth_result;
 }
 
+bool check_operator(MYSQL* con) {
+    if (user_exists == true) return true;
+    char query[128] = "SELECT * FROM Operators";
+    if (mysql_ping(con) != 0) return false;
+
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Failed to check operator: %s", mysql_error(con));
+        return false;
+    }
+    MYSQL_RES *result = mysql_store_result(con);
+    if (!result) return false;
+
+     MYSQL_ROW row = mysql_fetch_row(result);
+    if (!row || !row[0] ) return false;
+    else return true;
+}
+
+bool add_operator(MYSQL* con, char *username, char *password_hash) {
+    if (!username || !password_hash) return false;
+    if (strlen(username) > 100) {
+	log_message(LOG_ERROR, "Username length is greater than 100");
+    	return false;
+    }
+
+    char esc_user[128];
+    if (strlen(username) * 2 + 1 > sizeof(esc_user)) return false;
+    mysql_real_escape_string(con, esc_user, username, strlen(username));
+
+    char query[256];
+    if (snprintf(query, sizeof(query),
+                "Insert (usersernam, password) INTO Operators VALUES ('%s', '%s')", username, password_hash )) {
+	return false;
+    }
+
+     if (mysql_ping(con) != 0) return false;
+
+    if (mysql_query(con, query)) {
+        log_message(LOG_ERROR, "Failed to add operator: %s", mysql_error(con));
+        return false;
+    }
+    log_message(LOG_INFO, "Added new operator %s", username);
+    user_exists = true;
+    return true;
+}
 
 char *GetData(MYSQL* con, char *table) {
     char esc[256];
