@@ -161,51 +161,6 @@ else
 fi
 # Escape single quotes for SQL safety
 
-# Function to add user
-AddUsers() {
-    local username="$1"
-    local password="$2"
-
-    # Check if htpasswd is installed
-    if ! command -v htpasswd >/dev/null 2>&1; then
-        echo "[-] Error: apache2-utils not installed."
-        return 1
-    fi
-
-    # Escape user input to prevent SQL injection
-    ESC_USER="$(sql_escape "$username")"
-    ESC_PASS="$(sql_escape "$password")"
-
-    # Hash the password using htpasswd
-    hashed_pw=$(htpasswd -bnBC 12 "" "$ESC_PASS" | tr -d ':\n' | sed 's/^\$2y/\$2b/')
-
-    # Check if DBPASS is provided for MySQL login
-    if [ -z "$DBPASS" ]; then
-        # Using default MySQL credentials (no password)
-        mysql -h "$SERVER" -u "$DBUSER" "$DBNAME" -e \
-            "INSERT INTO Operators (username, password) VALUES ('$ESC_USER', '$hashed_pw');"
-        if [ $? -ne 0 ]; then
-            echo "[-] Failed to add user (no DBPASS provided)."
-        fi
-    else
-        # Using provided MySQL password
-        mysql -h "$SERVER" -u "$DBUSER" -p"$DBPASS" "$DBNAME" -e \
-            "INSERT INTO Operators (username, password) VALUES ('$ESC_USER', '$hashed_pw');"
-        if [ $? -ne 0 ]; then
-            echo "[-] Failed to add user (with DBPASS provided)."
-        fi
-    fi
-}
-
-echo
-read -p "Enter new operator username: " OP_USERNAME
-read -s -p "Enter new operator password: " OP_PASSWORD
-echo
-
-AddUsers "$OP_USERNAME" "$OP_PASSWORD"
-
-echo "[*] Operator '$OP_USERNAME' added to database '$DBNAME'."
-
 # Build if Makefile exists
 if [ -f "./core/Makefile" ]; then
     mkdir -p ./build
