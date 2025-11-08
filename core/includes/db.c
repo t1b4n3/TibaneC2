@@ -340,48 +340,52 @@ int authenticate_operator(MYSQL* con, char *username, char *password) {
 }
 
 bool check_operator(MYSQL* con) {
-    if (user_exists == true) return true;
-    char query[128] = "SELECT * FROM Operators";
-    if (mysql_ping(con) != 0) return false;
+	if (user_exists) return true;
 
-    if (mysql_query(con, query)) {
-        log_message(LOG_ERROR, "Failed to check operator: %s", mysql_error(con));
-        return false;
-    }
-    MYSQL_RES *result = mysql_store_result(con);
-    if (!result) return false;
+    	if (mysql_ping(con) != 0)
+    	    	return false;
 
-     MYSQL_ROW row = mysql_fetch_row(result);
-    if (!row || !row[0] ) return false;
-    else return true;
+    	const char *query = "SELECT 1 FROM Operators LIMIT 1";
+    	if (mysql_query(con, query)) {
+    	    	log_message(LOG_ERROR, "Failed to check operator: %s", mysql_error(con));
+    	    	return false;
+    	}
+
+    	MYSQL_RES *result = mysql_store_result(con);
+    	if (!result) {
+    	    	log_message(LOG_ERROR, "mysql_store_result() failed: %s", mysql_error(con));
+    	    	return false;
+    	}
+
+    	MYSQL_ROW row = mysql_fetch_row(result);
+    	bool exists = (row != NULL);
+
+    	mysql_free_result(result);
+    	return exists;
 }
 
 bool add_operator(MYSQL* con, char *username, char *password_hash) {
-    if (!username || !password_hash) return false;
-    if (strlen(username) > 100) {
-	log_message(LOG_ERROR, "Username length is greater than 100");
-    	return false;
-    }
+    	if (strlen(username) > 100 || !username || !password_hash) {
+		log_message(LOG_ERROR, "Username length is greater than 100 || invalid username || invalid password_hash");
+    		return false;
+    	}
 
-    char esc_user[128];
-    if (strlen(username) * 2 + 1 > sizeof(esc_user)) return false;
-    mysql_real_escape_string(con, esc_user, username, strlen(username));
+    	char esc_user[128];
+    //if (strlen(username) * 2 + 1 > sizeof(esc_user)) return false;
+   	 mysql_real_escape_string(con, esc_user, username, strlen(username));
 
-    char query[256];
-    if (snprintf(query, sizeof(query),
-                "Insert (usersernam, password) INTO Operators VALUES ('%s', '%s')", username, password_hash )) {
-	return false;
-    }
+    	char query[256];
+    	snprintf(query, sizeof(query),"Insert INTO Operators (username, password)  VALUES ('%s', '%s')", username, password_hash );
 
-     if (mysql_ping(con) != 0) return false;
+     	if (mysql_ping(con) != 0) return false;
 
-    if (mysql_query(con, query)) {
-        log_message(LOG_ERROR, "Failed to add operator: %s", mysql_error(con));
-        return false;
-    }
-    log_message(LOG_INFO, "Added new operator %s", username);
-    user_exists = true;
-    return true;
+    	if (mysql_query(con, query)) {
+        	log_message(LOG_ERROR, "Failed to add operator: %s", mysql_error(con));
+        	return false;
+    	}
+    	log_message(LOG_INFO, "Added new operator %s", username);
+    	user_exists = true;
+    	return true;
 }
 
 char *GetData(MYSQL* con, char *table) {

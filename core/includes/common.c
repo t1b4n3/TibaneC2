@@ -11,22 +11,14 @@ char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 struct DBConf g_dbconf; 
 
 void send_json(SSL* ssl, const char* json_str) {
-    //uint32_t length = htonl(strlen(json_str)); 
-    //SSL_write(ssl, &length, 4);                
-    //SSL_write(ssl, json_str, strlen(json_str)); 
      if (!ssl || !json_str) {
         log_message(LOG_ERROR, "Invalid parameters");
         return;
         }
 
     uint32_t length = htonl(strlen(json_str));
-    
-    // Send length
+
     int sent = SSL_write(ssl, &length, sizeof(length));
-    //if (sent != sizeof(length)) {
-    //    log_message(LOG_ERROR, "Failed to send length");
-    //    return;
-    //}
 
     // Send JSON data
     size_t total_sent = 0;

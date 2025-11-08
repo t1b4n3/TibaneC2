@@ -42,6 +42,8 @@ char *interact_with_implant(MYSQL *con, cJSON *rinfo);
 
 char *verify_id(MYSQL *con, char *id);
 
+void check_user(SSL *ssl, MYSQL *con);
+void add_user(SSL *ssl, MYSQL *con);
 int autheticate(MYSQL *con, SSL *ssl);
 char *generate_salt();
 

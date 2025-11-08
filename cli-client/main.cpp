@@ -73,7 +73,7 @@ printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓██████
 printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░      ░▒▓█▓▒░        \n");
 printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        \n");
 printf("   ░▒▓█▓▒░   ░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓████████▓▒░▒▓██████▓▒░░▒▓████████▓▒░ \n");
-printf("                        https://github.com/tibane0/TibaneC2\n");
+printf("                        https://github.com/t1b4n3/TibaneC2\n");
 printf("======================================================================================\n");                                                                                                                 
 printf("[+] Welcome to tibane shell | type 'help' for options \n\n");
 }
@@ -97,6 +97,7 @@ class Communicate {
 	bool authenticate();
 	void check_user();
 	void quit();
+	bool add_user();
 	bool verify_id(const char* id);
 	char *view_files(const char* dir);
 	int file_upload(const char* path);
@@ -163,15 +164,14 @@ int main(int argc, char *argv[]) {
 	
 	com.check_user();
 
-	
 	for (int i = 0; i < 3; i++) {
 		if (com.authenticate() == true) {
 			break;
 		};
-		printf("\n[-] Failed to authenticate: \n[-] Try Again\n\n");
+		printf("\n[-] Failed to authenticate: \n[-] Try Again\n");
 		//tui_error("Failed to authenticate: Try Again");
 		if (i == 2) {
-			printf("[-] Exiting\n");
+			printf("\n[-] Exiting\n");
 			//tui_info("Exiting")
 			exit(0);
 		}
@@ -434,6 +434,8 @@ void Shell::process_shell_commands(const char* cmd, Communicate com) {
 		} else {
 				printf("\n[-] Usage: batch-task [cmd] [os]\n");
 		}
+	} else if (strncmp(cmd, "add-user", strlen("add-user")) == 0) {
+		com.add_user();
 	} else {
 		 printf("%s", tibane_shell_help);
 	}
@@ -592,6 +594,8 @@ void Shell::process_beacon_shell_commands(const char* id, const char* cmd, Commu
 		} else {
 				printf("\n[-] Usage: batch-task [cmd] [os]\n");
 		}
+	} else if (strncmp(cmd, "add-user", strlen("add-user")) == 0) {
+		com.add_user();
 	}
 	
 	else {
@@ -701,12 +705,18 @@ void Communicate::send_json(const char *json_str) {
 char* Communicate::recv_json() {
 	uint32_t length;
 	int received = SSL_read(ssl, &length, 4);
-	if (received != 4) return NULL;
+	
+	if (received != 4) {
+		return NULL;
+	}
+
 
 	length = ntohl(length);
 
 	char *buffer = (char*)malloc(length + 1);  // heap allocation
-	if (!buffer) return NULL;
+	if (!buffer) {
+		return NULL;
+	}
 
 	//char buffer[length + 0x20];
 	int total = 0;
@@ -723,6 +733,9 @@ char* Communicate::recv_json() {
 }
 
 bool Communicate::authenticate() {
+
+	printf("\n[*] Log In\n");
+
 	char user[BUFFER_SIZE];
 	char pass[BUFFER_SIZE];
 	printf("[+] Enter Username: ");
@@ -772,46 +785,51 @@ bool Communicate::authenticate() {
 }
 
 void Communicate::check_user() {
-	cJSON *check = cJSON_CreateObject();
-	
-	cJSON_AddStringToObject(check, "Info", "check operator");
-	char *info = cJSON_Print(check);
-	send_json(info);
-	free(info);
-	cJSON_Delete(check);
-
+	// recv response
 	char *buffer = recv_json();
+	if (buffer == NULL) return;
 	
 	cJSON *results = cJSON_Parse(buffer);
-	cJSON *user_exists = cJSON_GetObjectItem(results, "User Exists");
 
-	if (!cJSON_IsTrue(user_exists)) {
-		char user[BUFFER_SIZE];
-		char pass[BUFFER_SIZE];
-		puts("\n[-] Add new user\n");
-		printf("[+] Enter Username: ");
-		if (fgets(user, sizeof(user) -1, stdin) == NULL) {
-        	        return;
-        	}
-		user[strcspn(user, "\n")] = 0;
-		printf("[+] Enter Password: ");
-		if (fgets(pass, sizeof(pass) -1, stdin) == NULL) {
-        	        return;
-        	}
-		pass[strcspn(pass, "\n")] = 0;
-
-		cJSON *add_user = cJSON_CreateObject();
-
-		cJSON_AddStringToObject(add_user, "username", user);
-		cJSON_AddStringToObject(add_user, "password_hash", pass);
-
-		char *c = cJSON_Print(add_user);
-		send_json(c);
-		free(c);
-		cJSON_Delete(add_user);
+	if (!results) {
+        	fprintf(stderr, "[-] Failed to parse response JSON\n");
+        	free(buffer);
+        	return;
+    	}
+	cJSON *user_exists = cJSON_GetObjectItem(results, "user_exists");
+	bool does_user_exits = cJSON_IsTrue(user_exists);
+	if (does_user_exits == false) {
+		if (!add_user()) puts("[-] Failed to add new user");
 	}
-
+	free(buffer);
+	cJSON_Delete(results);
 }
+
+bool Communicate::add_user() {
+	char user[BUFFER_SIZE];
+	char pass[BUFFER_SIZE];
+	puts("\n[*] Add new user");
+	printf("[+] Enter Username: ");
+	if (!fgets(user, sizeof(user) -1, stdin) ) {
+                return false;
+        }
+	user[strcspn(user, "\n")] = 0;
+	printf("[+] Enter Password: ");
+	if (!fgets(pass, sizeof(pass) -1, stdin)) {
+                return false;
+        }
+	pass[strcspn(pass, "\n")] = 0;
+	cJSON *add_user = cJSON_CreateObject();
+	cJSON_AddStringToObject(add_user, "username", user);
+	cJSON_AddStringToObject(add_user, "password", pass);
+	
+	char *json_str = cJSON_Print(add_user);
+	send_json(json_str);
+	free(json_str);
+	cJSON_Delete(add_user);
+	puts("[+] User added successfully");
+	return true;
+} 
 
 
 void Communicate::quit() {
@@ -1120,7 +1138,7 @@ bool Communicate::new_batch_tasks(const char* command, const char* os) {
 	if (!info) {
 		return false;
 	}
-	cJSON_AddStringToObject(info, "Info", "Batch Tasks");
+	cJSON_AddStringToObject(info, "Info", "batch_tasks");
 	cJSON_AddStringToObject(info, "os", os);
 	cJSON_AddStringToObject(info, "command", command);
 	char *info_ = cJSON_Print(info);
