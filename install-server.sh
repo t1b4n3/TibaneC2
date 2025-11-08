@@ -68,7 +68,7 @@ DBUSER=${DBUSER:-root}
 read -s -p "Enter MySQL password: " DBPASS
 echo
 
-DBNAME="tibane_server"
+DBNAME="tibanec2_server"
 
 ESC_USER="$(sql_escape "$DBUSER")"
 ESC_PASS="$(sql_escape "$DBPASS")"

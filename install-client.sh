@@ -39,7 +39,7 @@ if [ -f "./cli-client/Makefile" ]; then
     cd ../../
     make -C ./cli-client || { echo "[-] Build failed"; exit 1; }
         chown $TARGET_USER:$TARGET_USER ./build/tibane-client
-    rm -r ./cli-client/includes/cJSON
+    sudo rm -r ./cli-client/includes/cJSON
 else
     echo "[-] No Makefile found in ./cli-client, skipping build"
 fi
