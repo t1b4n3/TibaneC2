@@ -1,6 +1,6 @@
-CREATE DATABASE IF NOT EXISTS tibane_server;
+CREATE DATABASE IF NOT EXISTS tibanec2_server;
 
-USE tibane_server;
+USE tibanec2_server;
 
 CREATE TABLE IF NOT EXISTS Implants (
     implant_id VARCHAR(9) PRIMARY KEY,
