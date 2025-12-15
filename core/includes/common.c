@@ -11,35 +11,34 @@ char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 struct DBConf g_dbconf; 
 
 void send_json(SSL* ssl, const char* json_str) {
-     if (!ssl || !json_str) {
-        log_message(LOG_ERROR, "Invalid parameters");
-        return;
-        }
+   	uint64_t length = strlen(json_str);
+	uint64_t netlen = htonl(length);
+    	
+	//int sent = SSL_write(ssl, &netlen, sizeof(netlen));
+	size_t total = 0;
+	while (total < sizeof(netlen)) {
+		int n = SSL_write(ssl, ((char*)&netlen) + total, sizeof(netlen) - total);
+		if (n <= 0) {
+			log_message(LOG_ERROR, "Failed to send JSON data");
+			return;
+		}
+		total += n;
+	}
 
-    uint32_t length = htonl(strlen(json_str));
-
-    int sent = SSL_write(ssl, &length, sizeof(length));
-
-    // Send JSON data
-    size_t total_sent = 0;
-        size_t json_len = strlen(json_str);
-     while (total_sent < json_len) {
-        sent = SSL_write(ssl, json_str + total_sent, json_len - total_sent);
-        if (sent <= 0) {
-            log_message(LOG_ERROR, "Failed to send JSON data");
-            break;
-        }
-        total_sent += sent;
+	total  = 0;
+     	while (total < length) {
+     	   	int n = SSL_write(ssl, json_str + total, length - total);
+        	if (n <= 0) {
+        	    	log_message(LOG_ERROR, "Failed to send JSON data");
+        	    	break;
+        	}
+        	total += n;
     }
 }
 
 char* recv_json(SSL *ssl) {
-    uint32_t length;
+    /*uint32_t length;
     int received = SSL_read(ssl, &length, 4);
-    if (received != 4) {
-        log_message(LOG_ERROR, "Failed to receieve size of incoming json"); 
-        return NULL;
-    }
 
     length = ntohl(length);
 
@@ -55,6 +54,36 @@ char* recv_json(SSL *ssl) {
         }
         total += bytes;
     }   
+    buffer[length] = '\0';
+    return buffer;*/
+    uint32_t netlen;
+    size_t total = 0;
+
+    while (total < sizeof(netlen)) {
+        int n = SSL_read(ssl,
+                         ((char*)&netlen) + total,
+                         sizeof(netlen) - total);
+        if (n <= 0) return NULL;
+        total += n;
+    }
+
+    uint32_t length = ntohl(netlen);
+
+    char* buffer = (char*)malloc(length + 1);
+    if (!buffer) return NULL;
+
+    total = 0;
+    while (total < length) {
+        int n = SSL_read(ssl,
+                         buffer + total,
+                         length - total);
+        if (n <= 0) {
+            free(buffer);
+            return NULL;
+        }
+        total += n;
+    }
+
     buffer[length] = '\0';
     return buffer;
 }
