@@ -29,9 +29,9 @@ int main() {
         const char *error_ptr = cJSON_GetErrorPtr();
         
         if (error_ptr != NULL) {
-            printf("Failed to parse configuration file\n %s \n", error_ptr);
+            	printf("Failed to parse configuration file\n %s \n", error_ptr);
         } else {
-            printf("Failed to parse configuratation file\n");
+            	printf("Failed to parse configuratation file\n");
         }
         free(buffer);
         exit(EXIT_FAILURE);
@@ -56,7 +56,6 @@ int main() {
     log_message(LOG_INFO, "Operator Console Port: %d", operator->port);
 
 
-    
     cJSON_Delete(config);
     // open logs
     //if (db_conn(database->database_server, database->username, database->password, database->database) == -1) {
@@ -65,7 +64,6 @@ int main() {
     //}
 
     struct DBConf g_dbconf;
-
     strncpy(g_dbconf.host, database->database_server, BUFFER_SIZE-1);
     g_dbconf.host[BUFFER_SIZE-1] = '\0'; // 
 
@@ -301,9 +299,6 @@ struct communication_channels_t *channels_config(cJSON *configs) {
 
     return channels;
 }
-
-
-
 
 struct operator_console_t *operator_console(cJSON *configs) {
     struct operator_console_t *operator = malloc(sizeof(*operator));
