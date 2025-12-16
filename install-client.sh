@@ -32,14 +32,14 @@ echo "[*] All required libraries and compilers installed successfully!"
 
 
 # Build if Makefile exists
-if [ -f "./cli-client/Makefile" ]; then
+if [ -f "./src/cli-client/Makefile" ]; then
     mkdir -p ./build
-    cd ./cli-client/includes/
+    cd ./src/cli-client/includes/
     git clone https://github.com/DaveGamble/cJSON.git
-    cd ../../
-    make -C ./cli-client || { echo "[-] Build failed"; exit 1; }
+    cd ../../../
+    make -C ./src/cli-client || { echo "[-] Build failed"; exit 1; }
         chown $TARGET_USER:$TARGET_USER ./build/tibane-client
-    sudo rm -r ./cli-client/includes/cJSON
+    sudo rm -r ./src/cli-client/includes/cJSON
 else
-    echo "[-] No Makefile found in ./cli-client, skipping build"
+    echo "[-] No Makefile found in ./src/cli-client, skipping build"
 fi

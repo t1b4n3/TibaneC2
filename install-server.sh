@@ -162,11 +162,11 @@ fi
 # Escape single quotes for SQL safety
 
 # Build if Makefile exists
-if [ -f "./core/Makefile" ]; then
+if [ -f "./src/server/Makefile" ]; then
     mkdir -p ./build
-    make -C ./core || { echo "[-] Build failed"; exit 1; }
+    make -C ./src/server || { echo "[-] Build failed"; exit 1; }
 else
-    echo "[-] No Makefile found in ./core, skipping build"
+    echo "[-] No Makefile found in ./src/server, skipping build"
 fi
 
 # Configuration setup

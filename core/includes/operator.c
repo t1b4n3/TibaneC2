@@ -45,7 +45,6 @@ int autheticate(MYSQL *con, SSL *ssl) {
     	}
 
     	cJSON *username = cJSON_GetObjectItem(creds, "username");
-
     	if (username == NULL || !cJSON_IsString(username)) {
     	    	log_message(LOG_WARN, "Missing or invalid 'Username' field in JSON\n");
     	    	cJSON_Delete(creds);
@@ -68,12 +67,9 @@ int autheticate(MYSQL *con, SSL *ssl) {
     	if (authenticate_operator(con, username->valuestring, password->valuestring) != 0) {
     	    	cJSON_AddStringToObject(reply, "authenticated", "false");
     	    	char *reply_ = cJSON_Print(reply);
-    	    	//send(sock, reply_, strlen(reply_), 0);
-    	    	//SSL_write(ssl, reply_, strlen(reply_));
     	    	send_json(ssl, reply_);
     	    	log_message(LOG_WARN, "Operator Failed To Authenticate");
     	    	free(reply_);
-    	    	//free(reply);
     	    	cJSON_Delete(reply);
     	    	cJSON_Delete(creds);
     	    	return -1;   
@@ -81,8 +77,6 @@ int autheticate(MYSQL *con, SSL *ssl) {
 
     	cJSON_AddStringToObject(reply, "authenticated", "true");
     	char *reply_ = cJSON_Print(reply);
-    	//send(sock, reply_, strlen(reply_), 0);
-    	//SSL_write(ssl, reply_, strlen(reply_));
     	send_json(ssl, reply_);
 
     	strncpy(USERNAME, username->valuestring, sizeof(USERNAME) -1);
