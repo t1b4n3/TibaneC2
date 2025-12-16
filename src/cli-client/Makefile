@@ -1,7 +1,7 @@
 # Makefile -- builds tibane-client with Go static library
 
 SRC = main.cpp ./includes/cJSON/cJSON.c
-TARGET = ../build/tibane-client 
+TARGET = ../../build/tibane-client 
 CC = g++
 
 # Compiler flags
