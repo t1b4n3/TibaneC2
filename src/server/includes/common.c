@@ -11,51 +11,39 @@ char base62[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 struct DBConf g_dbconf; 
 
 void send_json(SSL* ssl, const char* json_str) {
-   	uint64_t length = strlen(json_str);
-	uint64_t netlen = htonl(length);
-    	
-	//int sent = SSL_write(ssl, &netlen, sizeof(netlen));
-	size_t total = 0;
-	while (total < sizeof(netlen)) {
-		int n = SSL_write(ssl, ((char*)&netlen) + total, sizeof(netlen) - total);
-		if (n <= 0) {
-			log_message(LOG_ERROR, "Failed to send JSON data");
-			return;
-		}
-		total += n;
-	}
+    size_t json_len = strlen(json_str);
 
-	total  = 0;
-     	while (total < length) {
-     	   	int n = SSL_write(ssl, json_str + total, length - total);
-        	if (n <= 0) {
-        	    	log_message(LOG_ERROR, "Failed to send JSON data");
-        	    	break;
-        	}
-        	total += n;
+    if (json_len > UINT32_MAX) {
+        log_message(LOG_ERROR, "JSON data too long for 4-byte prefix");
+        return; 
+    }
+
+    uint32_t length = (uint32_t)json_len;
+    uint32_t netlen = htonl(length);
+
+    
+    size_t total = 0;
+    while (total < sizeof(netlen)) {
+        int n = SSL_write(ssl, ((char*)&netlen) + total, sizeof(netlen) - total);
+        if (n <= 0) {
+            log_message(LOG_ERROR, "Failed to send JSON length prefix");
+            return;
+        }
+        total += n;
+    }
+
+    total  = 0;
+    while (total < length) {
+        int n = SSL_write(ssl, json_str + total, length - total);
+        if (n <= 0) {
+            log_message(LOG_ERROR, "Failed to send JSON data payload");
+            break;
+        }
+        total += n;
     }
 }
 
 char* recv_json(SSL *ssl) {
-    /*uint32_t length;
-    int received = SSL_read(ssl, &length, 4);
-
-    length = ntohl(length);
-
-    char *buffer = (char*)malloc(length + 1); 
-    if (!buffer) return NULL;
-
-    int total = 0;
-    while (total < (int)length) {
-        int bytes = SSL_read(ssl, buffer + total, length - total);
-        if (bytes <= 0) {
-            free(buffer);
-            return NULL;
-        }
-        total += bytes;
-    }   
-    buffer[length] = '\0';
-    return buffer;*/
     uint32_t netlen;
     size_t total = 0;
 
@@ -66,6 +54,7 @@ char* recv_json(SSL *ssl) {
         if (n <= 0) return NULL;
         total += n;
     }
+
 
     uint32_t length = ntohl(netlen);
 
@@ -78,7 +67,7 @@ char* recv_json(SSL *ssl) {
                          buffer + total,
                          length - total);
         if (n <= 0) {
-            free(buffer);
+            free(buffer); 
             return NULL;
         }
         total += n;
@@ -87,6 +76,9 @@ char* recv_json(SSL *ssl) {
     buffer[length] = '\0';
     return buffer;
 }
+
+
+
 
 
 bool check_if_dir_exists(char *dir){
@@ -199,3 +191,34 @@ char* search_file(char *base_path, char *filename) {
     closedir(dir);
     return NULL;
 }
+
+
+char* resolve_home_path(char* original_path) {
+    if (original_path[0] != '~') {
+        // Path does not start with ~, no expansion needed
+        return strdup(original_path); 
+    }
+
+    const char* home_dir = getenv("HOME");
+    if (!home_dir) {
+        // Fallback if $HOME is not set, maybe use getpwuid, but for now, fail.
+        fprintf(stderr, "Error: HOME environment variable not set.\n");
+        return NULL;
+    }
+
+    // Allocate memory for the new expanded path: home_dir + rest of path (+ null terminator)
+    size_t new_len = strlen(home_dir) + strlen(original_path);
+    char* expanded_path = (char*)malloc(new_len); 
+    if (!expanded_path) {
+        perror("malloc failed");
+        return NULL;
+    }
+
+    // Concatenate the home directory path with the rest of the path (starting after the '~')
+    strcpy(expanded_path, home_dir);
+    strcat(expanded_path, original_path + 1); // Skip the leading '~'
+
+    return expanded_path;
+}
+
+// ... inside your client initialization code ...

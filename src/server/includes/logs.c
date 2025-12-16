@@ -22,7 +22,7 @@ static const char* level_colors[] = {
 char log_path[BUFFER_SIZE];
 
 // set log_file
-void set_logfile_path(char *path) {
+void set_logfile_path(const char *path) {
     strncpy(log_path, path, BUFFER_SIZE - 1);
 }
 

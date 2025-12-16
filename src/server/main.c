@@ -38,7 +38,8 @@ int main() {
     } 
     free(buffer);
     cJSON *logPath = cJSON_GetObjectItem(config, "LogFile");
-    set_logfile_path(logPath->valuestring);
+    const char *logfile = resolve_home_path(logPath->valuestring);
+    set_logfile_path(logfile);
     log_message(LOG_INFO, "Server Started");
 
     struct database_configs_t *database = database_config(config);

@@ -1,9 +1,9 @@
 import pymysql, bcrypt
 
 SERVER = "localhost"
-USER = "core"
-PASSWORD = "core"
-DATABASE = "c2_database"
+USER = "root"
+PASSWORD = ""
+DATABASE = "tibanec2_server"
 
 
 
@@ -27,11 +27,9 @@ def AddUsers(username, password):
     cur.close()
     connection.close()
 
-
-
 users = {
-    "usernames":[],
-    "passwords":[]
+    "usernames":["sudo"],
+    "passwords":["sudo"]
 }
 
 for username, password in zip(users["usernames"], users["passwords"]):

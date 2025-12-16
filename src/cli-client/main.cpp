@@ -78,11 +78,9 @@ printf("========================================================================
 printf("[+] Welcome to tibane shell | type 'help' for options \n\n");
 }
 
-
 static const std::string IMPLANT_TEMPLATE = R"TEMPLATE(
 	
 )TEMPLATE";
-
 
 class Communicate {
 	private:
@@ -623,30 +621,6 @@ char* Shell::beacon_shell_command_generator(const char* text, int state) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Communicate::Communicate() {
 		printf("\n[*] Connecting to %s : %d \n", IP, PORT);
 		SSL_library_init();
@@ -687,53 +661,84 @@ Communicate::Communicate() {
 }
 
 void Communicate::send_json(const char *json_str) {
-	uint32_t length = htonl(strlen(json_str)); 
-	SSL_write(ssl, &length, 4);                
-	//SSL_write(ssl, json_str, strlen(json_str)); 
-	int sent;
-	size_t total_sent = 0;
-		size_t json_len = strlen(json_str);
-	 while (total_sent < json_len) {
-		sent = SSL_write(ssl, json_str + total_sent, json_len - total_sent);
-		if (sent <= 0) {
-			break;
-		}
-		total_sent += sent;
-	}
+    	size_t json_len = strlen(json_str);
+    	if (json_len > UINT32_MAX) {
+    	    	return; 
+    	}
+    
+    	uint32_t length = (uint32_t)json_len;
+    	uint32_t netlen = htonl(length); 
+
+   
+    	size_t total = 0;
+    	while (total < sizeof(netlen)) {
+    	    	int n = SSL_write(ssl, ((char*)&netlen) + total, sizeof(netlen) - total);
+    	    	if (n <= 0) {
+    	    	    return;
+    	    	}
+    	    	total += n;
+    	}
+
+   
+    	total  = 0;
+    	while (total < length) {
+        	int n = SSL_write(ssl, json_str + total, length - total);
+        	if (n <= 0) {
+        	    	break;
+        	}
+        	total += n;
+    	}
 }
 
 char* Communicate::recv_json() {
-	uint32_t length;
-	int received = SSL_read(ssl, &length, 4);
-	
-	if (received != 4) {
+    uint32_t netlen;
+    size_t total = 0;
+
+    while (total < sizeof(netlen)) {
+        int n = SSL_read(ssl,
+                         ((char*)&netlen) + total,
+                         sizeof(netlen) - total);
+        if (n <= 0) {
+		int err = SSL_get_error(ssl, n);
+            	if (err == SSL_ERROR_ZERO_RETURN) {
+            	    puts("Failed: Peer closed connection cleanly.");
+            	} else if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+            	    puts("Failed: SSL_read wants to read/write (Non-blocking I/O issue).");
+            	    return NULL; 
+            	} else {
+            	    char error_buffer[256];
+            	    ERR_error_string_n(ERR_get_error(), error_buffer, sizeof(error_buffer));
+            	    printf("Failed: Fatal SSL error (%d): %s\n", err, error_buffer);
+            	}
 		return NULL;
-	}
+	}	
+        total += n;
+    }
 
+    uint32_t length = ntohl(netlen);
 
-	length = ntohl(length);
+    char* buffer = (char*)malloc(length + 1);
+    if (!buffer) return NULL;
 
-	char *buffer = (char*)malloc(length + 1);  // heap allocation
-	if (!buffer) {
-		return NULL;
-	}
-
-	//char buffer[length + 0x20];
-	int total = 0;
-	while (total < (int)length) {
-		int bytes = SSL_read(ssl, buffer + total, length -total);
-		if (bytes <= 0) {
-			free(buffer);
-			return NULL;
-		}
-		total += bytes;
-	}
-	buffer[length] = '\0'; 
-	return buffer;
+    total = 0;
+    while (total < length) {
+        int n = SSL_read(ssl,
+                         buffer + total,
+                         length - total);
+        if (n <= 0) {
+            free(buffer); 
+            return NULL;
+        }
+        total += n;
+    }
+    buffer[length] = '\0';
+    return buffer;
 }
 
-bool Communicate::authenticate() {
 
+
+
+bool Communicate::authenticate() {
 	printf("\n[*] Log In\n");
 
 	char user[BUFFER_SIZE];
@@ -787,8 +792,9 @@ bool Communicate::authenticate() {
 void Communicate::check_user() {
 	// recv response
 	char *buffer = recv_json();
-	if (buffer == NULL) return;
-	
+	if (buffer == NULL) {
+		return;
+	}	
 	cJSON *results = cJSON_Parse(buffer);
 
 	if (!results) {
@@ -800,6 +806,8 @@ void Communicate::check_user() {
 	bool does_user_exits = cJSON_IsTrue(user_exists);
 	if (does_user_exits == false) {
 		if (!add_user()) puts("[-] Failed to add new user");
+	} else {
+		puts("[+] Users Available");
 	}
 	free(buffer);
 	cJSON_Delete(results);

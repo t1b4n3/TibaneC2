@@ -28,6 +28,7 @@
 #include "logs.h"
 #include "implant_handler.h"
 #include "operator.h"
+#include "common.h"
 
 void* tcp_ssl_listener(void *args) {
 
@@ -178,13 +179,19 @@ void *operator_listener(void* args) {
 
     struct main_threads_args_t *Args = (struct main_threads_args_t*)args;
   
-    char cert[BUFFER_SIZE];
-    char key[BUFFER_SIZE];
+    char _cert[BUFFER_SIZE];
+    char _key[BUFFER_SIZE];
     int OPERATOR_PORT = Args->port;
 
-    strncpy(cert, Args->cert, BUFFER_SIZE);
-    strncpy(key, Args->key, BUFFER_SIZE);
+    strncpy(_cert, Args->cert, BUFFER_SIZE);
+    strncpy(_key, Args->key, BUFFER_SIZE);
 
+	char *cert = resolve_home_path(_cert);
+	char *key = resolve_home_path(_key);
+
+    if (access(cert, F_OK) != 0 || access(key, F_OK) != 0) {
+	generate_key_and_cert(cert, key);
+    }
 
     int serverSock;
 
@@ -239,8 +246,15 @@ void *operator_listener(void* args) {
     }
     SSL_CTX_set_cipher_list(ctx, "ALL:@SECLEVEL=0");  // Allows all ciphers for debugging
        // load certificates and key
-       SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
-       SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
+       if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0) {
+		log_message(LOG_ERROR, "Failed to load certificate file: %s", cert);
+		ERR_print_errors_fp(stderr); 
+       }
+       if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
+	log_message(LOG_ERROR, "Failed to load private key file: %s", key);
+        ERR_print_errors_fp(stderr);
+        // Cleanup and return NULL
+       }
     
     
     int sock;
@@ -312,14 +326,17 @@ int ensure_cert_directory(const char *path) {
     return 0;
 }
 
-void generate_key_and_cert(char *cert_path, char *key_path) {
+void generate_key_and_cert(char *_cert_path, char *_key_path) {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     X509 *x509 = NULL;
     FILE *key_file = NULL, *cert_file = NULL;
 
+	char *cert_path = resolve_home_path(_cert_path);
+	char *key_path = resolve_home_path(_key_path);
+
     ensure_cert_directory(cert_path);
-  
+
     ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
     if (!ctx || EVP_PKEY_keygen_init(ctx) <= 0 ||
         EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0 ||

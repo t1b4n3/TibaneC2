@@ -120,7 +120,7 @@ extern char base62[];
 
 extern  struct DBConf g_dbconf;
 
-
+char* resolve_home_path(char* original_path);
 
 void send_json(SSL *ssl, const char* json_str);
 
