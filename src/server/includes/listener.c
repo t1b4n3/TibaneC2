@@ -33,11 +33,14 @@
 void* tcp_ssl_listener(void *args) {
 
     struct main_threads_args_t *Args = (struct main_threads_args_t*)args;
-    char cert[BUFFER_SIZE], key[BUFFER_SIZE];
+    char _cert[BUFFER_SIZE], _key[BUFFER_SIZE];
     int PORT = Args->port;
-    strncpy(cert, Args->cert, BUFFER_SIZE);
-    strncpy(key, Args->key, BUFFER_SIZE);
+    strncpy(_cert, Args->cert, BUFFER_SIZE);
+    strncpy(_key, Args->key, BUFFER_SIZE);
 
+	char *cert = resolve_home_path(_cert);
+	char *key = resolve_home_path(_key);
+	
 
     int serverSock = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSock < 0) { log_message(LOG_ERROR, "Socket creation failed (TCP, SSL)"); return NULL; }
