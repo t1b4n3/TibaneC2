@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <string>
 #include <stdbool.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -25,7 +26,7 @@
 #include "./includes/cJSON/cJSON.h"
 //#include <cjson/cJSON.h>
 using json = nlohmann::json;
-
+using namespace std;
 
 extern "C" {
 	#include "./libs/libdisplay.h"
@@ -45,7 +46,6 @@ char current_operator[BUFFER_SIZE];
 const char tibane_shell_help[HELP_SIZE] = "\n[*] Tibane-Shell Usage [*]\n"
 										"   whoami : shows logged in operator\n"
 										"   implants : show all active implants\n"
-										"   beacons : show all active beacons\n"
 										//"   get-implant -os=[windows/linux] -channel=[https/tls] -domain=attacker.com:443 -o=/path/to/implant : generate implant\n"
 										"   list-tasks : shows all tasks for all implants\n"    
 										"   beacon [id] : interactive shell for selected beacon\n"
@@ -248,6 +248,14 @@ char* Shell::shell_command_generator(const char* text, int state) {
 	return nullptr;
 }
 
+string expand_home(const string& path) {
+	if (path[0] == '~') {
+        	const char* home = getenv("HOME");
+        	if (!home) home = "";
+        	return std::string(home) + path.substr(1);
+    	}
+    	return path;
+}
 
 void Shell::main_shell(Communicate com) {
 	rl_attempted_completion_function = nullptr; // main_shell_completetion;
@@ -299,10 +307,10 @@ void Shell::main_shell(Communicate com) {
 	//}
 
 	const char* home = getenv("HOME");
-	std::string history_file = home ? std::string(home) + ".cmd_history" : ".cmd_history";
-
+	//std::string history_file = home ? std::string(home) + ".cmd_history" : ".cmd_history";
+	string history_file = expand_home("~/.tibanec2-history");
 	using_history();
-	stifle_history(1000);
+	//stifle_history(1000);
 	read_history(history_file.c_str());
 
 	while (true) {
@@ -314,7 +322,7 @@ void Shell::main_shell(Communicate com) {
 			free(cmd);
 			continue;
 		}
-
+		add_history(cmd);
 		if (strcmp(cmd, "history") == 0) {
 			HIST_ENTRY** hist_list = history_list();
 			if (!hist_list) {
@@ -332,14 +340,13 @@ void Shell::main_shell(Communicate com) {
 		} else {
 			process_shell_commands(cmd, com);
 		}
-
-		add_history(cmd);
 		free(cmd);
 	}
 
-	if (write_history(history_file.c_str()) != 0) {
-		perror("write_history"); // better error details
-	}
+	//if (write_history(history_file.c_str()) != 0) {
+	//	perror("write_history"); // better error details
+	//}
+	write_history(history_file.c_str());
 
 }
 void Shell::process_shell_commands(const char* cmd, Communicate com) {
